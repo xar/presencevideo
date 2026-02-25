@@ -1,4 +1,13 @@
-import type { Project, Scene, Layer, AudioTrack, AudioClip, VideoTrack, VideoClip, Asset } from '@/types';
+import type {
+    Project,
+    Scene,
+    Layer,
+    AudioTrack,
+    AudioClip,
+    VideoTrack,
+    VideoClip,
+    Asset,
+} from '@/types';
 import { router } from '@inertiajs/svelte';
 import { v4 as uuid } from 'uuid';
 
@@ -14,19 +23,31 @@ export type ProjectStore = {
     deleteScene: (sceneId: string) => void;
     reorderScenes: (fromIndex: number, toIndex: number) => void;
     addLayer: (sceneId: string, layer: Partial<Layer>) => Layer;
-    updateLayer: (sceneId: string, layerId: string, updates: Partial<Layer>) => void;
+    updateLayer: (
+        sceneId: string,
+        layerId: string,
+        updates: Partial<Layer>,
+    ) => void;
     deleteLayer: (sceneId: string, layerId: string) => void;
     addAudioTrack: (track?: Partial<AudioTrack>) => AudioTrack;
     updateAudioTrack: (trackId: string, updates: Partial<AudioTrack>) => void;
     deleteAudioTrack: (trackId: string) => void;
     addAudioClip: (trackId: string, clip: Partial<AudioClip>) => AudioClip;
-    updateAudioClip: (trackId: string, clipId: string, updates: Partial<AudioClip>) => void;
+    updateAudioClip: (
+        trackId: string,
+        clipId: string,
+        updates: Partial<AudioClip>,
+    ) => void;
     deleteAudioClip: (trackId: string, clipId: string) => void;
     addVideoTrack: (track?: Partial<VideoTrack>) => VideoTrack;
     updateVideoTrack: (trackId: string, updates: Partial<VideoTrack>) => void;
     deleteVideoTrack: (trackId: string) => void;
     addVideoClip: (trackId: string, clip: Partial<VideoClip>) => VideoClip;
-    updateVideoClip: (trackId: string, clipId: string, updates: Partial<VideoClip>) => void;
+    updateVideoClip: (
+        trackId: string,
+        clipId: string,
+        updates: Partial<VideoClip>,
+    ) => void;
     deleteVideoClip: (trackId: string, clipId: string) => void;
     save: () => Promise<void>;
     markDirty: () => void;
@@ -82,7 +103,7 @@ function updateScene(sceneId: string, updates: Partial<Scene>): void {
     project = {
         ...project,
         scenes: project.scenes.map((scene) =>
-            scene.id === sceneId ? { ...scene, ...updates } : scene
+            scene.id === sceneId ? { ...scene, ...updates } : scene,
         ),
     };
     isDirty = true;
@@ -132,7 +153,11 @@ function addLayer(sceneId: string, layerData: Partial<Layer>): Layer {
     return layer;
 }
 
-function updateLayer(sceneId: string, layerId: string, updates: Partial<Layer>): void {
+function updateLayer(
+    sceneId: string,
+    layerId: string,
+    updates: Partial<Layer>,
+): void {
     if (!project) return;
 
     const scene = project.scenes.find((s) => s.id === sceneId);
@@ -140,7 +165,7 @@ function updateLayer(sceneId: string, layerId: string, updates: Partial<Layer>):
 
     updateScene(sceneId, {
         layers: scene.layers.map((layer) =>
-            layer.id === layerId ? ({ ...layer, ...updates } as Layer) : layer
+            layer.id === layerId ? ({ ...layer, ...updates } as Layer) : layer,
         ),
     });
 }
@@ -182,7 +207,7 @@ function updateAudioTrack(trackId: string, updates: Partial<AudioTrack>): void {
     project = {
         ...project,
         audio_tracks: project.audio_tracks.map((track) =>
-            track.id === trackId ? { ...track, ...updates } : track
+            track.id === trackId ? { ...track, ...updates } : track,
         ),
     };
     isDirty = true;
@@ -193,12 +218,17 @@ function deleteAudioTrack(trackId: string): void {
 
     project = {
         ...project,
-        audio_tracks: project.audio_tracks.filter((track) => track.id !== trackId),
+        audio_tracks: project.audio_tracks.filter(
+            (track) => track.id !== trackId,
+        ),
     };
     isDirty = true;
 }
 
-function addAudioClip(trackId: string, clipData: Partial<AudioClip>): AudioClip {
+function addAudioClip(
+    trackId: string,
+    clipData: Partial<AudioClip>,
+): AudioClip {
     if (!project) throw new Error('No project loaded');
 
     const track = project.audio_tracks.find((t) => t.id === trackId);
@@ -220,7 +250,11 @@ function addAudioClip(trackId: string, clipData: Partial<AudioClip>): AudioClip 
     return clip;
 }
 
-function updateAudioClip(trackId: string, clipId: string, updates: Partial<AudioClip>): void {
+function updateAudioClip(
+    trackId: string,
+    clipId: string,
+    updates: Partial<AudioClip>,
+): void {
     if (!project) return;
 
     const track = project.audio_tracks.find((t) => t.id === trackId);
@@ -228,7 +262,7 @@ function updateAudioClip(trackId: string, clipId: string, updates: Partial<Audio
 
     updateAudioTrack(trackId, {
         clips: track.clips.map((clip) =>
-            clip.id === clipId ? { ...clip, ...updates } : clip
+            clip.id === clipId ? { ...clip, ...updates } : clip,
         ),
     });
 }
@@ -270,7 +304,7 @@ function updateVideoTrack(trackId: string, updates: Partial<VideoTrack>): void {
     project = {
         ...project,
         video_tracks: project.video_tracks.map((track) =>
-            track.id === trackId ? { ...track, ...updates } : track
+            track.id === trackId ? { ...track, ...updates } : track,
         ),
     };
     isDirty = true;
@@ -281,12 +315,17 @@ function deleteVideoTrack(trackId: string): void {
 
     project = {
         ...project,
-        video_tracks: project.video_tracks.filter((track) => track.id !== trackId),
+        video_tracks: project.video_tracks.filter(
+            (track) => track.id !== trackId,
+        ),
     };
     isDirty = true;
 }
 
-function addVideoClip(trackId: string, clipData: Partial<VideoClip>): VideoClip {
+function addVideoClip(
+    trackId: string,
+    clipData: Partial<VideoClip>,
+): VideoClip {
     if (!project) throw new Error('No project loaded');
 
     const track = project.video_tracks.find((t) => t.id === trackId);
@@ -312,7 +351,11 @@ function addVideoClip(trackId: string, clipData: Partial<VideoClip>): VideoClip 
     return clip;
 }
 
-function updateVideoClip(trackId: string, clipId: string, updates: Partial<VideoClip>): void {
+function updateVideoClip(
+    trackId: string,
+    clipId: string,
+    updates: Partial<VideoClip>,
+): void {
     if (!project) return;
 
     const track = project.video_tracks.find((t) => t.id === trackId);
@@ -320,7 +363,7 @@ function updateVideoClip(trackId: string, clipId: string, updates: Partial<Video
 
     updateVideoTrack(trackId, {
         clips: track.clips.map((clip) =>
-            clip.id === clipId ? { ...clip, ...updates } : clip
+            clip.id === clipId ? { ...clip, ...updates } : clip,
         ),
     });
 }
@@ -364,7 +407,7 @@ async function save(): Promise<void> {
                     isSaving = false;
                     reject(errors);
                 },
-            }
+            },
         );
     });
 }

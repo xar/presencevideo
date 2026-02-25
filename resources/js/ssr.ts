@@ -3,7 +3,7 @@ import type { ResolvedComponent } from '@inertiajs/svelte';
 import createServer from '@inertiajs/svelte/server';
 import { render } from 'svelte/server';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Presence';
 
 createServer((page) =>
     createInertiaApp({

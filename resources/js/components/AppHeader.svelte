@@ -1,7 +1,5 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
-    import BookOpen from 'lucide-svelte/icons/book-open';
-    import Folder from 'lucide-svelte/icons/folder';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Menu from 'lucide-svelte/icons/menu';
     import Search from 'lucide-svelte/icons/search';
@@ -39,7 +37,7 @@
     import { getInitials } from '@/lib/initials';
     import { toUrl } from '@/lib/utils';
     import type { BreadcrumbItem, NavItem } from '@/types';
-    import { dashboard } from '@/routes';
+    import editor from '@/routes/editor';
 
     let {
         breadcrumbs = [],
@@ -54,24 +52,13 @@
 
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboard(),
+            title: 'Projects',
+            href: editor.index(),
             icon: LayoutGrid,
         },
     ];
 
-    const rightNavItems: NavItem[] = [
-        {
-            title: 'Repository',
-            href: 'https://github.com/laravel/svelte-starter-kit',
-            icon: Folder,
-        },
-        {
-            title: 'Documentation',
-            href: 'https://laravel.com/docs/starter-kits#svelte',
-            icon: BookOpen,
-        },
-    ];
+    const rightNavItems: NavItem[] = [];
 </script>
 
 <div>
@@ -132,7 +119,7 @@
                 </Sheet>
             </div>
 
-            <Link href={toUrl(dashboard())} class="flex items-center gap-x-2">
+            <Link href={toUrl(editor.index())} class="flex items-center gap-x-2">
                 <AppLogo />
             </Link>
 

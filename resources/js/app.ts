@@ -3,7 +3,7 @@ import { hydrate, mount } from 'svelte';
 import '../css/app.css';
 import { initializeTheme } from '@/lib/theme.svelte';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Presence';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

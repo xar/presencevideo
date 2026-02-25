@@ -87,6 +87,12 @@
             'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
             'Noto Color Emoji';
     }
+
+    @keyframes shimmer {
+        100% {
+            transform: translateX(100%);
+        }
+    }
 }
 
 :root {

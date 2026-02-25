@@ -1,4 +1,11 @@
-import type { Selection, Tool, Layer, AudioClip, VideoClip, Scene } from '@/types';
+import type {
+    Selection,
+    Tool,
+    Layer,
+    AudioClip,
+    VideoClip,
+    Scene,
+} from '@/types';
 import { projectStore } from './project.svelte';
 
 export type SelectionStore = {
@@ -111,9 +118,12 @@ function getSelectedLayer(): Layer | null {
 
 function getSelectedAudioClip(): { trackId: string; clip: AudioClip } | null {
     const project = projectStore.project;
-    if (!project || !selection.audioTrackId || !selection.audioClipId) return null;
+    if (!project || !selection.audioTrackId || !selection.audioClipId)
+        return null;
 
-    const track = project.audio_tracks.find((t) => t.id === selection.audioTrackId);
+    const track = project.audio_tracks.find(
+        (t) => t.id === selection.audioTrackId,
+    );
     if (!track) return null;
 
     const clip = track.clips.find((c) => c.id === selection.audioClipId);
@@ -124,9 +134,12 @@ function getSelectedAudioClip(): { trackId: string; clip: AudioClip } | null {
 
 function getSelectedVideoClip(): { trackId: string; clip: VideoClip } | null {
     const project = projectStore.project;
-    if (!project || !selection.videoTrackId || !selection.videoClipId) return null;
+    if (!project || !selection.videoTrackId || !selection.videoClipId)
+        return null;
 
-    const track = project.video_tracks.find((t) => t.id === selection.videoTrackId);
+    const track = project.video_tracks.find(
+        (t) => t.id === selection.videoTrackId,
+    );
     if (!track) return null;
 
     const clip = track.clips.find((c) => c.id === selection.videoClipId);
@@ -139,14 +152,32 @@ function deleteSelected(): void {
     if (selection.type === 'scene' && selection.sceneId) {
         projectStore.deleteScene(selection.sceneId);
         clearSelection();
-    } else if (selection.type === 'layer' && selection.sceneId && selection.layerId) {
+    } else if (
+        selection.type === 'layer' &&
+        selection.sceneId &&
+        selection.layerId
+    ) {
         projectStore.deleteLayer(selection.sceneId, selection.layerId);
         clearSelection();
-    } else if (selection.type === 'audio_clip' && selection.audioTrackId && selection.audioClipId) {
-        projectStore.deleteAudioClip(selection.audioTrackId, selection.audioClipId);
+    } else if (
+        selection.type === 'audio_clip' &&
+        selection.audioTrackId &&
+        selection.audioClipId
+    ) {
+        projectStore.deleteAudioClip(
+            selection.audioTrackId,
+            selection.audioClipId,
+        );
         clearSelection();
-    } else if (selection.type === 'video_clip' && selection.videoTrackId && selection.videoClipId) {
-        projectStore.deleteVideoClip(selection.videoTrackId, selection.videoClipId);
+    } else if (
+        selection.type === 'video_clip' &&
+        selection.videoTrackId &&
+        selection.videoClipId
+    ) {
+        projectStore.deleteVideoClip(
+            selection.videoTrackId,
+            selection.videoClipId,
+        );
         clearSelection();
     }
 }

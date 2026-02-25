@@ -13,7 +13,7 @@
     let { projects = [] }: { projects: Project[] } = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Editor', href: '/editor' },
+        { title: 'Projects', href: '/editor' },
     ];
 
     let isCreateDialogOpen = $state(false);

@@ -145,7 +145,11 @@ export type GenerationType =
     | 'text_to_speech'
     | 'text_to_sfx';
 
-export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type GenerationStatus =
+    | 'pending'
+    | 'processing'
+    | 'completed'
+    | 'failed';
 
 export type Generation = {
     id: number;
@@ -223,7 +227,13 @@ export type PipelineStep = {
 };
 
 // Model Configuration Types
-export type ParameterType = 'select' | 'slider' | 'checkbox' | 'text' | 'textarea' | 'audio_upload';
+export type ParameterType =
+    | 'select'
+    | 'slider'
+    | 'checkbox'
+    | 'text'
+    | 'textarea'
+    | 'audio_upload';
 
 export type ParameterGroup = 'common' | 'advanced';
 

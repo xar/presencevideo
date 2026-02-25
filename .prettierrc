@@ -5,6 +5,7 @@
     "htmlWhitespaceSensitivity": "css",
     "printWidth": 80,
     "plugins": [
+        "prettier-plugin-svelte",
         "prettier-plugin-tailwindcss"
     ],
     "tailwindFunctions": [
