@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Editor\AssetController;
+use App\Http\Controllers\Editor\AssetStreamController;
 use App\Http\Controllers\Editor\GenerationController;
 use App\Http\Controllers\Editor\ProjectController;
 use App\Http\Controllers\Editor\RenderController;
@@ -16,9 +17,14 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
 
     // Assets
     Route::post('/projects/{project}/assets', [AssetController::class, 'store'])->name('editor.assets.store');
+    Route::get('/assets/{asset}/stream', [AssetStreamController::class, 'show'])->name('editor.assets.stream');
+    Route::get('/assets/{asset}/thumbnail', [AssetStreamController::class, 'thumbnail'])->name('editor.assets.thumbnail');
     Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('editor.assets.destroy');
 
     // Generation
+    Route::get('/generations/models', [GenerationController::class, 'models'])->name('editor.generations.models');
+    Route::get('/generations/catalog', [GenerationController::class, 'searchCatalog'])->name('editor.generations.catalog');
+    Route::get('/generations/catalog/model', [GenerationController::class, 'getCatalogModel'])->name('editor.generations.catalog.model');
     Route::post('/projects/{project}/generate/{type}', [GenerationController::class, 'store'])
         ->name('editor.generations.store')
         ->where('type', 'text_to_image|image_to_video|text_to_music|text_to_speech|text_to_sfx');

@@ -36,7 +36,7 @@ return [
     ],
 
     'fal' => [
-        'key' => env('FAL_API_KEY'),
+        'key' => env('FAL_KEY'),
     ],
 
 ];

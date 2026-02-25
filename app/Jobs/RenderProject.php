@@ -63,6 +63,13 @@ class RenderProject implements ShouldQueue
 
             $concatenated = $ffmpeg->concatenateVideos($sceneVideos);
 
+            // Apply video track overlays (PIP, watermarks, etc.)
+            $videoTracks = $project->video_tracks ?? [];
+            if (! empty($videoTracks)) {
+                $this->render->update(['progress' => 75]);
+                $concatenated = $ffmpeg->overlayVideoTracks($concatenated, $videoTracks, $project);
+            }
+
             $audioTracks = $project->audio_tracks ?? [];
             $totalDurationMs = array_sum(array_column($scenes, 'duration_ms'));
 

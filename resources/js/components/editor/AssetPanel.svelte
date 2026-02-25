@@ -3,7 +3,7 @@
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import type { Asset, AssetType } from '@/types';
-    import { Upload, Image, Video, Music, Sparkles, Plus } from 'lucide-svelte';
+    import { Upload, Image, Video, Music, Loader2 } from 'lucide-svelte';
     import { router } from '@inertiajs/svelte';
 
     let assets = $derived(projectStore.project?.assets ?? []);
@@ -12,10 +12,11 @@
     let audioAssets = $derived(assets.filter((a) => a.type === 'audio'));
 
     let isUploading = $state(false);
+    let uploadError = $state<string | null>(null);
     let fileInput: HTMLInputElement;
 
     function openFileDialog(type: AssetType) {
-        if (fileInput) {
+        if (fileInput && !isUploading) {
             fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
             fileInput.dataset.type = type;
             fileInput.click();
@@ -30,6 +31,7 @@
         if (!files?.length || !projectStore.project) return;
 
         isUploading = true;
+        uploadError = null;
 
         for (const file of files) {
             const formData = new FormData();
@@ -37,22 +39,41 @@
             formData.append('type', type);
 
             try {
-                await fetch(`/editor/projects/${projectStore.project.id}/assets`, {
+                const response = await fetch(`/editor/projects/${projectStore.project.id}/assets`, {
                     method: 'POST',
                     body: formData,
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                        'Accept': 'application/json',
                     },
                 });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Upload failed: ${response.status}`);
+                }
 
                 router.reload({ only: ['project'] });
             } catch (err) {
                 console.error('Upload failed:', err);
+                uploadError = err instanceof Error ? err.message : 'Upload failed';
             }
         }
 
         isUploading = false;
         input.value = '';
+    }
+
+    function handleDragStart(e: DragEvent, asset: Asset) {
+        if (!e.dataTransfer) return;
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/json', JSON.stringify({
+            type: 'asset',
+            assetId: asset.id,
+            assetType: asset.type,
+            width: asset.width,
+            height: asset.height,
+        }));
     }
 
     function addAssetToScene(asset: Asset) {
@@ -62,7 +83,7 @@
         const layerType = asset.type === 'audio' ? null : asset.type;
         if (!layerType) return;
 
-        projectStore.addLayer(selectedScene.id, {
+        const layer = projectStore.addLayer(selectedScene.id, {
             type: layerType,
             asset_id: asset.id,
             x: 0,
@@ -70,6 +91,8 @@
             width: asset.width ?? projectStore.project!.resolution_width,
             height: asset.height ?? projectStore.project!.resolution_height,
         });
+
+        selectionStore.selectLayer(selectedScene.id, layer.id);
     }
 </script>
 
@@ -100,13 +123,15 @@
                     {#each imageAssets as asset (asset.id)}
                         <button
                             type="button"
-                            class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary"
+                            class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
                             onclick={() => addAssetToScene(asset)}
+                            draggable="true"
+                            ondragstart={(e) => handleDragStart(e, asset)}
                         >
                             <img
                                 src={asset.thumbnail_url ?? asset.url}
                                 alt={asset.name}
-                                class="h-full w-full object-cover"
+                                class="h-full w-full object-cover pointer-events-none"
                             />
                         </button>
                     {/each}
@@ -124,17 +149,19 @@
                     {#each videoAssets as asset (asset.id)}
                         <button
                             type="button"
-                            class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary"
+                            class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
                             onclick={() => addAssetToScene(asset)}
+                            draggable="true"
+                            ondragstart={(e) => handleDragStart(e, asset)}
                         >
                             {#if asset.thumbnail_url}
                                 <img
                                     src={asset.thumbnail_url}
                                     alt={asset.name}
-                                    class="h-full w-full object-cover"
+                                    class="h-full w-full object-cover pointer-events-none"
                                 />
                             {:else}
-                                <div class="flex h-full items-center justify-center">
+                                <div class="flex h-full items-center justify-center pointer-events-none">
                                     <Video class="h-6 w-6 text-muted-foreground" />
                                 </div>
                             {/if}
@@ -165,7 +192,17 @@
             </div>
         {/if}
 
-        {#if assets.length === 0}
+        {#if isUploading}
+            <div class="flex flex-col items-center justify-center py-8 text-center">
+                <Loader2 class="h-8 w-8 text-primary animate-spin" />
+                <p class="mt-2 text-sm text-muted-foreground">Uploading...</p>
+            </div>
+        {:else if uploadError}
+            <div class="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+                {uploadError}
+                <button type="button" class="ml-2 underline" onclick={() => uploadError = null}>Dismiss</button>
+            </div>
+        {:else if assets.length === 0}
             <div class="flex flex-col items-center justify-center py-8 text-center">
                 <Upload class="h-8 w-8 text-muted-foreground/50" />
                 <p class="mt-2 text-sm text-muted-foreground">No assets yet</p>
@@ -177,15 +214,15 @@
     <Separator />
 
     <div class="p-2 space-y-1">
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('image')}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('image')} disabled={isUploading}>
             <Image class="mr-2 h-3 w-3" />
             Upload Image
         </Button>
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('video')}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('video')} disabled={isUploading}>
             <Video class="mr-2 h-3 w-3" />
             Upload Video
         </Button>
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('audio')}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('audio')} disabled={isUploading}>
             <Music class="mr-2 h-3 w-3" />
             Upload Audio
         </Button>

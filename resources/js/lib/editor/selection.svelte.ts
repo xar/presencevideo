@@ -1,4 +1,4 @@
-import type { Selection, Tool, Layer, AudioClip, Scene } from '@/types';
+import type { Selection, Tool, Layer, AudioClip, VideoClip, Scene } from '@/types';
 import { projectStore } from './project.svelte';
 
 export type SelectionStore = {
@@ -7,11 +7,13 @@ export type SelectionStore = {
     selectScene: (sceneId: string) => void;
     selectLayer: (sceneId: string, layerId: string) => void;
     selectAudioClip: (trackId: string, clipId: string) => void;
+    selectVideoClip: (trackId: string, clipId: string) => void;
     clearSelection: () => void;
     setTool: (tool: Tool) => void;
     getSelectedScene: () => Scene | null;
     getSelectedLayer: () => Layer | null;
     getSelectedAudioClip: () => { trackId: string; clip: AudioClip } | null;
+    getSelectedVideoClip: () => { trackId: string; clip: VideoClip } | null;
     deleteSelected: () => void;
 };
 
@@ -21,6 +23,8 @@ let selection = $state<Selection>({
     layerId: null,
     audioTrackId: null,
     audioClipId: null,
+    videoTrackId: null,
+    videoClipId: null,
 });
 
 let tool = $state<Tool>('select');
@@ -32,6 +36,8 @@ function selectScene(sceneId: string): void {
         layerId: null,
         audioTrackId: null,
         audioClipId: null,
+        videoTrackId: null,
+        videoClipId: null,
     };
 }
 
@@ -42,6 +48,8 @@ function selectLayer(sceneId: string, layerId: string): void {
         layerId,
         audioTrackId: null,
         audioClipId: null,
+        videoTrackId: null,
+        videoClipId: null,
     };
 }
 
@@ -52,6 +60,20 @@ function selectAudioClip(trackId: string, clipId: string): void {
         layerId: null,
         audioTrackId: trackId,
         audioClipId: clipId,
+        videoTrackId: null,
+        videoClipId: null,
+    };
+}
+
+function selectVideoClip(trackId: string, clipId: string): void {
+    selection = {
+        type: 'video_clip',
+        sceneId: null,
+        layerId: null,
+        audioTrackId: null,
+        audioClipId: null,
+        videoTrackId: trackId,
+        videoClipId: clipId,
     };
 }
 
@@ -62,6 +84,8 @@ function clearSelection(): void {
         layerId: null,
         audioTrackId: null,
         audioClipId: null,
+        videoTrackId: null,
+        videoClipId: null,
     };
 }
 
@@ -98,6 +122,19 @@ function getSelectedAudioClip(): { trackId: string; clip: AudioClip } | null {
     return { trackId: track.id, clip };
 }
 
+function getSelectedVideoClip(): { trackId: string; clip: VideoClip } | null {
+    const project = projectStore.project;
+    if (!project || !selection.videoTrackId || !selection.videoClipId) return null;
+
+    const track = project.video_tracks.find((t) => t.id === selection.videoTrackId);
+    if (!track) return null;
+
+    const clip = track.clips.find((c) => c.id === selection.videoClipId);
+    if (!clip) return null;
+
+    return { trackId: track.id, clip };
+}
+
 function deleteSelected(): void {
     if (selection.type === 'scene' && selection.sceneId) {
         projectStore.deleteScene(selection.sceneId);
@@ -107,6 +144,9 @@ function deleteSelected(): void {
         clearSelection();
     } else if (selection.type === 'audio_clip' && selection.audioTrackId && selection.audioClipId) {
         projectStore.deleteAudioClip(selection.audioTrackId, selection.audioClipId);
+        clearSelection();
+    } else if (selection.type === 'video_clip' && selection.videoTrackId && selection.videoClipId) {
+        projectStore.deleteVideoClip(selection.videoTrackId, selection.videoClipId);
         clearSelection();
     }
 }
@@ -122,11 +162,13 @@ export function createSelectionStore(): SelectionStore {
         selectScene,
         selectLayer,
         selectAudioClip,
+        selectVideoClip,
         clearSelection,
         setTool,
         getSelectedScene,
         getSelectedLayer,
         getSelectedAudioClip,
+        getSelectedVideoClip,
         deleteSelected,
     };
 }

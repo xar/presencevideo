@@ -64,8 +64,6 @@ class FFmpegService
             }
         }
 
-        $filterComplex[] = $currentBase.'[outv]';
-
         $command = ['ffmpeg', '-y'];
 
         foreach ($inputs as $input) {
@@ -76,7 +74,7 @@ class FFmpegService
         $command[] = '-filter_complex';
         $command[] = implode(';', $filterComplex);
         $command[] = '-map';
-        $command[] = '[outv]';
+        $command[] = $currentBase;
         $command[] = '-c:v';
         $command[] = 'libx264';
         $command[] = '-preset';
@@ -380,6 +378,129 @@ class FFmpegService
         if (! $result->successful()) {
             throw new \RuntimeException('Silent audio creation failed: '.$result->errorOutput());
         }
+
+        return $outputPath;
+    }
+
+    /**
+     * Overlay video tracks on top of the concatenated video.
+     *
+     * @param  array<array<string, mixed>>  $videoTracks
+     */
+    public function overlayVideoTracks(string $inputPath, array $videoTracks, Project $project): string
+    {
+        $outputPath = $this->getTempPath('overlaid_'.Str::uuid().'.mp4');
+
+        $inputs = [$inputPath];
+        $filterComplex = [];
+        $currentBase = '[0:v]';
+        $inputIndex = 1;
+
+        foreach ($videoTracks as $track) {
+            $visible = $track['visible'] ?? true;
+            if (! $visible) {
+                continue;
+            }
+
+            $clips = $track['clips'] ?? [];
+
+            foreach ($clips as $clipIndex => $clip) {
+                $assetId = $clip['asset_id'] ?? null;
+                if (! $assetId) {
+                    continue;
+                }
+
+                $asset = Asset::find($assetId);
+                if (! $asset) {
+                    continue;
+                }
+
+                $inputs[] = $asset->full_path;
+
+                $startSec = ($clip['start_ms'] ?? 0) / 1000;
+                $endSec = $startSec + (($clip['duration_ms'] ?? 5000) / 1000);
+                $x = $clip['x'] ?? 0;
+                $y = $clip['y'] ?? 0;
+                $width = $clip['width'] ?? 320;
+                $height = $clip['height'] ?? 180;
+                $opacity = $clip['opacity'] ?? 1.0;
+
+                $scaledLabel = '[scaled'.$inputIndex.']';
+                $overlayOutput = '[out'.$inputIndex.']';
+
+                // Scale the overlay video
+                $filterComplex[] = sprintf(
+                    '[%d:v]scale=%d:%d,setpts=PTS-STARTPTS%s',
+                    $inputIndex,
+                    $width,
+                    $height,
+                    $scaledLabel
+                );
+
+                // Apply opacity if not 1.0
+                $inputLabel = $scaledLabel;
+                if ($opacity < 1.0) {
+                    $alphaLabel = '[alpha'.$inputIndex.']';
+                    $filterComplex[] = sprintf(
+                        '%sformat=rgba,colorchannelmixer=aa=%f%s',
+                        $scaledLabel,
+                        $opacity,
+                        $alphaLabel
+                    );
+                    $inputLabel = $alphaLabel;
+                }
+
+                // Overlay with time-based enable expression
+                $filterComplex[] = sprintf(
+                    "%s%soverlay=%d:%d:enable='between(t,%f,%f)'%s",
+                    $currentBase,
+                    $inputLabel,
+                    $x,
+                    $y,
+                    $startSec,
+                    $endSec,
+                    $overlayOutput
+                );
+
+                $currentBase = $overlayOutput;
+                $inputIndex++;
+            }
+        }
+
+        // If no overlays were added, just return the input
+        if (count($inputs) === 1) {
+            return $inputPath;
+        }
+
+        $command = ['ffmpeg', '-y'];
+
+        foreach ($inputs as $input) {
+            $command[] = '-i';
+            $command[] = $input;
+        }
+
+        $command[] = '-filter_complex';
+        $command[] = implode(';', $filterComplex);
+        $command[] = '-map';
+        $command[] = $currentBase;
+        $command[] = '-map';
+        $command[] = '0:a?';
+        $command[] = '-c:v';
+        $command[] = 'libx264';
+        $command[] = '-preset';
+        $command[] = 'fast';
+        $command[] = '-c:a';
+        $command[] = 'copy';
+        $command[] = $outputPath;
+
+        $result = Process::timeout(600)->run($command);
+
+        if (! $result->successful()) {
+            throw new \RuntimeException('Video track overlay failed: '.$result->errorOutput());
+        }
+
+        // Clean up the input file
+        @unlink($inputPath);
 
         return $outputPath;
     }

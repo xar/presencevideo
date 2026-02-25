@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Video editor application built with Laravel 12, Inertia.js v2, and Svelte 5. Authentication handled by Laravel Fortify with two-factor authentication support.
+AI-powered video editor application built with Laravel 12, Inertia.js v2, and Svelte 5. Users create scene-based video compositions, generate assets via AI (fal.ai), arrange them on a timeline with overlays, and export to MP4 via server-side FFmpeg.
+
+**Key Features:**
+- Scene-based video composition (not frame-accurate NLE)
+- AI generation: text-to-image, image-to-video, text-to-music, text-to-speech
+- Drag-and-drop layers with resize handles
+- Multi-track audio timeline
+- FFmpeg-based server-side rendering
 
 ## Development Commands
 
@@ -32,10 +39,26 @@ npm run build
 ## Architecture
 
 ### Backend (Laravel 12)
-- **Routes**: `routes/web.php` (main), `routes/settings.php` (settings pages)
+- **Routes**: `routes/web.php` (main), `routes/settings.php` (settings), `routes/editor.php` (video editor)
 - **Controllers**: `app/Http/Controllers/` - Settings controllers handle profile, password, 2FA
 - **Middleware**: Configured in `bootstrap/app.php` (Laravel 12 style, no Kernel.php)
 - **Auth**: Laravel Fortify provides authentication routes/controllers
+
+### Video Editor Backend
+- **Routes**: `routes/editor.php` - Project CRUD, asset upload, generation, render endpoints
+- **Models**:
+  - `Project` - scenes (JSON), audio_tracks (JSON), resolution, status
+  - `Asset` - uploaded/generated media files with metadata
+  - `Generation` - AI generation requests (text-to-image, image-to-video, etc.)
+  - `Render` - FFmpeg render jobs with progress tracking
+- **Enums**: `app/Enums/` - AssetType, AssetSource, GenerationType, GenerationStatus, ProjectStatus, RenderStatus
+- **Services**:
+  - `FalAIService` - fal.ai API integration for AI generation
+  - `FalAI/FalClient` - Low-level HTTP client for fal.ai queue API
+  - `FalAI/ModelConfig` - Model configurations with parameters and defaults
+  - `FFmpegService` - Video rendering, concatenation, audio mixing
+- **Jobs**: `ProcessAssetUpload`, `RunGeneration`, `RenderProject` (queued)
+- **Policies**: `ProjectPolicy`, `AssetPolicy` for authorization
 
 ### Frontend (Svelte 5 + Inertia)
 - **Entry**: `resources/js/app.ts`
@@ -44,6 +67,24 @@ npm run build
 - **UI Library**: `resources/js/components/ui/` - shadcn-svelte (new-york-v4)
 - **Types**: `resources/js/types/`
 - **Utilities**: `resources/js/lib/` - `cn()` helper, theme, etc.
+
+### Video Editor Frontend
+- **Page**: `resources/js/pages/editor/Show.svelte` - Main editor page
+- **Components**: `resources/js/components/editor/`
+  - `SceneStrip.svelte` - Horizontal scene timeline with drag-to-reorder
+  - `SceneCard.svelte` - Scene thumbnail with playback indicator
+  - `SceneEditor.svelte` - WYSIWYG canvas for layer editing
+  - `LayerItem.svelte` - Draggable/resizable layer with handles
+  - `PreviewPlayer.svelte` - Playback controls and time display
+  - `AssetPanel.svelte` - Upload and asset gallery
+  - `AudioTracks.svelte` - Multi-track audio timeline
+  - `RightPanel.svelte` - Properties and AI generation tabs
+  - `EditorToolbar.svelte` - Save, export, zoom controls
+- **Stores**: `resources/js/lib/editor/`
+  - `project.svelte.ts` - Project state, scene/layer/audio CRUD
+  - `timeline.svelte.ts` - Playback state, current time, scene switching
+  - `selection.svelte.ts` - Selected scene/layer, current tool
+- **Types**: `resources/js/types/editor.ts` - Project, Scene, Layer, AudioTrack interfaces
 
 ### Path Aliases
 - `@/` maps to `resources/js/`
@@ -55,10 +96,39 @@ npm run build
 npx shadcn-svelte@next add <component-name>
 ```
 
+## Environment Variables
+
+```bash
+FAL_API_KEY=your_fal_ai_key  # Required for AI generation
+```
+
+## AI Generation Models (fal.ai)
+
+Models are configured in `app/Services/FalAI/ModelConfig.php`:
+
+**Text to Image:**
+- FLUX.1 Dev/Schnell/Pro Ultra - High-quality flow transformer
+- Recraft V3 - SOTA with typography support
+- Stable Diffusion 3.5 Large
+
+**Image to Video:**
+- MiniMax Video - Natural motion
+- Kling 1.0 Standard/Pro - Reliable video generation
+- Luma Dream Machine - Dreamlike transitions
+- Wan 2.1 - High fidelity
+
+**Audio:**
+- Stable Audio - Music and SFX from text
+- MusicGen - Melody generation
+- Kokoro/F5-TTS/PlayHT - Text-to-speech
+
 ## Key Conventions
 
 - Svelte 5 runes: `$props()`, `$state()`, `$derived()`
 - Layouts use snippets: `{@render children?.()}`
+- Editor stores use singleton pattern with `$state` for reactivity
+- Layer types: `video`, `image`, `text` - each with specific properties
+- Scene durations in milliseconds (`duration_ms`)
 
 <laravel-boost-guidelines>
 === foundation rules ===

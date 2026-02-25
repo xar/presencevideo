@@ -25,10 +25,12 @@ class AssetController extends Controller
         $type = $request->validated('type');
         $name = $request->validated('name') ?? $file->getClientOriginalName();
 
+        $disk = config('filesystems.default');
+
         $path = $file->storeAs(
             'assets/'.$project->id,
             Str::uuid().'.'.$file->getClientOriginalExtension(),
-            'local'
+            $disk
         );
 
         $asset = Asset::create([
@@ -38,7 +40,7 @@ class AssetController extends Controller
             'source' => 'upload',
             'name' => $name,
             'path' => $path,
-            'disk' => 'local',
+            'disk' => $disk,
             'mime_type' => $file->getMimeType(),
             'size_bytes' => $file->getSize(),
             'metadata' => [],

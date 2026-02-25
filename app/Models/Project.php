@@ -21,6 +21,7 @@ class Project extends Model
         'fps',
         'scenes',
         'audio_tracks',
+        'video_tracks',
         'status',
     ];
 
@@ -35,6 +36,7 @@ class Project extends Model
             'fps' => 'integer',
             'scenes' => 'array',
             'audio_tracks' => 'array',
+            'video_tracks' => 'array',
             'status' => ProjectStatus::class,
         ];
     }

@@ -1,12 +1,21 @@
 <script lang="ts">
     import { Button } from '@/components/ui/button';
     import { timelineStore, projectStore } from '@/lib/editor';
-    import { Play, Pause, SkipBack, SkipForward } from 'lucide-svelte';
+    import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut } from 'lucide-svelte';
     import { Slider } from '@/components/ui/slider';
 
     let currentTime = $derived(timelineStore.currentTimeMs);
     let totalDuration = $derived(timelineStore.getTotalDuration());
     let isPlaying = $derived(timelineStore.isPlaying);
+    let zoom = $derived(timelineStore.zoom);
+
+    function zoomIn() {
+        timelineStore.setZoom(zoom * 1.5);
+    }
+
+    function zoomOut() {
+        timelineStore.setZoom(zoom / 1.5);
+    }
 
     function formatTime(ms: number): string {
         const totalSeconds = Math.floor(ms / 1000);
@@ -76,5 +85,17 @@
 
     <div class="text-sm font-mono text-muted-foreground w-24 text-right">
         {formatTime(totalDuration)}
+    </div>
+
+    <div class="flex items-center gap-1 border-l pl-4 ml-2">
+        <Button variant="ghost" size="icon" onclick={zoomOut} title="Zoom out timeline">
+            <ZoomOut class="h-4 w-4" />
+        </Button>
+        <span class="text-xs font-mono text-muted-foreground w-10 text-center">
+            {Math.round(zoom * 100)}%
+        </span>
+        <Button variant="ghost" size="icon" onclick={zoomIn} title="Zoom in timeline">
+            <ZoomIn class="h-4 w-4" />
+        </Button>
     </div>
 </div>

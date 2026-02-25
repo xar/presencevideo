@@ -9,9 +9,17 @@
     import PreviewPlayer from '@/components/editor/PreviewPlayer.svelte';
     import AssetPanel from '@/components/editor/AssetPanel.svelte';
     import AudioTracks from '@/components/editor/AudioTracks.svelte';
-    import PipelinePanel from '@/components/editor/PipelinePanel.svelte';
+    import VideoTracks from '@/components/editor/VideoTracks.svelte';
+    import RightPanel from '@/components/editor/RightPanel.svelte';
 
     let { project }: { project: Project } = $props();
+
+    // Sync assets from server when they change (e.g., after generation completes)
+    $effect(() => {
+        if (project.assets && projectStore.project) {
+            projectStore.syncAssets(project.assets);
+        }
+    });
 
     onMount(() => {
         projectStore.setProject(project);
@@ -20,13 +28,24 @@
             selectionStore.selectScene(project.scenes[0].id);
         }
 
+        function isEditableElement(el: Element | null): boolean {
+            if (!el) return false;
+            const tagName = el.tagName;
+            if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+            if ((el as HTMLElement).isContentEditable) return true;
+            return false;
+        }
+
         function handleKeydown(e: KeyboardEvent) {
+            const inEditable = isEditableElement(document.activeElement);
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (document.activeElement?.tagName === 'INPUT') return;
+                if (inEditable) return;
                 selectionStore.deleteSelected();
             }
 
-            if (e.key === ' ' && document.activeElement?.tagName !== 'INPUT') {
+            if (e.key === ' ') {
+                if (inEditable) return;
                 e.preventDefault();
                 timelineStore.togglePlayback();
             }
@@ -56,7 +75,7 @@
         <div class="flex flex-1 flex-col overflow-hidden">
             <div class="flex flex-1 overflow-hidden">
                 <SceneEditor />
-                <PipelinePanel />
+                <RightPanel />
             </div>
 
             <PreviewPlayer />
@@ -65,6 +84,7 @@
 
     <div class="flex flex-col border-t">
         <SceneStrip />
+        <VideoTracks />
         <AudioTracks />
     </div>
 </div>

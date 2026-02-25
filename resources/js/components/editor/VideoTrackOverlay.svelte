@@ -1,60 +1,42 @@
 <script lang="ts">
-    import type { Layer, TextLayer, ImageLayer, VideoLayer } from '@/types';
+    import type { VideoClip } from '@/types';
     import { cn } from '@/lib/utils';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
 
     let {
-        layer,
+        clip,
+        trackId,
         scale = 1,
         isSelected = false,
         onclick,
         onUpdate,
     }: {
-        layer: Layer;
+        clip: VideoClip;
+        trackId: string;
         scale?: number;
         isSelected?: boolean;
         onclick?: (e: MouseEvent) => void;
-        onUpdate?: (updates: Partial<Layer>) => void;
+        onUpdate?: (updates: Partial<VideoClip>) => void;
     } = $props();
 
     let videoEl: HTMLVideoElement | undefined = $state();
     let isPlaying = $derived(timelineStore.isPlaying);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
 
-    // Calculate time within the current scene based on timeline position
-    let sceneTimeMs = $derived.by(() => {
-        const project = projectStore.project;
-        if (!project?.scenes?.length) return 0;
-
-        // Use timeline's current scene during playback for accurate sync
-        const currentScene = isPlaying
-            ? timelineStore.getCurrentScene()
-            : selectionStore.getSelectedScene();
-        if (!currentScene) return 0;
-
-        let accumulated = 0;
-        for (const scene of project.scenes) {
-            if (scene.id === currentScene.id) {
-                return Math.max(0, currentTimeMs - accumulated);
-            }
-            accumulated += scene.duration_ms;
-        }
-        return 0;
+    // Calculate time within this clip
+    let clipTimeMs = $derived.by(() => {
+        const trimStart = clip.trim_start_ms ?? 0;
+        const timeInClip = currentTimeMs - clip.start_ms;
+        return Math.max(0, timeInClip + trimStart);
     });
 
     // Sync video playback with timeline
     $effect(() => {
-        if (!videoEl || layer.type !== 'video') return;
+        if (!videoEl) return;
 
-        // Access reactive values to ensure effect re-runs
         const playing = isPlaying;
-        const sceneTime = sceneTimeMs;
+        const targetTime = clipTimeMs / 1000;
 
-        const videoLayer = layer as VideoLayer;
-        const trimStart = videoLayer.trim_start_ms ?? 0;
-        const targetTime = (sceneTime + trimStart) / 1000;
-
-        // When not playing, sync video to target time
         if (!playing) {
             if (Math.abs(videoEl.currentTime - targetTime) > 0.05) {
                 videoEl.currentTime = targetTime;
@@ -65,8 +47,6 @@
             return;
         }
 
-        // When playing, start video and let it play naturally
-        // Only seek if significantly out of sync
         if (Math.abs(videoEl.currentTime - targetTime) > 0.3) {
             videoEl.currentTime = targetTime;
         }
@@ -80,7 +60,7 @@
 
     let isDragging = $state(false);
     let isResizing = $state<string | null>(null);
-    let dragStart = $state({ x: 0, y: 0, layerX: 0, layerY: 0, layerW: 0, layerH: 0 });
+    let dragStart = $state({ x: 0, y: 0, clipX: 0, clipY: 0, clipW: 0, clipH: 0 });
 
     function handleMouseDown(e: MouseEvent) {
         if (e.button !== 0 || isResizing) return;
@@ -90,10 +70,10 @@
         dragStart = {
             x: e.clientX,
             y: e.clientY,
-            layerX: layer.x,
-            layerY: layer.y,
-            layerW: layer.width,
-            layerH: layer.height,
+            clipX: clip.x,
+            clipY: clip.y,
+            clipW: clip.width,
+            clipH: clip.height,
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -106,45 +86,45 @@
             const deltaY = (e.clientY - dragStart.y) / scale;
 
             onUpdate?.({
-                x: Math.round(dragStart.layerX + deltaX),
-                y: Math.round(dragStart.layerY + deltaY),
+                x: Math.round(dragStart.clipX + deltaX),
+                y: Math.round(dragStart.clipY + deltaY),
             });
         } else if (isResizing) {
             const deltaX = (e.clientX - dragStart.x) / scale;
             const deltaY = (e.clientY - dragStart.y) / scale;
 
-            let newX = dragStart.layerX;
-            let newY = dragStart.layerY;
-            let newW = dragStart.layerW;
-            let newH = dragStart.layerH;
+            let newX = dragStart.clipX;
+            let newY = dragStart.clipY;
+            let newW = dragStart.clipW;
+            let newH = dragStart.clipH;
 
             if (isResizing.includes('left')) {
-                newX = dragStart.layerX + deltaX;
-                newW = dragStart.layerW - deltaX;
+                newX = dragStart.clipX + deltaX;
+                newW = dragStart.clipW - deltaX;
             }
             if (isResizing.includes('right')) {
-                newW = dragStart.layerW + deltaX;
+                newW = dragStart.clipW + deltaX;
             }
             if (isResizing.includes('top')) {
-                newY = dragStart.layerY + deltaY;
-                newH = dragStart.layerH - deltaY;
+                newY = dragStart.clipY + deltaY;
+                newH = dragStart.clipH - deltaY;
             }
             if (isResizing.includes('bottom')) {
-                newH = dragStart.layerH + deltaY;
+                newH = dragStart.clipH + deltaY;
             }
 
             // Minimum size
-            if (newW < 20) {
+            if (newW < 40) {
                 if (isResizing.includes('left')) {
-                    newX = dragStart.layerX + dragStart.layerW - 20;
+                    newX = dragStart.clipX + dragStart.clipW - 40;
                 }
-                newW = 20;
+                newW = 40;
             }
-            if (newH < 20) {
+            if (newH < 40) {
                 if (isResizing.includes('top')) {
-                    newY = dragStart.layerY + dragStart.layerH - 20;
+                    newY = dragStart.clipY + dragStart.clipH - 40;
                 }
-                newH = 20;
+                newH = 40;
             }
 
             onUpdate?.({
@@ -171,85 +151,54 @@
         dragStart = {
             x: e.clientX,
             y: e.clientY,
-            layerX: layer.x,
-            layerY: layer.y,
-            layerW: layer.width,
-            layerH: layer.height,
+            clipX: clip.x,
+            clipY: clip.y,
+            clipW: clip.width,
+            clipH: clip.height,
         };
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     }
 
-    function getAssetUrl(assetId: number): string | null {
+    function getAssetUrl(): string | null {
         const assets = projectStore.project?.assets ?? [];
-        const asset = assets.find((a) => a.id === assetId);
+        const asset = assets.find((a) => a.id === clip.asset_id);
         return asset?.url ?? null;
     }
+
+    let assetUrl = $derived(getAssetUrl());
 </script>
 
 <div
     class={cn(
-        'absolute cursor-move',
+        'absolute cursor-move rounded overflow-hidden shadow-lg',
         isSelected && 'ring-2 ring-primary ring-offset-1'
     )}
-    style:left="{layer.x * scale}px"
-    style:top="{layer.y * scale}px"
-    style:width="{layer.width * scale}px"
-    style:height="{layer.height * scale}px"
-    style:transform="rotate({layer.rotation ?? 0}deg)"
-    style:opacity={layer.opacity ?? 1}
+    style:left="{clip.x * scale}px"
+    style:top="{clip.y * scale}px"
+    style:width="{clip.width * scale}px"
+    style:height="{clip.height * scale}px"
+    style:opacity={clip.opacity ?? 1}
+    style:z-index={clip.z_index + 100}
     onmousedown={handleMouseDown}
     onclick={onclick}
     onkeydown={() => {}}
     role="button"
     tabindex="0"
 >
-    {#if layer.type === 'image'}
-        {@const imageLayer = layer as ImageLayer}
-        {@const url = getAssetUrl(imageLayer.asset_id)}
-        {#if url}
-            <img
-                src={url}
-                alt="Layer"
-                class="h-full w-full object-cover pointer-events-none"
-                draggable="false"
-            />
-        {:else}
-            <div class="h-full w-full bg-muted flex items-center justify-center">
-                <span class="text-xs text-muted-foreground">Image</span>
-            </div>
-        {/if}
-    {:else if layer.type === 'video'}
-        {@const videoLayer = layer as VideoLayer}
-        {@const url = getAssetUrl(videoLayer.asset_id)}
-        {#if url}
-            <video
-                bind:this={videoEl}
-                src={url}
-                class="h-full w-full object-cover pointer-events-none"
-                muted
-                playsinline
-                preload="auto"
-            ></video>
-        {:else}
-            <div class="h-full w-full bg-muted flex items-center justify-center">
-                <span class="text-xs text-muted-foreground">Video</span>
-            </div>
-        {/if}
-    {:else if layer.type === 'text'}
-        {@const textLayer = layer as TextLayer}
-        <div
-            class="flex h-full w-full items-center justify-center p-2 overflow-hidden"
-            style:font-family={textLayer.font_family ?? 'system-ui'}
-            style:font-size="{(textLayer.font_size ?? 48) * scale}px"
-            style:color={textLayer.font_color ?? '#ffffff'}
-            style:font-weight={textLayer.font_weight ?? 'normal'}
-            style:text-align={textLayer.text_align ?? 'center'}
-            style:background-color={textLayer.background_color ?? 'transparent'}
-            style:padding="{(textLayer.padding ?? 0) * scale}px"
-        >
-            {textLayer.text}
+    {#if assetUrl}
+        <video
+            bind:this={videoEl}
+            src={assetUrl}
+            class="h-full w-full object-cover pointer-events-none"
+            muted
+            playsinline
+            preload="auto"
+        ></video>
+    {:else}
+        <div class="h-full w-full bg-muted flex items-center justify-center">
+            <span class="text-xs text-muted-foreground">Video</span>
         </div>
     {/if}
 

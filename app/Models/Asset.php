@@ -14,6 +14,11 @@ class Asset extends Model
     /** @use HasFactory<\Database\Factories\AssetFactory> */
     use HasFactory;
 
+    /**
+     * @var list<string>
+     */
+    protected $appends = ['url', 'thumbnail_url'];
+
     protected $fillable = [
         'user_id',
         'project_id',
@@ -65,7 +70,7 @@ class Asset extends Model
 
     public function getUrlAttribute(): string
     {
-        return Storage::disk($this->disk)->url($this->path);
+        return route('editor.assets.stream', $this);
     }
 
     public function getThumbnailUrlAttribute(): ?string
@@ -74,7 +79,7 @@ class Asset extends Model
             return null;
         }
 
-        return Storage::disk($this->disk)->url($this->thumbnail_path);
+        return route('editor.assets.thumbnail', $this);
     }
 
     public function getFullPathAttribute(): string

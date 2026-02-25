@@ -10,6 +10,7 @@ export type Project = {
     fps: number;
     scenes: Scene[];
     audio_tracks: AudioTrack[];
+    video_tracks: VideoTrack[];
     status: ProjectStatus;
     created_at: string;
     updated_at: string;
@@ -86,6 +87,28 @@ export type AudioClip = {
     volume: number;
     fade_in_ms?: number;
     fade_out_ms?: number;
+};
+
+// Video Track Types
+export type VideoTrack = {
+    id: string;
+    name: string;
+    visible?: boolean;
+    clips: VideoClip[];
+};
+
+export type VideoClip = {
+    id: string;
+    asset_id: number;
+    start_ms: number;
+    duration_ms: number;
+    trim_start_ms?: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    z_index: number;
+    opacity?: number;
 };
 
 // Asset Types
@@ -175,11 +198,13 @@ export type Render = {
 export type Tool = 'select' | 'text' | 'pan';
 
 export type Selection = {
-    type: 'scene' | 'layer' | 'audio_clip' | null;
+    type: 'scene' | 'layer' | 'audio_clip' | 'video_clip' | null;
     sceneId: string | null;
     layerId: string | null;
     audioTrackId: string | null;
     audioClipId: string | null;
+    videoTrackId: string | null;
+    videoClipId: string | null;
 };
 
 export type Viewport = {
@@ -195,4 +220,39 @@ export type PipelineStep = {
     status: GenerationStatus;
     generation_id?: number;
     output_asset?: Asset;
+};
+
+// Model Configuration Types
+export type ParameterType = 'select' | 'slider' | 'checkbox' | 'text' | 'textarea' | 'audio_upload';
+
+export type ParameterGroup = 'common' | 'advanced';
+
+export type ParameterConfig = {
+    type: ParameterType;
+    label: string;
+    options?: Record<string, string>;
+    min?: number;
+    max?: number;
+    step?: number;
+    group?: ParameterGroup;
+};
+
+export type ModelConfig = {
+    key: string;
+    id: string;
+    name: string;
+    description: string;
+    thumbnail: string | null;
+    playground_url: string;
+    category: string;
+    tags: string[];
+    is_featured: boolean;
+    is_new: boolean;
+    is_catalog?: boolean; // True if loaded from fal.ai catalog
+    parameters: Record<string, ParameterConfig>;
+    defaults: Record<string, unknown>;
+};
+
+export type ModelsResponse = {
+    models: Record<GenerationType, ModelConfig[]>;
 };

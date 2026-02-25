@@ -1,4 +1,4 @@
-import type { Project, Scene, Layer, AudioTrack, AudioClip, Asset } from '@/types';
+import type { Project, Scene, Layer, AudioTrack, AudioClip, VideoTrack, VideoClip, Asset } from '@/types';
 import { router } from '@inertiajs/svelte';
 import { v4 as uuid } from 'uuid';
 
@@ -7,6 +7,7 @@ export type ProjectStore = {
     isDirty: boolean;
     isSaving: boolean;
     setProject: (project: Project) => void;
+    syncAssets: (assets: Asset[]) => void;
     updateProject: (updates: Partial<Project>) => void;
     addScene: (scene?: Partial<Scene>) => Scene;
     updateScene: (sceneId: string, updates: Partial<Scene>) => void;
@@ -21,6 +22,12 @@ export type ProjectStore = {
     addAudioClip: (trackId: string, clip: Partial<AudioClip>) => AudioClip;
     updateAudioClip: (trackId: string, clipId: string, updates: Partial<AudioClip>) => void;
     deleteAudioClip: (trackId: string, clipId: string) => void;
+    addVideoTrack: (track?: Partial<VideoTrack>) => VideoTrack;
+    updateVideoTrack: (trackId: string, updates: Partial<VideoTrack>) => void;
+    deleteVideoTrack: (trackId: string) => void;
+    addVideoClip: (trackId: string, clip: Partial<VideoClip>) => VideoClip;
+    updateVideoClip: (trackId: string, clipId: string, updates: Partial<VideoClip>) => void;
+    deleteVideoClip: (trackId: string, clipId: string) => void;
     save: () => Promise<void>;
     markDirty: () => void;
 };
@@ -32,6 +39,14 @@ let isSaving = $state(false);
 function setProject(p: Project): void {
     project = p;
     isDirty = false;
+}
+
+function syncAssets(assets: Asset[]): void {
+    if (!project) return;
+    // Only update if assets have actually changed (new assets added)
+    if (project.assets?.length !== assets.length) {
+        project = { ...project, assets };
+    }
 }
 
 function updateProject(updates: Partial<Project>): void {
@@ -229,6 +244,98 @@ function deleteAudioClip(trackId: string, clipId: string): void {
     });
 }
 
+function addVideoTrack(trackData?: Partial<VideoTrack>): VideoTrack {
+    if (!project) throw new Error('No project loaded');
+
+    const track: VideoTrack = {
+        id: uuid(),
+        name: `Video Track ${project.video_tracks.length + 1}`,
+        visible: true,
+        clips: [],
+        ...trackData,
+    };
+
+    project = {
+        ...project,
+        video_tracks: [...project.video_tracks, track],
+    };
+    isDirty = true;
+
+    return track;
+}
+
+function updateVideoTrack(trackId: string, updates: Partial<VideoTrack>): void {
+    if (!project) return;
+
+    project = {
+        ...project,
+        video_tracks: project.video_tracks.map((track) =>
+            track.id === trackId ? { ...track, ...updates } : track
+        ),
+    };
+    isDirty = true;
+}
+
+function deleteVideoTrack(trackId: string): void {
+    if (!project) return;
+
+    project = {
+        ...project,
+        video_tracks: project.video_tracks.filter((track) => track.id !== trackId),
+    };
+    isDirty = true;
+}
+
+function addVideoClip(trackId: string, clipData: Partial<VideoClip>): VideoClip {
+    if (!project) throw new Error('No project loaded');
+
+    const track = project.video_tracks.find((t) => t.id === trackId);
+    if (!track) throw new Error('Track not found');
+
+    const clip: VideoClip = {
+        id: uuid(),
+        asset_id: 0,
+        start_ms: 0,
+        duration_ms: 5000,
+        x: 0,
+        y: 0,
+        width: Math.round(project.resolution_width * 0.25),
+        height: Math.round(project.resolution_height * 0.25),
+        z_index: track.clips.length,
+        ...clipData,
+    };
+
+    updateVideoTrack(trackId, {
+        clips: [...track.clips, clip],
+    });
+
+    return clip;
+}
+
+function updateVideoClip(trackId: string, clipId: string, updates: Partial<VideoClip>): void {
+    if (!project) return;
+
+    const track = project.video_tracks.find((t) => t.id === trackId);
+    if (!track) return;
+
+    updateVideoTrack(trackId, {
+        clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, ...updates } : clip
+        ),
+    });
+}
+
+function deleteVideoClip(trackId: string, clipId: string): void {
+    if (!project) return;
+
+    const track = project.video_tracks.find((t) => t.id === trackId);
+    if (!track) return;
+
+    updateVideoTrack(trackId, {
+        clips: track.clips.filter((clip) => clip.id !== clipId),
+    });
+}
+
 async function save(): Promise<void> {
     if (!project || !isDirty || isSaving) return;
 
@@ -244,6 +351,7 @@ async function save(): Promise<void> {
                 fps: project!.fps,
                 scenes: project!.scenes,
                 audio_tracks: project!.audio_tracks,
+                video_tracks: project!.video_tracks,
             },
             {
                 preserveScroll: true,
@@ -277,6 +385,7 @@ export function createProjectStore(): ProjectStore {
             return isSaving;
         },
         setProject,
+        syncAssets,
         updateProject,
         addScene,
         updateScene,
@@ -291,6 +400,12 @@ export function createProjectStore(): ProjectStore {
         addAudioClip,
         updateAudioClip,
         deleteAudioClip,
+        addVideoTrack,
+        updateVideoTrack,
+        deleteVideoTrack,
+        addVideoClip,
+        updateVideoClip,
+        deleteVideoClip,
         save,
         markDirty,
     };
