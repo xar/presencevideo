@@ -6,6 +6,7 @@
     import editor from '@/routes/editor';
     import Button from '@/components/ui/button/Button.svelte';
     import DemoEditor from '@/components/editor/DemoEditor.svelte';
+    import Separator from '@/components/ui/separator/Separator.svelte';
     import {
         Sparkles,
         Video,
@@ -74,20 +75,18 @@
 
 <AppHead title="AI Video Editor for Makers" />
 
-<div class="min-h-screen bg-background text-foreground selection:bg-primary/20">
-    <!-- Sticky Navigation -->
-    <header
-        class="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 transition-all duration-300"
-    >
-        <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center gap-2 group cursor-pointer">
+<div class="min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-x-hidden">
+    <!-- Floating Pill Navigation -->
+    <div class="fixed top-6 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
+        <header class="pointer-events-auto flex w-full max-w-4xl items-center justify-between rounded-full border border-white/10 bg-background/60 px-4 py-3 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-300">
+            <div class="flex items-center gap-2 group cursor-pointer pl-2">
                 <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
                     <Play class="h-4 w-4 text-primary-foreground ml-0.5" />
                 </div>
                 <span class="text-xl font-bold tracking-tight">Presence</span>
             </div>
 
-            <nav class="flex items-center gap-4">
+            <nav class="flex items-center gap-2 sm:gap-4">
                 {#if auth.user}
                     <Button asChild class="rounded-full shadow-sm group">
                         {#snippet children(props)}
@@ -117,104 +116,107 @@
                     {/if}
                 {/if}
             </nav>
-        </div>
-    </header>
+        </header>
+    </div>
 
-    <main class="pt-16">
+    <main class="pt-24 relative z-10">
         <!-- Hero Section -->
-        <section class="relative overflow-hidden pb-24 pt-32 sm:pt-40 lg:pb-32 lg:pt-48">
-            <!-- Grid Background -->
-            <div class="absolute inset-0 -z-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-            
-            <!-- Glowing Orbs -->
-            <div class="absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-                <div class="absolute -top-[20%] left-[20%] h-[500px] w-[500px] rounded-full bg-violet-500/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen"></div>
-                <div class="absolute -top-[10%] right-[20%] h-[600px] w-[600px] rounded-full bg-blue-500/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen"></div>
+        <section class="relative pb-24 pt-20 sm:pt-32 lg:pb-32 lg:pt-40 overflow-hidden">
+            <!-- Dynamic ambient background -->
+            <div class="absolute inset-0 -z-20 bg-background overflow-hidden pointer-events-none">
+                <!-- Extremely subtle top glow -->
+                <div class="absolute -top-1/2 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] opacity-20 pointer-events-none" style="background: radial-gradient(circle at center, var(--color-violet-500) 0%, transparent 60%); filter: blur(100px);"></div>
             </div>
 
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-                <div class="mx-auto max-w-4xl text-center">
-                    <div class="inline-flex items-center rounded-full border border-border/50 bg-background/50 px-3 py-1 text-sm font-medium backdrop-blur-md mb-8 shadow-sm">
-                        <Sparkles class="h-4 w-4 mr-2 text-violet-500" />
-                        <span class="bg-gradient-to-r from-violet-500 to-blue-500 bg-clip-text text-transparent">AI-Powered Video Creation 2.0</span>
-                    </div>
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center">
+                
+                <!-- Pill Badge -->
+                <div class="inline-flex items-center rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 text-sm font-medium backdrop-blur-sm mb-12 shadow-sm hover:bg-muted/50 transition-colors cursor-pointer group">
+                    <span class="flex h-2 w-2 rounded-full bg-violet-500 mr-2 animate-pulse"></span>
+                    <span class="text-foreground/90">Presence 2.0 is now live</span>
+                    <Separator orientation="vertical" class="mx-3 h-4" />
+                    <span class="text-muted-foreground flex items-center group-hover:text-foreground transition-colors">
+                        Read announcement <ArrowRight class="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                </div>
 
-                    <h1 class="text-5xl font-extrabold tracking-tight md:text-7xl lg:text-8xl/none mb-8">
-                        Videos that <br class="hidden sm:block" />
-                        <span class="relative whitespace-nowrap">
-                            <span class="absolute -inset-1 block -skew-y-3 bg-gradient-to-r from-violet-500 to-blue-500"></span>
-                            <span class="relative text-white">move people.</span>
-                        </span>
+                <!-- Clean, Monolithic Typography -->
+                <div class="max-w-4xl text-center flex flex-col items-center">
+                    <h1 class="text-5xl font-semibold tracking-tighter sm:text-6xl md:text-7xl lg:text-[6rem] leading-[1.05] mb-8 text-foreground">
+                        Video editing, <br class="hidden sm:block" />
+                        reimagined for creators.
                     </h1>
 
-                    <p class="mx-auto max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed mb-10">
-                        No crew. No budget. Just you and the power of AI.
-                        The intuitive editor built for the next generation of visual storytellers.
+                    <p class="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed mb-10 font-normal">
+                        Generate visual stories from simple text. No timeline complexity, no missing assets. Just pure creative flow powered by state-of-the-art AI.
                     </p>
 
-                    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
                         {#if auth.user}
-                            <Button size="lg" class="relative overflow-hidden rounded-full h-12 px-8 text-base shadow-lg shadow-primary/20 group" asChild>
+                            <Button size="lg" class="w-full sm:w-auto rounded-full h-12 px-8 text-base shadow-sm group bg-foreground text-background hover:bg-foreground/90 transition-all hover:scale-105" asChild>
                                 {#snippet children(props)}
                                     <Link href={toUrl(editor.index())} {...props}>
-                                        <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                                        <span class="relative z-10 flex items-center">
-                                            My Projects
+                                        <span class="flex items-center font-medium">
+                                            Open Dashboard
                                             <ArrowRight class="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                                         </span>
                                     </Link>
                                 {/snippet}
                             </Button>
                         {:else}
-                            <Button size="lg" class="relative overflow-hidden rounded-full h-12 px-8 text-base shadow-lg shadow-primary/20 group" asChild>
+                            <Button size="lg" class="w-full sm:w-auto rounded-full h-12 px-8 text-base shadow-sm group bg-foreground text-background hover:bg-foreground/90 transition-all hover:scale-105" asChild>
                                 {#snippet children(props)}
                                     <Link href={toUrl(register())} {...props}>
-                                        <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                                        <span class="relative z-10 flex items-center">
-                                            Start Creating Free
-                                            <Wand2 class="h-4 w-4 ml-2 transition-transform group-hover:rotate-12" />
+                                        <span class="flex items-center font-medium">
+                                            Start for free
                                         </span>
                                     </Link>
                                 {/snippet}
                             </Button>
-                            <Button variant="outline" size="lg" class="rounded-full h-12 px-8 text-base bg-background/50 backdrop-blur-sm hover:bg-muted/50" asChild>
+                            <Button variant="outline" size="lg" class="w-full sm:w-auto rounded-full h-12 px-8 text-base bg-background border-border hover:bg-muted font-medium transition-all" asChild>
                                 {#snippet children(props)}
                                     <Link href={toUrl(login())} {...props}>
-                                        Sign In
+                                        <Play class="h-4 w-4 mr-2" /> Book a demo
                                     </Link>
                                 {/snippet}
                             </Button>
                         {/if}
                     </div>
-
-                    <!-- Social Proof Avatar Group -->
-                    <div class="mt-10 flex flex-col items-center justify-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-both">
-                        <div class="flex -space-x-3">
-                            <img class="h-10 w-10 rounded-full border-2 border-background shadow-sm" src="https://i.pravatar.cc/100?img=33" alt="Creator" />
-                            <img class="h-10 w-10 rounded-full border-2 border-background shadow-sm" src="https://i.pravatar.cc/100?img=47" alt="Creator" />
-                            <img class="h-10 w-10 rounded-full border-2 border-background shadow-sm" src="https://i.pravatar.cc/100?img=12" alt="Creator" />
-                            <img class="h-10 w-10 rounded-full border-2 border-background shadow-sm" src="https://i.pravatar.cc/100?img=5" alt="Creator" />
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold text-foreground shadow-sm">+2k</div>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                            <div class="flex text-amber-500">
-                                <Star class="h-3.5 w-3.5 fill-current" />
-                                <Star class="h-3.5 w-3.5 fill-current" />
-                                <Star class="h-3.5 w-3.5 fill-current" />
-                                <Star class="h-3.5 w-3.5 fill-current" />
-                                <Star class="h-3.5 w-3.5 fill-current" />
-                            </div>
-                            <span>Joined by 2,000+ modern creators</span>
-                        </div>
-                    </div>
                 </div>
 
+                <!-- Minimalist Social Proof -->
+                <div class="mt-20 flex flex-col items-center justify-center gap-6">
+                    <p class="text-xs text-muted-foreground/60 font-semibold tracking-widest uppercase">Trusted by forward-thinking teams</p>
+                    <div class="flex flex-wrap justify-center items-center gap-x-12 gap-y-6 opacity-40 grayscale mix-blend-luminosity hover:opacity-60 transition-opacity">
+                        <!-- Cleaner Logos -->
+                        <div class="flex items-center gap-2 font-bold text-lg tracking-tight"><div class="h-6 w-6 rounded bg-foreground"></div> ACME</div>
+                        <div class="flex items-center gap-2 font-bold text-lg tracking-tight"><div class="h-6 w-6 rounded-full border-4 border-foreground"></div> GLOBEX</div>
+                        <div class="hidden sm:flex items-center gap-2 font-bold text-lg tracking-tight"><div class="h-0 w-6 border-b-4 border-t-4 border-foreground h-6"></div> STARK</div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Live Editor Demo -->
+            <!-- Sleek App Preview Window -->
             {#if !auth.user}
-                <div class="mx-auto mt-20 max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <DemoEditor {canRegister} />
+                <div class="mx-auto mt-24 max-w-6xl px-4 sm:px-6 lg:px-8 relative z-10">
+                    <!-- Beautiful drop shadow and glow for the editor -->
+                    <div class="absolute -inset-1 bg-gradient-to-r from-violet-500/20 to-blue-500/20 blur-2xl opacity-50 rounded-[2rem]"></div>
+                    <div class="relative rounded-2xl border border-border/40 bg-background/50 backdrop-blur-xl shadow-2xl p-2 md:p-3 ring-1 ring-white/5">
+                        <div class="rounded-xl overflow-hidden border border-border/50 bg-card shadow-inner">
+                            <!-- Faux Mac window controls -->
+                            <div class="flex items-center h-12 px-4 border-b border-border/50 bg-muted/30">
+                                <div class="flex gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-border hover:bg-red-500 transition-colors"></div>
+                                    <div class="w-3 h-3 rounded-full bg-border hover:bg-amber-500 transition-colors"></div>
+                                    <div class="w-3 h-3 rounded-full bg-border hover:bg-green-500 transition-colors"></div>
+                                </div>
+                                <div class="mx-auto flex items-center justify-center h-6 px-3 rounded-md bg-background/50 border border-border/50 text-xs font-medium text-muted-foreground shadow-sm">
+                                    <Sparkles class="w-3 h-3 mr-1.5" /> Untitled Project
+                                </div>
+                            </div>
+                            <DemoEditor {canRegister} />
+                        </div>
+                    </div>
                 </div>
             {/if}
         </section>
@@ -233,43 +235,101 @@
                     </p>
                 </div>
 
-                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {#each features as feature}
-                        <div class="group relative rounded-2xl border border-border/50 bg-background/50 p-6 transition-all hover:-translate-y-1 hover:shadow-xl {feature.shadowColor} {feature.borderColor} backdrop-blur-sm">
-                            <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl {feature.bgColor} transition-transform group-hover:scale-110">
-                                <feature.icon class="h-6 w-6 {feature.color}" />
+                <!-- Bento Box Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[minmax(250px,auto)]">
+                    
+                    <!-- Text to Image (Spans 2 cols) -->
+                    <div class="md:col-span-2 group relative overflow-hidden rounded-3xl border border-border/50 bg-background/50 p-8 sm:p-10 transition-all hover:shadow-2xl hover:shadow-violet-500/10 backdrop-blur-sm">
+                        <div class="absolute top-0 right-0 -mt-8 -mr-8 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl transition-transform duration-700 group-hover:scale-150"></div>
+                        <div class="relative z-10 max-w-sm">
+                            <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
+                                <Image class="h-7 w-7" />
                             </div>
-                            <h3 class="mb-2 text-xl font-semibold tracking-tight">
-                                {feature.title}
-                            </h3>
-                            <p class="text-sm text-muted-foreground leading-relaxed">
-                                {feature.description}
-                            </p>
+                            <h3 class="mb-3 text-3xl font-bold tracking-tight">Text to Image</h3>
+                            <p class="text-lg text-muted-foreground leading-relaxed">Generate stunning visuals from words. Integrated with FLUX, Stable Diffusion, and premium models.</p>
                         </div>
-                    {/each}
+                        <div class="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 opacity-10 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none">
+                            <Image class="w-[280px] h-[280px] text-violet-500" />
+                        </div>
+                    </div>
+
+                    <!-- Image to Video (Spans 1 col) -->
+                    <div class="md:col-span-1 group relative overflow-hidden rounded-3xl border border-border/50 bg-background/50 p-8 sm:p-10 transition-all hover:shadow-2xl hover:shadow-blue-500/10 backdrop-blur-sm flex flex-col justify-between">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="relative z-10">
+                            <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500">
+                                <Video class="h-7 w-7" />
+                            </div>
+                            <h3 class="mb-3 text-2xl font-bold tracking-tight">Image to Video</h3>
+                            <p class="text-base text-muted-foreground leading-relaxed">Bring your static images to life with cinematic motion and depth.</p>
+                        </div>
+                    </div>
+
+                    <!-- Text to Speech (Spans 1 col) -->
+                    <div class="md:col-span-1 group relative overflow-hidden rounded-3xl border border-border/50 bg-background/50 p-8 sm:p-10 transition-all hover:shadow-2xl hover:shadow-emerald-500/10 backdrop-blur-sm flex flex-col justify-between">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="relative z-10">
+                            <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500">
+                                <Mic class="h-7 w-7" />
+                            </div>
+                            <h3 class="mb-3 text-2xl font-bold tracking-tight">Text to Speech</h3>
+                            <p class="text-base text-muted-foreground leading-relaxed">Natural voiceovers that sound human in multiple languages.</p>
+                        </div>
+                    </div>
+
+                    <!-- Text to Music (Spans 2 cols) -->
+                    <div class="md:col-span-2 group relative overflow-hidden rounded-3xl border border-border/50 bg-background/50 p-8 sm:p-10 transition-all hover:shadow-2xl hover:shadow-amber-500/10 backdrop-blur-sm flex flex-col justify-end">
+                        <div class="absolute bottom-0 left-0 -mb-8 -ml-8 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl transition-transform duration-700 group-hover:scale-150"></div>
+                        <div class="absolute right-0 top-0 -mt-10 mr-10 opacity-10 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none">
+                            <Music class="w-[280px] h-[280px] text-amber-500" />
+                        </div>
+                        <div class="relative z-10 max-w-sm mt-auto">
+                            <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
+                                <Music class="h-7 w-7" />
+                            </div>
+                            <h3 class="mb-3 text-3xl font-bold tracking-tight">Text to Music</h3>
+                            <p class="text-lg text-muted-foreground leading-relaxed">Create soundtracks instantly. Build the perfect mood with Stable Audio and MusicGen.</p>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </section>
 
-        <!-- Founder Story Section -->
-        <section class="py-24 sm:py-32 relative">
-            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-                <!-- Opening quote -->
-                <div class="relative">
-                    <div class="absolute -left-4 -top-8 text-6xl text-muted/30 font-serif">"</div>
-                    <blockquote class="text-center text-3xl font-medium leading-tight md:text-4xl tracking-tight mb-16">
-                        After 10 years building software, I realized something:
-                        <span class="text-muted-foreground block mt-2">the best ideas often die because they can't be shown, only told.</span>
-                    </blockquote>
+        <!-- Founder Story Section - Typography Focused -->
+        <section class="relative overflow-hidden bg-foreground text-background py-32 sm:py-40">
+            <!-- Subtle noise pattern overlay for premium feel -->
+            <div class="absolute inset-0 opacity-[0.03] mix-blend-difference pointer-events-none bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')]"></div>
+            
+            <!-- Large abstract typographic watermark -->
+            <div class="absolute -top-24 left-0 -z-0 opacity-[0.03] text-[20vw] font-black tracking-tighter whitespace-nowrap select-none pointer-events-none">
+                PRESENCE
+            </div>
+
+            <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="max-w-4xl">
+                    <h2 class="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.05] mb-16 text-balance">
+                        "After 10 years building software, I realized something. 
+                        <span class="text-background/40">The best ideas often die because they can't be shown, only told.</span>"
+                    </h2>
                 </div>
 
-                <div class="grid md:grid-cols-2 gap-12 items-center">
-                    <div class="space-y-6 text-lg leading-relaxed text-muted-foreground">
+                <div class="grid md:grid-cols-4 gap-8 pt-12 border-t border-background/20 mt-16">
+                    <div class="md:col-span-1">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="h-12 w-12 rounded-full bg-background/20 overflow-hidden border border-background/30 flex items-center justify-center">
+                                <!-- Abstract avatar placeholder -->
+                                <Zap class="h-5 w-5 text-background" />
+                            </div>
+                            <div>
+                                <p class="font-bold text-lg leading-tight">Samuel</p>
+                                <p class="text-background/60 text-sm">Founder & Developer</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="md:col-span-3 text-lg md:text-xl text-background/70 space-y-6 max-w-3xl leading-relaxed">
                         <p>
-                            I'm Samuel. Solo founder, developer. For over a decade, I've been building products from scratch.
-                        </p>
-                        <p>
-                            The hardest part isn't writing code. It's <strong class="text-foreground font-semibold">communicating your vision</strong>. I'd spend hours explaining an idea, only to watch eyes glaze over.
+                            The hardest part isn't writing code. It's <strong class="text-background font-semibold">communicating your vision</strong>. I'd spend hours explaining an idea, only to watch eyes glaze over.
                         </p>
                         <p>
                             Then generative AI changed everything. I could finally show what I meant instantly.
@@ -277,14 +337,6 @@
                         <p>
                             I built this editor for people with ideas worth sharing, but without the time or budget for traditional video production.
                         </p>
-                    </div>
-                    <div class="relative">
-                        <div class="aspect-square rounded-2xl border border-border/50 bg-gradient-to-br from-muted to-muted/30 p-8 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
-                            <div class="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:16px_16px]"></div>
-                            <Zap class="h-12 w-12 text-amber-500 mb-4 relative z-10" />
-                            <h3 class="text-2xl font-bold relative z-10">For the next generation of makers.</h3>
-                            <p class="mt-2 text-sm text-muted-foreground relative z-10">Communicate better than ever before.</p>
-                        </div>
                     </div>
                 </div>
             </div>
