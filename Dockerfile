@@ -30,8 +30,7 @@ FROM node:24-alpine AS frontend-build
 WORKDIR /app
 
 # Install PHP (needed for Wayfinder route generation)
-RUN apk add --no-cache php84 php84-tokenizer php84-mbstring php84-openssl php84-phar \
-    && ln -s /usr/bin/php84 /usr/bin/php
+RUN apk add --no-cache php84 php84-tokenizer php84-mbstring php84-openssl php84-phar
 
 # Show versions for debugging
 RUN set -x && node --version && npm --version && php --version
