@@ -32,16 +32,23 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci --include=optional
+# Install dependencies (include optional for platform-specific packages)
+RUN npm ci --include=optional || npm install
+
+# Copy composer dependencies (needed for Wayfinder route generation)
+COPY --from=composer-deps /app/vendor ./vendor
 
 # Copy source files needed for build
 COPY resources ./resources
-COPY vite.config.ts tsconfig.json tailwind.config.ts ./
-COPY --from=composer-deps /app/vendor ./vendor
+COPY vite.config.ts tsconfig.json ./
 
 # Build frontend assets
-RUN npm run build
+ARG BUILD_SSR=false
+RUN if [ "$BUILD_SSR" = "true" ]; then \
+        npm run build:ssr; \
+    else \
+        npm run build; \
+    fi
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image
@@ -92,6 +99,7 @@ RUN apt-get update && apt-get upgrade -y \
         libcap2-bin \
         libpng-dev \
         dnsutils \
+        netcat-openbsd \
         # FFmpeg for video processing
         ffmpeg \
         # Image processing
@@ -187,5 +195,9 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chown -R www:www /var/www/html/storage
 
 EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/up || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
