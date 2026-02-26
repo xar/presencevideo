@@ -25,30 +25,41 @@ RUN composer install \
 # -----------------------------------------------------------------------------
 # Stage 2: Frontend Build
 # -----------------------------------------------------------------------------
-FROM node:22-alpine AS frontend-build
+FROM node:24-alpine AS frontend-build
 
 WORKDIR /app
+
+# Show versions for debugging
+RUN set -x && node --version && npm --version
 
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies (include optional for platform-specific packages)
-RUN npm ci --include=optional || npm install
+# Install dependencies - explicit steps for visibility
+RUN set -x \
+    && echo "Installing dependencies..." \
+    && npm ci --include=optional \
+    && echo "Dependencies installed successfully"
 
 # Copy composer dependencies (needed for Wayfinder route generation)
 COPY --from=composer-deps /app/vendor ./vendor
 
-# Copy source files needed for build
+# Copy ALL source files needed for build
 COPY resources ./resources
-COPY vite.config.ts tsconfig.json ./
-
-# Copy routes for Wayfinder plugin
 COPY routes ./routes
 COPY app ./app
 COPY bootstrap ./bootstrap
+COPY vite.config.ts tsconfig.json ./
+
+# Debug: list what we have
+RUN set -x && ls -la && ls -la resources/js/ | head -20
 
 # Build frontend assets
-RUN npm run build
+RUN set -x \
+    && echo "Starting Vite build..." \
+    && npm run build \
+    && echo "Build complete" \
+    && ls -la public/build/
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image
