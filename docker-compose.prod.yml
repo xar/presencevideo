@@ -1,15 +1,5 @@
 # =============================================================================
-# Docker Compose Production Overrides
-# =============================================================================
-#
-# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-#
-# This file contains production-specific settings:
-# - Service-specific environment variables
-# - Resource limits
-# - No exposed database ports
-# - Health checks and restart policies
-#
+# Docker Compose Production (Standalone for Coolify)
 # =============================================================================
 
 services:
@@ -17,51 +7,52 @@ services:
   # Application Server
   # ---------------------------------------------------------------------------
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      # Container mode
       CONTAINER_MODE: app
-
-      # App settings
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: ${APP_URL}
       APP_KEY: ${APP_KEY}
-
-      # Logging
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # Database
       DB_CONNECTION: ${DB_CONNECTION:-pgsql}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_DATABASE: ${DB_DATABASE:-videoeditor}
       DB_USERNAME: ${DB_USERNAME:-videoeditor}
       DB_PASSWORD: ${DB_PASSWORD}
-
-      # Redis
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-
-      # Cache & Session
       CACHE_STORE: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: redis
-
-      # Services
       FAL_API_KEY: ${FAL_API_KEY}
-
-      # Auto migration (set to true for first deploy)
       AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
-
-      # PHP settings for app server
       PHP_MEMORY_LIMIT: 512M
       PHP_MAX_EXECUTION_TIME: 120
       PHP_UPLOAD_MAX_FILESIZE: 500M
       PHP_POST_MAX_SIZE: 500M
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-storage:/var/www/html/storage/app
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -70,67 +61,53 @@ services:
         reservations:
           cpus: '1'
           memory: 512M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    networks:
+      - videoeditor
 
   # ---------------------------------------------------------------------------
   # Queue Worker
   # ---------------------------------------------------------------------------
   queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      # Container mode
       CONTAINER_MODE: queue
-
-      # App settings
       APP_ENV: production
       APP_DEBUG: "false"
       APP_KEY: ${APP_KEY}
-
-      # Logging
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # Database
       DB_CONNECTION: ${DB_CONNECTION:-pgsql}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_DATABASE: ${DB_DATABASE:-videoeditor}
       DB_USERNAME: ${DB_USERNAME:-videoeditor}
       DB_PASSWORD: ${DB_PASSWORD}
-
-      # Redis
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-
-      # Cache & Queue
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
-
-      # Queue worker settings (optimized for video processing)
       QUEUE_NAME: ${QUEUE_NAME:-default,renders,generations}
       QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-900}
       QUEUE_TRIES: ${QUEUE_TRIES:-3}
       QUEUE_MAX_JOBS: ${QUEUE_MAX_JOBS:-100}
       QUEUE_MEMORY: ${QUEUE_MEMORY:-2048}
-
-      # Services
       FAL_API_KEY: ${FAL_API_KEY}
-
-      # PHP settings for queue (high limits for video/FFmpeg processing)
       PHP_MEMORY_LIMIT: 2G
       PHP_MAX_EXECUTION_TIME: 0
       PHP_UPLOAD_MAX_FILESIZE: 2G
       PHP_POST_MAX_SIZE: 2G
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
+    volumes:
+      - app-storage:/var/www/html/storage/app
+    depends_on:
+      - postgres
+      - redis
     deploy:
       replicas: ${QUEUE_WORKERS:-3}
       resources:
@@ -140,55 +117,43 @@ services:
         reservations:
           cpus: '2'
           memory: 2G
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    networks:
+      - videoeditor
 
   # ---------------------------------------------------------------------------
   # Task Scheduler
   # ---------------------------------------------------------------------------
   scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      # Container mode
       CONTAINER_MODE: scheduler
-
-      # App settings
       APP_ENV: production
       APP_DEBUG: "false"
       APP_KEY: ${APP_KEY}
-
-      # Logging
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # Database
       DB_CONNECTION: ${DB_CONNECTION:-pgsql}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_DATABASE: ${DB_DATABASE:-videoeditor}
       DB_USERNAME: ${DB_USERNAME:-videoeditor}
       DB_PASSWORD: ${DB_PASSWORD}
-
-      # Redis
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-
-      # Cache
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
-
-      # PHP settings for scheduler
       PHP_MEMORY_LIMIT: 256M
       PHP_MAX_EXECUTION_TIME: 300
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
+    depends_on:
+      - postgres
+      - redis
     deploy:
       resources:
         limits:
@@ -197,28 +162,27 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    networks:
+      - videoeditor
 
   # ---------------------------------------------------------------------------
   # PostgreSQL Database
   # ---------------------------------------------------------------------------
   postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_DATABASE:-videoeditor}
       POSTGRES_USER: ${DB_USERNAME:-videoeditor}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      # Performance tuning
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    # Don't expose ports in production
-    ports: []
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-videoeditor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -227,12 +191,6 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    # Production PostgreSQL config (tuned for 4GB RAM)
     command: >
       postgres
       -c shared_buffers=1GB
@@ -251,15 +209,22 @@ services:
       -c max_parallel_workers=8
       -c max_parallel_maintenance_workers=4
       -c max_connections=200
+    networks:
+      - videoeditor
 
   # ---------------------------------------------------------------------------
   # Redis Cache & Queue
   # ---------------------------------------------------------------------------
   redis:
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-    # Don't expose ports in production
-    ports: []
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -268,12 +233,6 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    # Production Redis config (tuned for queue-heavy workload)
     command: >
       redis-server
       --appendonly yes
@@ -282,4 +241,23 @@ services:
       --tcp-keepalive 300
       --timeout 0
       --tcp-backlog 511
-      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    networks:
+      - videoeditor
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  app-storage:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  videoeditor:
+    driver: bridge
