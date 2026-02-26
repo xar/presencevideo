@@ -54,12 +54,8 @@ COPY vite.config.ts tsconfig.json ./
 # Debug: list what we have
 RUN set -x && ls -la && ls -la resources/js/ | head -20
 
-# Build frontend assets
-RUN set -x \
-    && echo "Starting Vite build..." \
-    && npm run build \
-    && echo "Build complete" \
-    && ls -la public/build/
+# Build frontend assets - capture error output
+RUN npm run build 2>&1 || (echo "BUILD FAILED - see error above" && exit 1)
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image

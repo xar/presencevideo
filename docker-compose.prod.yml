@@ -68,9 +68,10 @@ services:
   # Queue Worker
   # ---------------------------------------------------------------------------
   queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
-    depends_on:
-      - app
     restart: unless-stopped
     environment:
       CONTAINER_MODE: queue
@@ -122,9 +123,10 @@ services:
   # Task Scheduler
   # ---------------------------------------------------------------------------
   scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
-    depends_on:
-      - app
     restart: unless-stopped
     environment:
       CONTAINER_MODE: scheduler
