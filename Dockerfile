@@ -29,39 +29,22 @@ FROM node:24-alpine AS frontend-build
 
 WORKDIR /app
 
-# Install PHP (needed for Wayfinder route generation)
-RUN apk add --no-cache php84 php84-tokenizer php84-mbstring php84-openssl php84-phar
-
-# Show versions for debugging
-RUN set -x && node --version && npm --version && php --version
+# Set environment to skip Wayfinder regeneration (files are pre-committed)
+ENV DOCKER_BUILD=true
 
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies - explicit steps for visibility
-RUN set -x \
-    && echo "Installing dependencies..." \
-    && npm ci --include=optional \
-    && echo "Dependencies installed successfully"
+# Install dependencies
+RUN npm ci --include=optional
 
-# Copy composer dependencies (needed for Wayfinder route generation)
-COPY --from=composer-deps /app/vendor ./vendor
-
-# Copy ALL source files needed for build (including artisan + config for Wayfinder)
+# Copy frontend source files (Wayfinder routes are pre-committed)
 COPY resources ./resources
-COPY routes ./routes
-COPY app ./app
-COPY bootstrap ./bootstrap
 COPY public ./public
-COPY config ./config
-COPY artisan ./
 COPY vite.config.ts tsconfig.json ./
 
-# Debug: list what we have
-RUN set -x && ls -la && ls -la resources/js/ | head -20
-
-# Build frontend assets - capture error output
-RUN npm run build 2>&1 || (echo "BUILD FAILED - see error above" && exit 1)
+# Build frontend assets
+RUN npm run build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image
