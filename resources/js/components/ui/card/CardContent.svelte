@@ -11,6 +11,6 @@
     } = $props();
 </script>
 
-<div data-slot="card-content" class={cn('px-6', className)}>
+<div data-slot="card-content" class={cn('px-8', className)}>
     {@render children?.()}
 </div>

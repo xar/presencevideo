@@ -11,6 +11,6 @@
     } = $props();
 </script>
 
-<h3 data-slot="card-title" class={cn('leading-none font-semibold', className)}>
+<h3 data-slot="card-title" class={cn('text-xl font-bold leading-none tracking-tight text-foreground/90', className)}>
     {@render children?.()}
 </h3>

@@ -29,33 +29,37 @@
 </script>
 
 <DropdownMenuLabel class="p-0 font-normal">
-    <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+    <div class="flex items-center gap-3 px-2 py-3 text-left text-sm group transition-transform duration-300">
         <UserInfo {user} showEmail={true} />
     </div>
 </DropdownMenuLabel>
-<DropdownMenuSeparator />
+<DropdownMenuSeparator class="my-1.5 bg-border/40" />
 <DropdownMenuGroup>
     <DropdownMenuItem asChild>
         {#snippet children(props)}
-            <Link class={props.class} href={toUrl(edit())} prefetch onclick={props.onClick}>
-                <Settings class="mr-2 h-4 w-4" />
-                Settings
+            <Link class={props.class + ' group/item'} href={toUrl(edit())} prefetch onclick={props.onClick}>
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary group-hover/item:bg-primary group-hover/item:text-primary-foreground transition-all duration-300 shadow-inner group-hover/item:scale-105">
+                    <Settings class="size-4" />
+                </div>
+                <span class="ml-1 font-semibold text-foreground/90 group-hover/item:text-primary transition-colors">Settings</span>
             </Link>
         {/snippet}
     </DropdownMenuItem>
 </DropdownMenuGroup>
-<DropdownMenuSeparator />
+<DropdownMenuSeparator class="my-1.5 bg-border/40" />
 <DropdownMenuItem asChild>
     {#snippet children(props)}
         <Link
-            class={props.class}
+            class={props.class + ' group/item'}
             href={logout()}
             as="button"
             onclick={handleLogout(props.onClick)}
             data-test="logout-button"
         >
-            <LogOut class="mr-2 h-4 w-4" />
-            Log out
+            <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-destructive/10 text-destructive group-hover/item:bg-destructive group-hover/item:text-destructive-foreground transition-all duration-300 shadow-inner group-hover/item:scale-105">
+                <LogOut class="size-4" />
+            </div>
+            <span class="ml-1 font-semibold text-foreground/90 group-hover/item:text-destructive transition-colors">Log out</span>
         </Link>
     {/snippet}
 </DropdownMenuItem>

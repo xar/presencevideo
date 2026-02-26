@@ -52,7 +52,7 @@
 {#if open()}
     <div
         class={cn(
-            'absolute z-50 min-w-48 rounded-md border bg-popover p-2 text-popover-foreground shadow-md',
+            'absolute z-50 min-w-56 rounded-2xl border-2 border-border/50 bg-background/95 backdrop-blur-xl p-2.5 text-foreground shadow-2xl shadow-black/[0.05] dark:shadow-black/30 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-3 data-[side=left]:slide-in-from-right-3 data-[side=right]:slide-in-from-left-3 data-[side=top]:slide-in-from-bottom-3',
             alignClasses[align] ?? alignClasses.start,
             sideClasses[side] ?? sideClasses.bottom,
             className,

@@ -23,16 +23,16 @@
     }
 </script>
 
-<div class="inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+<div class="inline-flex gap-1 rounded-xl bg-sidebar border border-sidebar-border p-1 shadow-inner shadow-black/[0.02] dark:shadow-black/20">
     {#each tabs as { value, Icon, label } (value)}
         <button
             onclick={() => handleAppearanceChange(value)}
-            class="flex items-center rounded-md px-3.5 py-1.5 transition-colors {appearance.value === value
-                ? 'bg-white shadow-xs dark:bg-neutral-700 dark:text-neutral-100'
-                : 'text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60'}"
+            class="flex items-center rounded-lg px-4 py-2 transition-all duration-200 {appearance.value === value
+                ? 'bg-background shadow-sm shadow-black/[0.04] text-foreground font-medium dark:bg-neutral-800'
+                : 'text-muted-foreground hover:text-foreground hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40'}"
         >
             <Icon class="-ml-1 h-4 w-4" />
-            <span class="ml-1.5 text-sm">{label}</span>
+            <span class="ml-2 text-sm">{label}</span>
         </button>
     {/each}
 </div>
