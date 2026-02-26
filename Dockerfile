@@ -157,9 +157,9 @@ RUN echo "[PHP]" > /etc/php/8.5/cli/conf.d/99-custom.ini \
     && echo "opcache.max_accelerated_files = 10000" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
     && cp /etc/php/8.5/cli/conf.d/99-custom.ini /etc/php/8.5/fpm/conf.d/99-custom.ini
 
-# Create application user
-RUN groupadd --force -g 1000 www \
-    && useradd -ms /bin/bash --no-user-group -g www -u 1000 www
+# Create application user (use UID 1001 to avoid conflict with Ubuntu's default user)
+RUN groupadd --force -g 1001 www \
+    && useradd -ms /bin/bash --no-user-group -g www -u 1001 www
 
 # Copy application files
 COPY --chown=www:www . /var/www/html
