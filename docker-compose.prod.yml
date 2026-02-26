@@ -5,14 +5,63 @@
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
 # This file contains production-specific settings:
+# - Service-specific environment variables
+# - Resource limits
 # - No exposed database ports
-# - Optimized resource limits
-# - Health checks
+# - Health checks and restart policies
 #
 # =============================================================================
 
 services:
+  # ---------------------------------------------------------------------------
+  # Application Server
+  # ---------------------------------------------------------------------------
   app:
+    environment:
+      # Container mode
+      CONTAINER_MODE: app
+
+      # App settings
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL}
+      APP_KEY: ${APP_KEY}
+
+      # Logging
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Cache & Session
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+
+      # Services
+      FAL_API_KEY: ${FAL_API_KEY}
+
+      # Auto migration (set to true for first deploy)
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+
+      # PHP settings for app server
+      PHP_MEMORY_LIMIT: 256M
+      PHP_MAX_EXECUTION_TIME: 60
+      PHP_UPLOAD_MAX_FILESIZE: 100M
+      PHP_POST_MAX_SIZE: 100M
+      PHP_OPCACHE_ENABLE: 1
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
       resources:
         limits:
@@ -31,7 +80,55 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Queue Worker
+  # ---------------------------------------------------------------------------
   queue:
+    environment:
+      # Container mode
+      CONTAINER_MODE: queue
+
+      # App settings
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+
+      # Logging
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Cache & Queue
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+
+      # Queue worker settings (optimized for video processing)
+      QUEUE_NAME: ${QUEUE_NAME:-default,renders,generations}
+      QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-300}
+      QUEUE_TRIES: ${QUEUE_TRIES:-3}
+      QUEUE_MAX_JOBS: ${QUEUE_MAX_JOBS:-500}
+      QUEUE_MEMORY: ${QUEUE_MEMORY:-512}
+
+      # Services
+      FAL_API_KEY: ${FAL_API_KEY}
+
+      # PHP settings for queue (higher limits for video processing)
+      PHP_MEMORY_LIMIT: 512M
+      PHP_MAX_EXECUTION_TIME: 600
+      PHP_OPCACHE_ENABLE: 1
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
       replicas: ${QUEUE_WORKERS:-2}
       resources:
@@ -51,7 +148,45 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Task Scheduler
+  # ---------------------------------------------------------------------------
   scheduler:
+    environment:
+      # Container mode
+      CONTAINER_MODE: scheduler
+
+      # App settings
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+
+      # Logging
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Cache
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+
+      # PHP settings for scheduler (minimal)
+      PHP_MEMORY_LIMIT: 128M
+      PHP_MAX_EXECUTION_TIME: 60
+      PHP_OPCACHE_ENABLE: 1
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
       resources:
         limits:
@@ -70,7 +205,16 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
   postgres:
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-videoeditor}
+      POSTGRES_USER: ${DB_USERNAME:-videoeditor}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     # Don't expose ports in production
     ports: []
     deploy:
@@ -86,8 +230,31 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Production PostgreSQL config
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=16MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_worker_processes=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+      -c max_parallel_maintenance_workers=2
 
+  # ---------------------------------------------------------------------------
+  # Redis Cache & Queue
+  # ---------------------------------------------------------------------------
   redis:
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     # Don't expose ports in production
     ports: []
     deploy:
@@ -103,3 +270,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Production Redis config
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
