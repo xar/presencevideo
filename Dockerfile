@@ -84,23 +84,23 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get upgrade -y \
     && mkdir -p /etc/apt/keyrings \
     && apt-get install -y \
-        gnupg \
-        curl \
-        ca-certificates \
-        zip \
-        unzip \
-        git \
-        supervisor \
-        sqlite3 \
-        libcap2-bin \
-        libpng-dev \
-        dnsutils \
-        netcat-openbsd \
-        # FFmpeg for video processing
-        ffmpeg \
-        # Image processing
-        libgd3 \
-        imagemagick \
+    gnupg \
+    curl \
+    ca-certificates \
+    zip \
+    unzip \
+    git \
+    supervisor \
+    sqlite3 \
+    libcap2-bin \
+    libpng-dev \
+    dnsutils \
+    netcat-openbsd \
+    # FFmpeg for video processing
+    ffmpeg \
+    # Image processing
+    libgd3 \
+    imagemagick \
     # Add Caddy repository
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
@@ -112,20 +112,20 @@ RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y caddy \
     # Install PHP and extensions
     && apt-get install -y \
-        php8.5-cli \
-        php8.5-fpm \
-        php8.5-pgsql \
-        php8.5-sqlite3 \
-        php8.5-gd \
-        php8.5-curl \
-        php8.5-mysql \
-        php8.5-mbstring \
-        php8.5-xml \
-        php8.5-zip \
-        php8.5-bcmath \
-        php8.5-intl \
-        php8.5-redis \
-        php8.5-imagick \
+    php8.5-cli \
+    php8.5-fpm \
+    php8.5-pgsql \
+    php8.5-sqlite3 \
+    php8.5-gd \
+    php8.5-curl \
+    php8.5-mysql \
+    php8.5-mbstring \
+    php8.5-xml \
+    php8.5-zip \
+    php8.5-bcmath \
+    php8.5-intl \
+    php8.5-redis \
+    php8.5-imagick \
     # PostgreSQL client (optional, for pg_dump etc)
     && curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/keyrings/pgdg.gpg >/dev/null \
     && echo "deb [signed-by=/etc/apt/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
@@ -189,8 +189,5 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chown -R www:www /var/www/html/storage
 
 EXPOSE 8000
-
-# Disable healthcheck - Coolify/Traefik handles health monitoring
-HEALTHCHECK NONE
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
