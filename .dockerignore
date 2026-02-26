@@ -1,0 +1,119 @@
+# =============================================================================
+# Docker Ignore File
+# Optimized for fast builds - excludes files not needed in production image
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node modules (we rebuild in Docker)
+node_modules
+
+# Vendor (we rebuild with --no-dev in Docker)
+vendor
+
+# Build artifacts (we rebuild in Docker)
+public/build
+public/hot
+
+# Development files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (not needed inside container)
+docker-compose*.yml
+docker-compose*.yaml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+.travis.yml
+bitbucket-pipelines.yml
+
+# Testing
+tests
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+coverage
+.pest
+
+# Development tools
+.php-cs-fixer.cache
+.phpcs-cache
+phpstan.neon
+phpstan.neon.dist
+psalm.xml
+pint.json
+rector.php
+
+# Documentation
+*.md
+!readme.md
+docs
+CHANGELOG*
+LICENSE*
+
+# Logs
+storage/logs/*
+!storage/logs/.gitignore
+
+# Cache directories (will be created at runtime)
+storage/framework/cache/*
+!storage/framework/cache/.gitignore
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# Debugbar
+storage/debugbar
+
+# Telescope
+storage/telescope
+
+# Temporary files
+*.log
+*.cache
+*.tmp
+
+# NPM/Yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Database (local development)
+database/*.sqlite
+database/*.sqlite-journal
+
+# Laravel Sail (keep our docker config)
+# Note: docker/ directory is kept for entrypoint.sh and supervisord.conf
+
+# Claude Code
+.claude
+CLAUDE.md
+
+# Coolify
+coolify.yml
+coolify.yaml

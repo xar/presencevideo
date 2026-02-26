@@ -1,0 +1,233 @@
+# =============================================================================
+# Docker Compose for Local Development & Coolify Deployment
+# =============================================================================
+#
+# Usage:
+#   Development:  docker compose up -d
+#   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Environment Variables (set in Coolify or .env):
+#   CONTAINER_MODE: app | queue | scheduler | horizon
+#   APP_ENV: local | staging | production
+#   AUTO_MIGRATE: true | false
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Application Server
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-production}
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    container_name: videoeditor-app
+    restart: unless-stopped
+    environment:
+      CONTAINER_MODE: app
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Queue
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-redis}
+
+      # Cache
+      CACHE_STORE: ${CACHE_STORE:-redis}
+      SESSION_DRIVER: ${SESSION_DRIVER:-redis}
+
+      # Services
+      FAL_API_KEY: ${FAL_API_KEY}
+
+      # Auto migration
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+
+      # PHP settings
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-256M}
+      PHP_MAX_EXECUTION_TIME: ${PHP_MAX_EXECUTION_TIME:-60}
+      PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE:-100M}
+      PHP_POST_MAX_SIZE: ${PHP_POST_MAX_SIZE:-100M}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app-storage:/var/www/html/storage/app
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - videoeditor
+
+  # ---------------------------------------------------------------------------
+  # Queue Worker
+  # ---------------------------------------------------------------------------
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-production}
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    container_name: videoeditor-queue
+    restart: unless-stopped
+    environment:
+      CONTAINER_MODE: queue
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Queue settings
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-redis}
+      QUEUE_NAME: ${QUEUE_NAME:-default,renders,generations}
+      QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-300}
+      QUEUE_TRIES: ${QUEUE_TRIES:-3}
+      QUEUE_MAX_JOBS: ${QUEUE_MAX_JOBS:-1000}
+      QUEUE_MEMORY: ${QUEUE_MEMORY:-256}
+
+      # Services
+      FAL_API_KEY: ${FAL_API_KEY}
+
+      # PHP settings (higher for video processing)
+      PHP_MEMORY_LIMIT: ${QUEUE_PHP_MEMORY_LIMIT:-512M}
+      PHP_MAX_EXECUTION_TIME: ${QUEUE_PHP_MAX_EXECUTION_TIME:-600}
+    volumes:
+      - app-storage:/var/www/html/storage/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - videoeditor
+
+  # ---------------------------------------------------------------------------
+  # Task Scheduler
+  # ---------------------------------------------------------------------------
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-production}
+    image: ${REGISTRY:-}videoeditor:${IMAGE_TAG:-latest}
+    container_name: videoeditor-scheduler
+    restart: unless-stopped
+    environment:
+      CONTAINER_MODE: scheduler
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+
+      # Database
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-videoeditor}
+      DB_USERNAME: ${DB_USERNAME:-videoeditor}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - videoeditor
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: videoeditor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-videoeditor}
+      POSTGRES_USER: ${DB_USERNAME:-videoeditor}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_EXTERNAL_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-videoeditor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - videoeditor
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache & Queue
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: videoeditor-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - videoeditor
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  app-storage:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  videoeditor:
+    driver: bridge
