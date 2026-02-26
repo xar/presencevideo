@@ -47,12 +47,14 @@ RUN set -x \
 # Copy composer dependencies (needed for Wayfinder route generation)
 COPY --from=composer-deps /app/vendor ./vendor
 
-# Copy ALL source files needed for build
+# Copy ALL source files needed for build (including artisan + config for Wayfinder)
 COPY resources ./resources
 COPY routes ./routes
 COPY app ./app
 COPY bootstrap ./bootstrap
 COPY public ./public
+COPY config ./config
+COPY artisan ./
 COPY vite.config.ts tsconfig.json ./
 
 # Debug: list what we have
