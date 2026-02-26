@@ -101,10 +101,15 @@ RUN apt-get update && apt-get upgrade -y \
         # Image processing
         libgd3 \
         imagemagick \
+    # Add Caddy repository
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
     # Add PHP PPA
     && curl -sS 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xb8dc7e53946656efbce4c1dd71daeaab4ad4cab6' | gpg --dearmor | tee /etc/apt/keyrings/ppa_ondrej_php.gpg > /dev/null \
     && echo "deb [signed-by=/etc/apt/keyrings/ppa_ondrej_php.gpg] https://ppa.launchpadcontent.net/ondrej/php/ubuntu noble main" > /etc/apt/sources.list.d/ppa_ondrej_php.list \
     && apt-get update \
+    # Install Caddy
+    && apt-get install -y caddy \
     # Install PHP and extensions
     && apt-get install -y \
         php8.5-cli \
@@ -121,6 +126,7 @@ RUN apt-get update && apt-get upgrade -y \
         php8.5-intl \
         php8.5-redis \
         php8.5-imagick \
+        php8.5-opcache \
     # PostgreSQL client (optional, for pg_dump etc)
     && curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/keyrings/pgdg.gpg >/dev/null \
     && echo "deb [signed-by=/etc/apt/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
@@ -134,32 +140,17 @@ RUN apt-get update && apt-get upgrade -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Configure PHP-FPM
-RUN sed -i 's/listen = .*/listen = 9000/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/;listen.allowed_clients/listen.allowed_clients/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/pm.max_children = .*/pm.max_children = 50/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/pm.start_servers = .*/pm.start_servers = 5/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/pm.min_spare_servers = .*/pm.min_spare_servers = 5/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/pm.max_spare_servers = .*/pm.max_spare_servers = 35/' /etc/php/8.5/fpm/pool.d/www.conf \
-    && sed -i 's/;clear_env = .*/clear_env = no/' /etc/php/8.5/fpm/pool.d/www.conf
-
-# Create custom PHP configuration
-RUN echo "[PHP]" > /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "memory_limit = \${PHP_MEMORY_LIMIT}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "max_execution_time = \${PHP_MAX_EXECUTION_TIME}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "upload_max_filesize = \${PHP_UPLOAD_MAX_FILESIZE}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "post_max_size = \${PHP_POST_MAX_SIZE}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "[opcache]" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "opcache.enable = \${PHP_OPCACHE_ENABLE}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "opcache.validate_timestamps = \${PHP_OPCACHE_VALIDATE_TIMESTAMPS}" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "opcache.memory_consumption = 128" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && echo "opcache.max_accelerated_files = 10000" >> /etc/php/8.5/cli/conf.d/99-custom.ini \
-    && cp /etc/php/8.5/cli/conf.d/99-custom.ini /etc/php/8.5/fpm/conf.d/99-custom.ini
-
 # Create application user (use UID 1001 to avoid conflict with Ubuntu's default user)
 RUN groupadd --force -g 1001 www \
     && useradd -ms /bin/bash --no-user-group -g www -u 1001 www
+
+# Create required directories for PHP-FPM
+RUN mkdir -p /var/log/php-fpm /tmp/opcache /run/php \
+    && chown -R www:www /var/log/php-fpm /tmp/opcache /run/php
+
+# Configure PHP-FPM pid file location and error logging
+RUN sed -i 's|pid = .*|pid = /run/php/php-fpm.pid|' /etc/php/8.5/fpm/php-fpm.conf \
+    && sed -i 's|error_log = .*|error_log = /dev/stderr|' /etc/php/8.5/fpm/php-fpm.conf
 
 # Copy application files
 COPY --chown=www:www . /var/www/html
@@ -173,7 +164,15 @@ COPY --from=frontend-build --chown=www:www /app/public/build /var/www/html/publi
 # Run composer optimizations
 RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
 
-# Copy configuration files
+# Copy PHP-FPM pool configuration
+COPY docker/php-fpm/www.conf /etc/php/8.5/fpm/pool.d/www.conf
+COPY docker/php-fpm/php.ini /etc/php/8.5/fpm/conf.d/99-production.ini
+COPY docker/php-fpm/php.ini /etc/php/8.5/cli/conf.d/99-production.ini
+
+# Copy Caddy configuration
+COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
+
+# Copy supervisor and entrypoint
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
