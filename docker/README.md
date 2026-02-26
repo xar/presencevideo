@@ -93,23 +93,55 @@ CONTAINER_MODE=scheduler
 | `APP_ENV` | `production` | Environment |
 | `AUTO_MIGRATE` | `false` | Run migrations on start |
 
-### PHP Settings
+### PHP Settings (App Server)
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PHP_MEMORY_LIMIT` | `256M` | Memory limit |
-| `PHP_MAX_EXECUTION_TIME` | `60` | Max execution time |
-| `PHP_UPLOAD_MAX_FILESIZE` | `100M` | Upload file size limit |
-| `PHP_POST_MAX_SIZE` | `100M` | POST size limit |
+| `PHP_MEMORY_LIMIT` | `512M` | Memory limit |
+| `PHP_MAX_EXECUTION_TIME` | `120` | Max execution time (seconds) |
+| `PHP_UPLOAD_MAX_FILESIZE` | `500M` | Upload file size limit |
+| `PHP_POST_MAX_SIZE` | `500M` | POST size limit |
+
+### PHP Settings (Queue Workers - Production)
+Queue workers have higher limits for video processing:
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `PHP_MEMORY_LIMIT` | `2G` | High memory for FFmpeg |
+| `PHP_MAX_EXECUTION_TIME` | `0` | Unlimited (jobs have own timeout) |
+| `PHP_UPLOAD_MAX_FILESIZE` | `2G` | Large video uploads |
+| `PHP_POST_MAX_SIZE` | `2G` | Large video uploads |
 
 ### Queue Worker Settings
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `QUEUE_CONNECTION` | `redis` | Queue connection |
-| `QUEUE_NAME` | `default` | Queue names (comma-separated) |
-| `QUEUE_TIMEOUT` | `60` | Job timeout in seconds |
+| `QUEUE_NAME` | `default,renders,generations` | Queue names (comma-separated) |
+| `QUEUE_TIMEOUT` | `900` | Job timeout (15 min for video) |
 | `QUEUE_TRIES` | `3` | Retry attempts |
-| `QUEUE_MAX_JOBS` | `1000` | Jobs before restart |
-| `QUEUE_MEMORY` | `128` | Memory limit (MB) |
+| `QUEUE_MAX_JOBS` | `100` | Jobs before restart (memory cleanup) |
+| `QUEUE_MEMORY` | `2048` | Memory limit (2GB) |
+| `QUEUE_WORKERS` | `3` | Number of worker replicas |
+
+## Resource Allocation (Production)
+
+The production config (`docker-compose.prod.yml`) allocates significant resources for video processing:
+
+| Service | CPU Limit | Memory Limit | Replicas |
+|---------|-----------|--------------|----------|
+| App | 4 cores | 2 GB | 1 |
+| Queue | 8 cores | 8 GB | 3 |
+| Scheduler | 1 core | 512 MB | 1 |
+| PostgreSQL | 4 cores | 4 GB | 1 |
+| Redis | 2 cores | 2 GB | 1 |
+
+**Total minimum requirements:** ~20 CPU cores, ~24 GB RAM
+
+For smaller servers, adjust in `.env.docker`:
+```env
+QUEUE_WORKERS=1
+QUEUE_MEMORY=1024
+```
+
+Or override in `docker-compose.prod.yml`.
 
 ## Production Tips
 
@@ -118,6 +150,7 @@ CONTAINER_MODE=scheduler
 3. **Scale queue workers** for video processing workloads
 4. **Mount persistent storage** for `/var/www/html/storage/app`
 5. **Use health checks** - the `/up` endpoint is configured
+6. **Monitor memory** - FFmpeg can be memory-intensive
 
 ## Building Locally
 

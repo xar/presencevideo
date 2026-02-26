@@ -56,20 +56,20 @@ services:
       AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
 
       # PHP settings for app server
-      PHP_MEMORY_LIMIT: 256M
-      PHP_MAX_EXECUTION_TIME: 60
-      PHP_UPLOAD_MAX_FILESIZE: 100M
-      PHP_POST_MAX_SIZE: 100M
+      PHP_MEMORY_LIMIT: 512M
+      PHP_MAX_EXECUTION_TIME: 120
+      PHP_UPLOAD_MAX_FILESIZE: 500M
+      PHP_POST_MAX_SIZE: 500M
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '4'
+          memory: 2G
         reservations:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '1'
+          memory: 512M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -116,28 +116,30 @@ services:
 
       # Queue worker settings (optimized for video processing)
       QUEUE_NAME: ${QUEUE_NAME:-default,renders,generations}
-      QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-300}
+      QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-900}
       QUEUE_TRIES: ${QUEUE_TRIES:-3}
-      QUEUE_MAX_JOBS: ${QUEUE_MAX_JOBS:-500}
-      QUEUE_MEMORY: ${QUEUE_MEMORY:-512}
+      QUEUE_MAX_JOBS: ${QUEUE_MAX_JOBS:-100}
+      QUEUE_MEMORY: ${QUEUE_MEMORY:-2048}
 
       # Services
       FAL_API_KEY: ${FAL_API_KEY}
 
-      # PHP settings for queue (higher limits for video processing)
-      PHP_MEMORY_LIMIT: 512M
-      PHP_MAX_EXECUTION_TIME: 600
+      # PHP settings for queue (high limits for video/FFmpeg processing)
+      PHP_MEMORY_LIMIT: 2G
+      PHP_MAX_EXECUTION_TIME: 0
+      PHP_UPLOAD_MAX_FILESIZE: 2G
+      PHP_POST_MAX_SIZE: 2G
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
-      replicas: ${QUEUE_WORKERS:-2}
+      replicas: ${QUEUE_WORKERS:-3}
       resources:
         limits:
-          cpus: '4'
-          memory: 2G
+          cpus: '8'
+          memory: 8G
         reservations:
-          cpus: '1'
-          memory: 512M
+          cpus: '2'
+          memory: 2G
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -182,19 +184,19 @@ services:
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
 
-      # PHP settings for scheduler (minimal)
-      PHP_MEMORY_LIMIT: 128M
-      PHP_MAX_EXECUTION_TIME: 60
+      # PHP settings for scheduler
+      PHP_MEMORY_LIMIT: 256M
+      PHP_MAX_EXECUTION_TIME: 300
       PHP_OPCACHE_ENABLE: 1
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: 0
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '1'
+          memory: 512M
         reservations:
-          cpus: '0.1'
-          memory: 64M
+          cpus: '0.25'
+          memory: 128M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -220,34 +222,35 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '4'
+          memory: 4G
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1'
+          memory: 1G
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    # Production PostgreSQL config
+    # Production PostgreSQL config (tuned for 4GB RAM)
     command: >
       postgres
-      -c shared_buffers=256MB
-      -c effective_cache_size=768MB
-      -c maintenance_work_mem=64MB
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
       -c checkpoint_completion_target=0.9
-      -c wal_buffers=16MB
+      -c wal_buffers=64MB
       -c default_statistics_target=100
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
-      -c work_mem=16MB
-      -c min_wal_size=1GB
-      -c max_wal_size=4GB
-      -c max_worker_processes=4
-      -c max_parallel_workers_per_gather=2
-      -c max_parallel_workers=4
-      -c max_parallel_maintenance_workers=2
+      -c work_mem=64MB
+      -c min_wal_size=2GB
+      -c max_wal_size=8GB
+      -c max_worker_processes=8
+      -c max_parallel_workers_per_gather=4
+      -c max_parallel_workers=8
+      -c max_parallel_maintenance_workers=4
+      -c max_connections=200
 
   # ---------------------------------------------------------------------------
   # Redis Cache & Queue
@@ -260,20 +263,23 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '2'
+          memory: 2G
         reservations:
-          cpus: '0.1'
-          memory: 64M
+          cpus: '0.5'
+          memory: 256M
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    # Production Redis config
+    # Production Redis config (tuned for queue-heavy workload)
     command: >
       redis-server
       --appendonly yes
-      --maxmemory 256mb
+      --maxmemory 1536mb
       --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
       ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
