@@ -30,6 +30,16 @@
     let selectedScene = $derived(selectionStore.getSelectedScene());
     let currentMode = $state<'menu' | 'generate' | 'pipeline'>('menu');
     let currentType = $state<GenerationType | null>(null);
+
+    // Get image asset from current scene for image-to-video generation
+    let sceneImageAsset = $derived.by(() => {
+        if (!selectedScene || !projectStore.project?.assets) return null;
+        // Find first image layer in scene
+        const imageLayer = selectedScene.layers.find(l => l.type === 'image');
+        if (!imageLayer || !('asset_id' in imageLayer)) return null;
+        // Find the corresponding asset
+        return projectStore.project.assets.find(a => a.id === imageLayer.asset_id) ?? null;
+    });
     let currentModelKey = $state<string | null>(null);
     let prompt = $state('');
     let parameters = $state<Record<string, unknown>>({});
@@ -177,6 +187,12 @@
     async function startGeneration() {
         if (!currentType || !prompt.trim() || !projectStore.project || !selectedScene || !currentModelKey) return;
 
+        // For image-to-video, require an image in the scene
+        if (currentType === 'image_to_video' && !sceneImageAsset) {
+            alert('Add an image to the scene first to animate it into a video.');
+            return;
+        }
+
         isGenerating = true;
 
         // Determine if this is a catalog model (has fal-ai/ prefix) or registry model
@@ -197,6 +213,8 @@
                         model_key: isCatalogModel ? undefined : currentModelKey,
                         model_id: isCatalogModel ? currentModelKey : undefined,
                         parameters: parameters,
+                        // Automatically pass the scene's image for image-to-video
+                        input_asset_id: currentType === 'image_to_video' ? sceneImageAsset?.id : undefined,
                     }),
                 }
             );
@@ -525,6 +543,39 @@
     {:else if currentMode === 'generate'}
         <!-- Single Generation Mode -->
         <div class="flex-1 overflow-y-auto p-3 space-y-4">
+            <!-- Input Image Preview for image-to-video -->
+            {#if currentType === 'image_to_video'}
+                <Card class={sceneImageAsset ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>
+                    <CardHeader class="p-3 pb-2">
+                        <CardTitle class="text-xs flex items-center gap-2">
+                            <Image class="h-3 w-3" />
+                            Source Image
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="p-3 pt-0">
+                        {#if sceneImageAsset}
+                            <div class="space-y-2">
+                                <div class="aspect-video rounded-md overflow-hidden bg-muted">
+                                    <img
+                                        src={sceneImageAsset.url ?? sceneImageAsset.thumbnail_url}
+                                        alt={sceneImageAsset.name}
+                                        class="w-full h-full object-contain"
+                                    />
+                                </div>
+                                <p class="text-xs text-muted-foreground truncate">
+                                    {sceneImageAsset.name}
+                                </p>
+                            </div>
+                        {:else}
+                            <p class="text-xs text-destructive">
+                                No image in scene. Add an image layer first to animate it.
+                            </p>
+                        {/if}
+                    </CardContent>
+                </Card>
+                <Separator />
+            {/if}
+
             <!-- Model Selection -->
             <div class="space-y-2">
                 <Label class="text-xs font-medium">Model</Label>
@@ -585,7 +636,7 @@
             <Button
                 class="w-full"
                 onclick={startGeneration}
-                disabled={!prompt.trim() || isGenerating || !currentModelKey}
+                disabled={!prompt.trim() || isGenerating || !currentModelKey || (currentType === 'image_to_video' && !sceneImageAsset)}
             >
                 {#if isGenerating}
                     <Loader2 class="mr-2 h-4 w-4 animate-spin" />
