@@ -8,7 +8,7 @@ use App\Enums\GenerationType;
 use App\Models\Asset;
 use App\Models\Generation;
 use App\Services\FalAI\FalClient;
-use App\Services\FalAI\ModelConfig;
+use App\Services\FalAI\ModelRegistry;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,9 +17,12 @@ class FalAIService
 {
     protected FalClient $client;
 
-    public function __construct(?FalClient $client = null)
+    protected ModelRegistry $registry;
+
+    public function __construct(?FalClient $client = null, ?ModelRegistry $registry = null)
     {
         $this->client = $client ?? new FalClient;
+        $this->registry = $registry ?? new ModelRegistry;
     }
 
     /**
@@ -53,7 +56,13 @@ class FalAIService
      */
     public function getModels(GenerationType $type): array
     {
-        return ModelConfig::getModelsForType($type);
+        $models = $this->registry->getAllModels()[$type->value] ?? [];
+
+        return array_map(fn ($model) => [
+            'id' => $model['id'],
+            'name' => $model['name'],
+            'description' => $model['description'],
+        ], $models);
     }
 
     /**
@@ -63,7 +72,14 @@ class FalAIService
      */
     public function getModelConfig(GenerationType $type, string $modelKey): ?array
     {
-        return ModelConfig::getModel($type, $modelKey);
+        $models = $this->registry->getAllModels()[$type->value] ?? [];
+        foreach ($models as $model) {
+            if ($model['key'] === $modelKey) {
+                return $model;
+            }
+        }
+
+        return null;
     }
 
     protected function generateImage(Generation $generation): GenerationResult
@@ -286,7 +302,7 @@ class FalAIService
         $modelKey = $generation->parameters['model_key'] ?? null;
 
         if ($modelKey) {
-            $config = ModelConfig::getModel($generation->type, $modelKey);
+            $config = $this->getModelConfig($generation->type, $modelKey);
             if ($config) {
                 return $config;
             }
@@ -300,7 +316,7 @@ class FalAIService
         // Check if model ID was directly specified (catalog models use this)
         if ($generation->model) {
             // First try to find in our registry by ID
-            $models = ModelConfig::all()[$generation->type->value] ?? [];
+            $models = $this->registry->getAllModels()[$generation->type->value] ?? [];
             foreach ($models as $config) {
                 if ($config['id'] === $generation->model) {
                     return $config;
@@ -314,7 +330,12 @@ class FalAIService
         }
 
         // Fall back to default model
-        return ModelConfig::getDefaultModel($generation->type);
+        $models = $this->registry->getAllModels()[$generation->type->value] ?? [];
+        if (! empty($models)) {
+            return $models[array_key_first($models)];
+        }
+
+        throw new \RuntimeException("No models available for {$generation->type->value}");
     }
 
     /**
