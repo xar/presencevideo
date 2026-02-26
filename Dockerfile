@@ -126,7 +126,6 @@ RUN apt-get update && apt-get upgrade -y \
         php8.5-intl \
         php8.5-redis \
         php8.5-imagick \
-        php8.5-opcache \
     # PostgreSQL client (optional, for pg_dump etc)
     && curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/keyrings/pgdg.gpg >/dev/null \
     && echo "deb [signed-by=/etc/apt/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
