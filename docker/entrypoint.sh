@@ -73,14 +73,22 @@ fi
 if [ "$APP_ENV" != "local" ]; then
     log "Running Laravel optimizations..."
 
-    # Cache config, routes, and views
-    php artisan config:cache || warn "Config cache failed"
-    php artisan route:cache || warn "Route cache failed"
-    php artisan view:cache || warn "View cache failed"
-    php artisan event:cache || warn "Event cache failed"
+    # Check if APP_KEY is set
+    if [ -z "$APP_KEY" ]; then
+        warn "APP_KEY is not set - Laravel may not function properly"
+    fi
+
+    # Cache config, routes, and views (failures are not fatal)
+    php artisan config:cache 2>&1 || warn "Config cache failed (continuing anyway)"
+    php artisan route:cache 2>&1 || warn "Route cache failed (continuing anyway)"
+    php artisan view:cache 2>&1 || warn "View cache failed (continuing anyway)"
+    php artisan event:cache 2>&1 || warn "Event cache failed (continuing anyway)"
 
     log "Optimizations complete"
 fi
+
+# Create storage link if it doesn't exist
+php artisan storage:link 2>&1 || warn "Storage link already exists or failed"
 
 # Run migrations if AUTO_MIGRATE is set
 if [ "${AUTO_MIGRATE:-false}" = "true" ]; then
