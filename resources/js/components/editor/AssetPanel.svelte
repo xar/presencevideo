@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { router } from '@inertiajs/svelte';
+    import { Upload, Image, Video, Music, Loader2 } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
+    import { projectStore, selectionStore } from '@/lib/editor';
     import type { Asset, AssetType } from '@/types';
-    import { Upload, Image, Video, Music, Loader2 } from 'lucide-svelte';
-    import { router } from '@inertiajs/svelte';
 
     let assets = $derived(projectStore.project?.assets ?? []);
     let imageAssets = $derived(assets.filter((a) => a.type === 'image'));

@@ -1,8 +1,8 @@
 <script lang="ts">
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
+    import type { Scene, Layer, TextLayer, ImageLayer, VideoLayer, VideoClip, VideoTrack } from '@/types';
     import LayerItem from './LayerItem.svelte';
     import VideoTrackOverlay from './VideoTrackOverlay.svelte';
-    import type { Scene, Layer, TextLayer, ImageLayer, VideoLayer, VideoClip, VideoTrack } from '@/types';
 
     let project = $derived(projectStore.project);
     let isPlaying = $derived(timelineStore.isPlaying);

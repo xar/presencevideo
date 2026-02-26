@@ -1,12 +1,5 @@
 <script lang="ts">
-    import { projectStore, selectionStore } from '@/lib/editor';
-    import { Button } from '@/components/ui/button';
-    import { Label } from '@/components/ui/label';
-    import { Separator } from '@/components/ui/separator';
-    import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-    import { Badge } from '@/components/ui/badge';
-    import ModelPicker from './ModelPicker.svelte';
-    import ModelParameters from './ModelParameters.svelte';
+    import { router } from '@inertiajs/svelte';
     import {
         Sparkles,
         Image,
@@ -23,9 +16,16 @@
         ArrowRight,
         ExternalLink,
     } from 'lucide-svelte';
-    import type { GenerationType, GenerationStatus, Asset, ModelConfig, ModelsResponse } from '@/types';
-    import { router } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
+    import { Badge } from '@/components/ui/badge';
+    import { Button } from '@/components/ui/button';
+    import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+    import { Label } from '@/components/ui/label';
+    import { Separator } from '@/components/ui/separator';
+    import { projectStore, selectionStore } from '@/lib/editor';
+    import type { GenerationType, GenerationStatus, Asset, ModelConfig, ModelsResponse } from '@/types';
+    import ModelParameters from './ModelParameters.svelte';
+    import ModelPicker from './ModelPicker.svelte';
 
     let selectedScene = $derived(selectionStore.getSelectedScene());
     let currentMode = $state<'menu' | 'generate' | 'pipeline'>('menu');

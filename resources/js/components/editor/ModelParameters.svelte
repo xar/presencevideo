@@ -1,11 +1,11 @@
 <script lang="ts">
-    import { Label } from '@/components/ui/label';
-    import { Input } from '@/components/ui/input';
+    import { ChevronRight, RotateCcw } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Checkbox } from '@/components/ui/checkbox';
-    import { Slider } from '@/components/ui/slider';
     import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-    import { ChevronRight, RotateCcw } from 'lucide-svelte';
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
+    import { Slider } from '@/components/ui/slider';
     import type { ParameterConfig } from '@/types/editor';
 
     let {
@@ -93,6 +93,17 @@
                                     {getValue(key) ?? config.min ?? 0}
                                 </span>
                             </div>
+                        {:else if config.type === 'number'}
+                            <Input
+                                type="number"
+                                value={String(getValue(key) ?? '')}
+                                min={config.min}
+                                max={config.max}
+                                step={config.step}
+                                class="h-8 text-xs"
+                                oninput={(e) => setValue(key, e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
+                                {disabled}
+                            />
                         {:else if config.type === 'checkbox'}
                             <div class="flex items-center gap-2">
                                 <Checkbox
@@ -156,20 +167,31 @@
                                     {:else if config.type === 'slider'}
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 min-w-0">
-                                                <Slider
-                                                    value={[Number(getValue(key) ?? config.min ?? 0)]}
-                                                    min={config.min ?? 0}
-                                                    max={config.max ?? 100}
-                                                    step={config.step ?? 1}
-                                                    {disabled}
-                                                    onValueChange={(v) => setValue(key, v[0])}
-                                                />
+                                                    <Slider
+                                                        value={[Number(getValue(key) ?? config.min ?? 0)]}
+                                                        min={config.min ?? 0}
+                                                        max={config.max ?? 100}
+                                                        step={config.step ?? 1}
+                                                        {disabled}
+                                                        onValueChange={(v) => setValue(key, v[0])}
+                                                    />
+                                                </div>
+                                                <span class="text-xs text-muted-foreground w-10 text-right tabular-nums flex-shrink-0">
+                                                    {getValue(key) ?? config.min ?? 0}
+                                                </span>
                                             </div>
-                                            <span class="text-xs text-muted-foreground w-10 text-right tabular-nums flex-shrink-0">
-                                                {getValue(key) ?? config.min ?? 0}
-                                            </span>
-                                        </div>
-                                    {:else if config.type === 'checkbox'}
+                                        {:else if config.type === 'number'}
+                                            <Input
+                                                type="number"
+                                                value={String(getValue(key) ?? '')}
+                                                min={config.min}
+                                                max={config.max}
+                                                step={config.step}
+                                                class="h-8 text-xs"
+                                                oninput={(e) => setValue(key, e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
+                                                {disabled}
+                                            />
+                                        {:else if config.type === 'checkbox'}
                                         <div class="flex items-center gap-2">
                                             <Checkbox
                                                 checked={Boolean(getValue(key))}

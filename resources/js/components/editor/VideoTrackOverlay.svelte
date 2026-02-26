@@ -1,7 +1,7 @@
 <script lang="ts">
-    import type { VideoClip } from '@/types';
-    import { cn } from '@/lib/utils';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { cn } from '@/lib/utils';
+    import type { VideoClip } from '@/types';
 
     let {
         clip,

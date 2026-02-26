@@ -1,8 +1,8 @@
 <script lang="ts">
-    import type { AudioClip as AudioClipType } from '@/types';
-    import { cn } from '@/lib/utils';
-    import { projectStore } from '@/lib/editor';
     import { Music } from 'lucide-svelte';
+    import { projectStore } from '@/lib/editor';
+    import { cn } from '@/lib/utils';
+    import type { AudioClip as AudioClipType } from '@/types';
 
     let {
         clip,

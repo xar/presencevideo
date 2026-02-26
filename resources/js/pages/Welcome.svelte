@@ -1,12 +1,5 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
-    import AppHead from '@/components/AppHead.svelte';
-    import { toUrl } from '@/lib/utils';
-    import { login, register } from '@/routes';
-    import editor from '@/routes/editor';
-    import Button from '@/components/ui/button/Button.svelte';
-    import DemoEditor from '@/components/editor/DemoEditor.svelte';
-    import Separator from '@/components/ui/separator/Separator.svelte';
     import {
         Sparkles,
         Video,
@@ -20,6 +13,13 @@
         Zap,
         Star
     } from 'lucide-svelte';
+    import AppHead from '@/components/AppHead.svelte';
+    import DemoEditor from '@/components/editor/DemoEditor.svelte';
+    import Button from '@/components/ui/button/Button.svelte';
+    import Separator from '@/components/ui/separator/Separator.svelte';
+    import { toUrl } from '@/lib/utils';
+    import { login, register } from '@/routes';
+    import editor from '@/routes/editor';
 
     let {
         canRegister = true,

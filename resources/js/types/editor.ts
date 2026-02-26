@@ -233,7 +233,8 @@ export type ParameterType =
     | 'checkbox'
     | 'text'
     | 'textarea'
-    | 'audio_upload';
+    | 'audio_upload'
+    | 'number';
 
 export type ParameterGroup = 'common' | 'advanced';
 
@@ -243,7 +244,7 @@ export type ParameterConfig = {
     options?: Record<string, string>;
     min?: number;
     max?: number;
-    step?: number;
+    step?: number | string;
     group?: ParameterGroup;
 };
 
@@ -264,5 +265,5 @@ export type ModelConfig = {
 };
 
 export type ModelsResponse = {
-    models: Record<GenerationType, ModelConfig[]>;
+    models: Record<string, ModelConfig[]>;
 };

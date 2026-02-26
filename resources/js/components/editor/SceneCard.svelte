@@ -1,7 +1,7 @@
 <script lang="ts">
-    import type { Scene } from '@/types';
-    import { cn } from '@/lib/utils';
     import { Video, Play } from 'lucide-svelte';
+    import { cn } from '@/lib/utils';
+    import type { Scene } from '@/types';
 
     let {
         scene,

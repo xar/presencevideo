@@ -48,8 +48,11 @@ class ModelRegistry
                 'text_to_sfx' => $this->fetchRemoteModels('text-to-audio', ['effect', 'sfx', 'foley', 'ambient', 'environment']),
             ];
 
-            // Only cache if we successfully got models for at least the primary categories
-            if (! empty($models['text_to_image']) && ! empty($models['image_to_video'])) {
+            // If API failed, use fallback defaults to ensure the app doesn't break
+            if ($this->hasEmptyCategories($models)) {
+                $models = $this->getFallbackModels();
+            } else {
+                // Only cache if we successfully got models for at least the primary categories
                 Cache::put('fal_models_registry_remote', $models, 3600);
             }
         }
@@ -60,6 +63,67 @@ class ModelRegistry
     protected function hasEmptyCategories(array $models): bool
     {
         return empty($models['text_to_image']) || empty($models['image_to_video']);
+    }
+
+    protected function getFallbackModels(): array
+    {
+        return [
+            'text_to_image' => [
+                [
+                    'key' => 'fal-ai/flux/dev',
+                    'id' => 'fal-ai/flux/dev',
+                    'name' => 'FLUX.1 Dev',
+                    'description' => '12B parameter flow transformer. High-quality, versatile image generation.',
+                    'thumbnail' => null,
+                    'playground_url' => 'https://fal.ai/models/fal-ai/flux/dev',
+                    'category' => 'text-to-image',
+                    'tags' => ['flux'],
+                    'pricing' => null,
+                    'parameters' => [
+                        'image_size' => [
+                            'label' => 'Image Size',
+                            'group' => 'common',
+                            'type' => 'select',
+                            'options' => [
+                                'square_hd' => 'Square HD',
+                                'portrait_4_3' => 'Portrait 4:3',
+                                'portrait_16_9' => 'Portrait 16:9',
+                                'landscape_4_3' => 'Landscape 4:3',
+                                'landscape_16_9' => 'Landscape 16:9',
+                            ],
+                        ],
+                        'num_inference_steps' => ['label' => 'Inference Steps', 'group' => 'advanced', 'type' => 'slider', 'min' => 10, 'max' => 50, 'step' => 1],
+                    ],
+                    'defaults' => ['image_size' => 'portrait_16_9', 'num_inference_steps' => 28],
+                    'is_featured' => true,
+                    'is_new' => false,
+                    'is_catalog' => true,
+                ],
+            ],
+            'image_to_video' => [
+                [
+                    'key' => 'fal-ai/minimax-video/image-to-video',
+                    'id' => 'fal-ai/minimax-video/image-to-video',
+                    'name' => 'MiniMax Video',
+                    'description' => 'High-quality video generation with natural motion.',
+                    'thumbnail' => null,
+                    'playground_url' => 'https://fal.ai/models/fal-ai/minimax-video/image-to-video',
+                    'category' => 'image-to-video',
+                    'tags' => ['video'],
+                    'pricing' => null,
+                    'parameters' => [
+                        'prompt_optimizer' => ['label' => 'Optimize Prompt', 'group' => 'common', 'type' => 'checkbox'],
+                    ],
+                    'defaults' => ['prompt_optimizer' => true],
+                    'is_featured' => true,
+                    'is_new' => false,
+                    'is_catalog' => true,
+                ],
+            ],
+            'text_to_music' => [],
+            'text_to_speech' => [],
+            'text_to_sfx' => [],
+        ];
     }
 
     /**
@@ -224,7 +288,7 @@ class ModelRegistry
         // Common parameters we want to show prominently
         $commonKeys = ['prompt', 'image_url', 'image_size', 'aspect_ratio', 'num_images', 'duration', 'voice', 'style'];
         // Parameters to skip (handled separately or internal)
-        $skipKeys = ['prompt', 'image_url', 'video_url', 'audio_url', 'sync_mode', 'webhooks'];
+        $skipKeys = ['prompt', 'image_url', 'video_url', 'audio_url', 'sync_mode', 'webhooks', 'seed'];
 
         foreach ($properties as $key => $prop) {
             if (in_array($key, $skipKeys)) {
@@ -254,10 +318,21 @@ class ModelRegistry
             } elseif ($type === 'boolean') {
                 $paramConfig['type'] = 'checkbox';
             } elseif ($type === 'integer' || $type === 'number') {
-                $paramConfig['type'] = 'slider';
-                $paramConfig['min'] = $prop['minimum'] ?? 0;
-                $paramConfig['max'] = $prop['maximum'] ?? ($type === 'integer' ? 100 : 10);
-                $paramConfig['step'] = $type === 'integer' ? 1 : 0.1;
+                if (isset($prop['minimum']) && isset($prop['maximum'])) {
+                    $paramConfig['type'] = 'slider';
+                    $paramConfig['min'] = $prop['minimum'];
+                    $paramConfig['max'] = $prop['maximum'];
+                    $paramConfig['step'] = $type === 'integer' ? 1 : 0.1;
+                } else {
+                    $paramConfig['type'] = 'number';
+                    if (isset($prop['minimum'])) {
+                        $paramConfig['min'] = $prop['minimum'];
+                    }
+                    if (isset($prop['maximum'])) {
+                        $paramConfig['max'] = $prop['maximum'];
+                    }
+                    $paramConfig['step'] = $type === 'integer' ? 1 : 'any';
+                }
             } elseif ($type === 'string' && ($prop['maxLength'] ?? 0) > 200) {
                 $paramConfig['type'] = 'textarea';
             } else {

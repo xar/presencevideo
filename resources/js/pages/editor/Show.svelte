@@ -1,16 +1,16 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import AppHead from '@/components/AppHead.svelte';
-    import type { Project } from '@/types';
-    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
-    import EditorToolbar from '@/components/editor/EditorToolbar.svelte';
-    import SceneStrip from '@/components/editor/SceneStrip.svelte';
-    import SceneEditor from '@/components/editor/SceneEditor.svelte';
-    import PreviewPlayer from '@/components/editor/PreviewPlayer.svelte';
     import AssetPanel from '@/components/editor/AssetPanel.svelte';
     import AudioTracks from '@/components/editor/AudioTracks.svelte';
-    import VideoTracks from '@/components/editor/VideoTracks.svelte';
+    import EditorToolbar from '@/components/editor/EditorToolbar.svelte';
+    import PreviewPlayer from '@/components/editor/PreviewPlayer.svelte';
     import RightPanel from '@/components/editor/RightPanel.svelte';
+    import SceneEditor from '@/components/editor/SceneEditor.svelte';
+    import SceneStrip from '@/components/editor/SceneStrip.svelte';
+    import VideoTracks from '@/components/editor/VideoTracks.svelte';
+    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import type { Project } from '@/types';
 
     let { project }: { project: Project } = $props();
 

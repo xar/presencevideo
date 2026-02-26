@@ -1,7 +1,7 @@
 <script lang="ts">
-    import type { Layer, TextLayer, ImageLayer, VideoLayer } from '@/types';
-    import { cn } from '@/lib/utils';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { cn } from '@/lib/utils';
+    import type { Layer, TextLayer, ImageLayer, VideoLayer } from '@/types';
 
     let {
         layer,

@@ -1,3 +1,5 @@
+import { router } from '@inertiajs/svelte';
+import { v4 as uuid } from 'uuid';
 import type {
     Project,
     Scene,
@@ -8,8 +10,6 @@ import type {
     VideoClip,
     Asset,
 } from '@/types';
-import { router } from '@inertiajs/svelte';
-import { v4 as uuid } from 'uuid';
 
 export type ProjectStore = {
     project: Project | null;

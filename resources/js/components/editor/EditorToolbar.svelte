@@ -1,7 +1,5 @@
 <script lang="ts">
-    import { Button } from '@/components/ui/button';
-    import { Separator } from '@/components/ui/separator';
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { router } from '@inertiajs/svelte';
     import {
         Save,
         Download,
@@ -12,8 +10,10 @@
         Hand,
         ChevronLeft,
     } from 'lucide-svelte';
-    import { router } from '@inertiajs/svelte';
+    import { Button } from '@/components/ui/button';
+    import { Separator } from '@/components/ui/separator';
     import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+    import { projectStore, selectionStore } from '@/lib/editor';
 
     function goBack() {
         router.visit('/editor');

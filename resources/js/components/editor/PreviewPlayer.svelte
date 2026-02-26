@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { Button } from '@/components/ui/button';
-    import { timelineStore, projectStore } from '@/lib/editor';
     import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut } from 'lucide-svelte';
+    import { Button } from '@/components/ui/button';
     import { Slider } from '@/components/ui/slider';
+    import { timelineStore, projectStore } from '@/lib/editor';
 
     let currentTime = $derived(timelineStore.currentTimeMs);
     let totalDuration = $derived(timelineStore.getTotalDuration());

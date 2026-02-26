@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
-    import { Button } from '@/components/ui/button';
     import { Plus, Volume2, VolumeX } from 'lucide-svelte';
-    import AudioClip from './AudioClip.svelte';
+    import { Button } from '@/components/ui/button';
+    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import type { AudioTrack as AudioTrackType, AudioClip as AudioClipType } from '@/types';
+    import AudioClip from './AudioClip.svelte';
 
     let audioTracks = $derived(projectStore.project?.audio_tracks ?? []);
     let totalDuration = $derived(timelineStore.getTotalDuration());

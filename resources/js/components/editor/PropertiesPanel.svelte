@@ -1,11 +1,11 @@
 <script lang="ts">
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { Trash2 } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
+    import { projectStore, selectionStore } from '@/lib/editor';
     import type { TextLayer, ImageLayer, VideoLayer, Layer } from '@/types';
-    import { Trash2 } from 'lucide-svelte';
 
     let selection = $derived(selectionStore.selection);
     let selectedScene = $derived(selectionStore.getSelectedScene());

@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
-    import { Button } from '@/components/ui/button';
     import { Plus } from 'lucide-svelte';
-    import SceneCard from './SceneCard.svelte';
+    import { Button } from '@/components/ui/button';
+    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import type { Scene, ImageLayer, VideoLayer } from '@/types';
+    import SceneCard from './SceneCard.svelte';
 
     const MIN_WIDTH = 48;
     const MIN_DURATION_MS = 500;

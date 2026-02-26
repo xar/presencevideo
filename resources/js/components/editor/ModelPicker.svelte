@@ -1,9 +1,4 @@
 <script lang="ts">
-    import { Button } from '@/components/ui/button';
-    import { Badge } from '@/components/ui/badge';
-    import { Input } from '@/components/ui/input';
-    import { Separator } from '@/components/ui/separator';
-    import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
     import {
         ChevronDown,
         ExternalLink,
@@ -16,6 +11,11 @@
         Globe,
         Loader2,
     } from 'lucide-svelte';
+    import { Badge } from '@/components/ui/badge';
+    import { Button } from '@/components/ui/button';
+    import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+    import { Input } from '@/components/ui/input';
+    import { Separator } from '@/components/ui/separator';
     import type { ModelConfig } from '@/types/editor';
 
     type CatalogModel = {

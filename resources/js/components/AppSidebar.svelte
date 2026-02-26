@@ -15,8 +15,8 @@
         SidebarMenuItem,
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
-    import type { NavItem } from '@/types';
     import editor from '@/routes/editor';
+    import type { NavItem } from '@/types';
 
     let {
         children,

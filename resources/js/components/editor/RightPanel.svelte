@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { selectionStore } from '@/lib/editor';
-    import { Button } from '@/components/ui/button';
     import { Settings, Sparkles } from 'lucide-svelte';
-    import PropertiesPanel from './PropertiesPanel.svelte';
+    import { Button } from '@/components/ui/button';
+    import { selectionStore } from '@/lib/editor';
     import PipelinePanel from './PipelinePanel.svelte';
+    import PropertiesPanel from './PropertiesPanel.svelte';
 
     let activeTab = $state<'properties' | 'generate'>('properties');
 </script>

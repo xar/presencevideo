@@ -1,8 +1,8 @@
 <script lang="ts">
-    import type { VideoClip as VideoClipType } from '@/types';
-    import { cn } from '@/lib/utils';
-    import { projectStore } from '@/lib/editor';
     import { Film } from 'lucide-svelte';
+    import { projectStore } from '@/lib/editor';
+    import { cn } from '@/lib/utils';
+    import type { VideoClip as VideoClipType } from '@/types';
 
     let {
         clip,

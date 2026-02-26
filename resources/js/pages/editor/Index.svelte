@@ -1,14 +1,14 @@
 <script lang="ts">
+    import { router } from '@inertiajs/svelte';
+    import { Plus, Video, Clock, Folder } from 'lucide-svelte';
     import AppHead from '@/components/AppHead.svelte';
-    import AppLayout from '@/layouts/AppLayout.svelte';
-    import type { BreadcrumbItem, Project } from '@/types';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
     import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
-    import { router } from '@inertiajs/svelte';
-    import { Plus, Video, Clock, Folder } from 'lucide-svelte';
+    import AppLayout from '@/layouts/AppLayout.svelte';
+    import type { BreadcrumbItem, Project } from '@/types';
 
     let { projects = [] }: { projects: Project[] } = $props();
 

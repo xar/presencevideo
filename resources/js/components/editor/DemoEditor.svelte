@@ -1,19 +1,19 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { Link } from '@inertiajs/svelte';
-    import { projectStore, selectionStore } from '@/lib/editor';
-    import EditorToolbar from './EditorToolbar.svelte';
-    import SceneStrip from './SceneStrip.svelte';
-    import SceneEditor from './SceneEditor.svelte';
-    import AssetPanel from './AssetPanel.svelte';
-    import AudioTracks from './AudioTracks.svelte';
-    import VideoTracks from './VideoTracks.svelte';
-    import RightPanel from './RightPanel.svelte';
+    import { ArrowRight, Sparkles, Lock } from 'lucide-svelte';
+    import { onMount } from 'svelte';
     import Button from '@/components/ui/button/Button.svelte';
+    import { projectStore, selectionStore } from '@/lib/editor';
     import { toUrl } from '@/lib/utils';
     import { register, login } from '@/routes';
-    import { ArrowRight, Sparkles, Lock } from 'lucide-svelte';
     import type { Project } from '@/types';
+    import AssetPanel from './AssetPanel.svelte';
+    import AudioTracks from './AudioTracks.svelte';
+    import EditorToolbar from './EditorToolbar.svelte';
+    import RightPanel from './RightPanel.svelte';
+    import SceneEditor from './SceneEditor.svelte';
+    import SceneStrip from './SceneStrip.svelte';
+    import VideoTracks from './VideoTracks.svelte';
 
     let { canRegister = true }: { canRegister: boolean } = $props();
 
