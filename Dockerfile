@@ -29,8 +29,12 @@ FROM node:24-alpine AS frontend-build
 
 WORKDIR /app
 
+# Install PHP (needed for Wayfinder route generation)
+RUN apk add --no-cache php84 php84-tokenizer php84-mbstring php84-openssl php84-phar \
+    && ln -s /usr/bin/php84 /usr/bin/php
+
 # Show versions for debugging
-RUN set -x && node --version && npm --version
+RUN set -x && node --version && npm --version && php --version
 
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
@@ -49,6 +53,7 @@ COPY resources ./resources
 COPY routes ./routes
 COPY app ./app
 COPY bootstrap ./bootstrap
+COPY public ./public
 COPY vite.config.ts tsconfig.json ./
 
 # Debug: list what we have
