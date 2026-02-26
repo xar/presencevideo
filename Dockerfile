@@ -190,8 +190,7 @@ RUN mkdir -p /var/www/html/storage/logs \
 
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/up || exit 1
+# Disable healthcheck - Coolify/Traefik handles health monitoring
+HEALTHCHECK NONE
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
