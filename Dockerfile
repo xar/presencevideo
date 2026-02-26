@@ -25,7 +25,7 @@ RUN composer install \
 # -----------------------------------------------------------------------------
 # Stage 2: Frontend Build
 # -----------------------------------------------------------------------------
-FROM node:24-alpine AS frontend-build
+FROM node:22-alpine AS frontend-build
 
 WORKDIR /app
 
@@ -42,13 +42,13 @@ COPY --from=composer-deps /app/vendor ./vendor
 COPY resources ./resources
 COPY vite.config.ts tsconfig.json ./
 
+# Copy routes for Wayfinder plugin
+COPY routes ./routes
+COPY app ./app
+COPY bootstrap ./bootstrap
+
 # Build frontend assets
-ARG BUILD_SSR=false
-RUN if [ "$BUILD_SSR" = "true" ]; then \
-        npm run build:ssr; \
-    else \
-        npm run build; \
-    fi
+RUN npm run build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image
