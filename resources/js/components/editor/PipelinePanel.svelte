@@ -366,7 +366,7 @@
     }
 </script>
 
-<div class="flex h-full w-72 flex-col border-l bg-background">
+<div class="flex h-full w-full flex-col border-l bg-background">
     <!-- Header -->
     <div class="flex items-center gap-2 p-3 border-b">
         {#if currentMode !== 'menu'}
@@ -432,7 +432,7 @@
             <Separator />
             <p class="text-xs text-muted-foreground">Or generate individually:</p>
 
-            {#each generationTypes as genType}
+            {#each generationTypes as genType (genType.type)}
                 {@const typeModels = models[genType.type] ?? []}
                 <button type="button" class="w-full text-left" onclick={() => selectType(genType.type)}>
                     <Card class="cursor-pointer hover:border-primary/50 transition-colors">
@@ -458,7 +458,7 @@
     {:else if currentMode === 'pipeline'}
         <!-- Pipeline Mode -->
         <div class="flex-1 overflow-y-auto p-3 space-y-4">
-            {#each pipelineSteps as step, index}
+            {#each pipelineSteps as step, index (index)}
                 {@const stepType = generationTypes.find(t => t.type === step.type)}
                 {@const stepModels = models[step.type] ?? []}
                 {@const isActive = index === currentPipelineStep}
@@ -485,7 +485,7 @@
                     {#if isActive && !isLocked}
                         <CardContent class="p-3 pt-0 space-y-3">
                             <!-- Model Selection -->
-                            <div class="space-y-1">
+                            <div class="space-y-1 w-full overflow-hidden model-selection">
                                 <Label class="text-xs">Model</Label>
                                 <ModelPicker
                                     models={stepModels}
@@ -577,7 +577,7 @@
             {/if}
 
             <!-- Model Selection -->
-            <div class="space-y-2">
+            <div class="space-y-2 model-selection w-full">
                 <Label class="text-xs font-medium">Model</Label>
                 <ModelPicker
                     models={availableModels}

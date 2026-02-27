@@ -150,7 +150,7 @@
         {#if compact}
             <button
                 type="button"
-                class="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs hover:bg-accent disabled:opacity-50 disabled:pointer-events-none w-full"
+                class="model-picker-trigger flex max-w-full items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs hover:bg-accent disabled:opacity-50 disabled:pointer-events-none w-full"
                 {disabled}
             >
                 {#if selectedModel?.thumbnail}
@@ -166,7 +166,7 @@
         {:else}
             <button
                 type="button"
-                class="flex items-center gap-3 rounded-lg border bg-background p-3 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none w-full text-left transition-colors"
+                class="model-picker-trigger flex max-w-full items-center gap-3 rounded-lg border bg-background p-3 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none w-full text-left transition-colors"
                 {disabled}
             >
                 {#if selectedModel?.thumbnail}
@@ -242,7 +242,7 @@
                         <h3 class="text-sm font-medium">Featured</h3>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
-                        {#each filteredFeatured as model}
+                        {#each filteredFeatured as model (model.key)}
                             <button
                                 type="button"
                                 class="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent text-left transition-all {selectedKey === model.key ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''}"
@@ -265,7 +265,7 @@
                                         {#if model.is_new}
                                             <Badge variant="default" class="text-[10px] px-1.5 py-0 bg-green-500">NEW</Badge>
                                         {/if}
-                                        {#each model.tags.slice(0, 2) as tag}
+                                        {#each model.tags.slice(0, 2) as tag (tag)}
                                             <Badge variant="outline" class="text-[10px] px-1.5 py-0">{tag}</Badge>
                                         {/each}
                                     </div>
@@ -303,7 +303,7 @@
                         <h3 class="text-sm font-medium text-muted-foreground">More Models</h3>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
-                        {#each filteredOther as model}
+                        {#each filteredOther as model (model.key)}
                             <button
                                 type="button"
                                 class="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent text-left transition-all {selectedKey === model.key ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''}"
@@ -370,7 +370,7 @@
 
                     {#if filteredCatalog.length > 0}
                         <div class="grid grid-cols-1 gap-2">
-                            {#each filteredCatalog as model}
+                            {#each filteredCatalog as model (model.endpoint_id)}
                                 <button
                                     type="button"
                                     class="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent text-left transition-all border-dashed hover:border-blue-500"

@@ -8,7 +8,7 @@
     let activeTab = $state<'properties' | 'generate'>('properties');
 </script>
 
-<div class="flex w-72 flex-col border-l bg-background">
+<div class="flex w-[420px] max-w-4/12 flex-col border-l bg-background">
     <div class="flex border-b">
         <Button
             variant={activeTab === 'properties' ? 'secondary' : 'ghost'}
