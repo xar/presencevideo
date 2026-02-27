@@ -69,6 +69,10 @@
     });
 
     function handleLayerClick(layer: Layer, e: MouseEvent) {
+        // When text tool is active, let the click propagate to canvas to add text
+        if (currentTool === 'text') {
+            return;
+        }
         e.stopPropagation();
         if (displayedScene) {
             selectionStore.selectLayer(displayedScene.id, layer.id);
@@ -109,6 +113,10 @@
     }
 
     function handleVideoClipClick(trackId: string, clip: VideoClip, e: MouseEvent) {
+        // When text tool is active, let the click propagate to canvas to add text
+        if (currentTool === 'text') {
+            return;
+        }
         e.stopPropagation();
         selectionStore.selectVideoClip(trackId, clip.id);
     }

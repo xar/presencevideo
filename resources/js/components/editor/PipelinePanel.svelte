@@ -48,6 +48,13 @@
     let isLoadingModels = $state(true);
     let parametersByModel = $state<Record<string, Record<string, unknown>>>({});
     let isLoadingCatalogModel = $state(false);
+
+    // Helper to get CSRF token from meta tag or cookie
+    function getCsrfToken(): string {
+        return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
+            ?? decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '')
+            ?? '';
+    }
     let catalogModels = $state<Record<string, ModelConfig>>({});
 
     // Pipeline state
@@ -199,13 +206,16 @@
         const isCatalogModel = currentModel?.is_catalog || currentModelKey.includes('/');
 
         try {
+            const csrfToken = getCsrfToken();
             const response = await fetch(
                 `/editor/projects/${projectStore.project.id}/generate/${currentType}`,
                 {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-XSRF-TOKEN': csrfToken,
                     },
                     body: JSON.stringify({
                         prompt: prompt.trim(),
@@ -329,13 +339,16 @@
                 }
             }
 
+            const csrfToken = getCsrfToken();
             const response = await fetch(
                 `/editor/projects/${projectStore.project.id}/generate/${step.type}`,
                 {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-XSRF-TOKEN': csrfToken,
                     },
                     body: JSON.stringify(body),
                 }

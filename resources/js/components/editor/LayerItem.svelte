@@ -239,6 +239,8 @@
         {/if}
     {:else if layer.type === 'text'}
         {@const textLayer = layer as TextLayer}
+        {@const strokeWidth = (textLayer.stroke_width ?? 0) * scale}
+        {@const strokeColor = textLayer.stroke_color ?? '#000000'}
         <div
             class="flex h-full w-full items-center justify-center p-2 overflow-hidden"
             style:font-family={textLayer.font_family ?? 'system-ui'}
@@ -248,6 +250,8 @@
             style:text-align={textLayer.text_align ?? 'center'}
             style:background-color={textLayer.background_color ?? 'transparent'}
             style:padding="{(textLayer.padding ?? 0) * scale}px"
+            style:-webkit-text-stroke={strokeWidth > 0 ? `${strokeWidth}px ${strokeColor}` : 'none'}
+            style:paint-order={strokeWidth > 0 ? 'stroke fill' : 'normal'}
         >
             {textLayer.text}
         </div>

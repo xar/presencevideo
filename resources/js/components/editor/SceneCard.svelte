@@ -1,11 +1,12 @@
 <script lang="ts">
     import { Video, Play } from 'lucide-svelte';
     import { cn } from '@/lib/utils';
-    import type { Scene } from '@/types';
+    import type { Scene, Asset } from '@/types';
 
     let {
         scene,
         index,
+        assets = [],
         isSelected = false,
         isPlaying = false,
         width,
@@ -15,6 +16,7 @@
     }: {
         scene: Scene;
         index: number;
+        assets?: Asset[];
         isSelected?: boolean;
         isPlaying?: boolean;
         width?: number;
@@ -29,6 +31,25 @@
         const remainingSeconds = seconds % 60;
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
+
+    // Find the first image/video layer's asset URL for preview
+    let previewUrl = $derived.by(() => {
+        // First check if scene has explicit thumbnail
+        if (scene.thumbnail_url) return scene.thumbnail_url;
+
+        // Find first visual layer (image or video)
+        const visualLayer = scene.layers.find(
+            (l) => l.type === 'image' || l.type === 'video'
+        );
+        if (!visualLayer || !('asset_id' in visualLayer)) return null;
+
+        // Find the asset
+        const asset = assets.find((a) => a.id === visualLayer.asset_id);
+        if (!asset) return null;
+
+        // Prefer thumbnail for videos, direct URL for images
+        return asset.thumbnail_url ?? asset.url ?? null;
+    });
 </script>
 
 <button
@@ -43,9 +64,9 @@
     style:min-width={minWidth ? `${minWidth}px` : undefined}
     {onclick}
 >
-    {#if scene.thumbnail_url}
+    {#if previewUrl}
         <img
-            src={scene.thumbnail_url}
+            src={previewUrl}
             alt={scene.name ?? `Scene ${index + 1}`}
             class="absolute inset-0 h-full w-full rounded-md object-cover"
         />

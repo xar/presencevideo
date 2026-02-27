@@ -99,7 +99,7 @@ npx shadcn-svelte@next add <component-name>
 ## Environment Variables
 
 ```bash
-FAL_API_KEY=your_fal_ai_key  # Required for AI generation
+FAL_KEY=your_fal_ai_key  # Required for AI generation
 ```
 
 ## AI Generation Models (fal.ai)

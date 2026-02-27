@@ -144,6 +144,13 @@ class ModelRegistry
     protected function fetchRemoteModels(string $category, array $tagFilters = []): array
     {
         try {
+            // Check if API key is configured
+            if (empty($this->apiKey)) {
+                Log::error('Fal.ai API key not configured. Set FAL_KEY in your .env file.');
+
+                return [];
+            }
+
             // We fetch up to 10 models since that is the limit with expand=openapi-3.0
             $response = Http::withHeaders([
                 'Authorization' => 'Key '.$this->apiKey,
@@ -159,6 +166,7 @@ class ModelRegistry
                 Log::warning("Fal.ai model fetch failed for category {$category}", [
                     'status' => $response->status(),
                     'error' => $response->json('error', 'Unknown error'),
+                    'body' => $response->body(),
                 ]);
 
                 return [];

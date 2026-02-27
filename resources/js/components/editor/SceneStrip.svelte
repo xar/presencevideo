@@ -9,6 +9,7 @@
     const MIN_DURATION_MS = 500;
 
     let scenes = $derived(projectStore.project?.scenes ?? []);
+    let assets = $derived(projectStore.project?.assets ?? []);
     let selectedSceneId = $derived(selectionStore.selection.sceneId);
     let isPlaying = $derived(timelineStore.isPlaying);
     let playingSceneIndex = $derived(timelineStore.getCurrentSceneIndex());
@@ -184,6 +185,7 @@
             <SceneCard
                 {scene}
                 {index}
+                {assets}
                 isSelected={scene.id === selectedSceneId}
                 isPlaying={isPlaying && index === playingSceneIndex}
                 width={getSceneWidth(scene)}

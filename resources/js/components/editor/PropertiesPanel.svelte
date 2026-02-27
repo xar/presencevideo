@@ -179,6 +179,36 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <Label class="text-xs">Stroke Width</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={textLayer.stroke_width ?? 0}
+                                oninput={(e) => updateTextLayer('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
+                                class="h-8"
+                            />
+                        </div>
+                        <div>
+                            <Label class="text-xs">Stroke Color</Label>
+                            <div class="flex gap-1">
+                                <input
+                                    type="color"
+                                    value={textLayer.stroke_color ?? '#000000'}
+                                    oninput={(e) => updateTextLayer('stroke_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 w-8 rounded border cursor-pointer"
+                                />
+                                <Input
+                                    value={textLayer.stroke_color ?? '#000000'}
+                                    oninput={(e) => updateTextLayer('stroke_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 flex-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 {/if}
 
                 <Separator />

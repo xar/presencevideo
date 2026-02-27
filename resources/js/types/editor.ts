@@ -65,6 +65,8 @@ export type TextLayer = BaseLayer & {
     text_align?: 'left' | 'center' | 'right';
     background_color?: string;
     padding?: number;
+    stroke_color?: string;
+    stroke_width?: number;
 };
 
 export type Layer = VideoLayer | ImageLayer | TextLayer;

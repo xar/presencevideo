@@ -39,11 +39,18 @@
             formData.append('type', type);
 
             try {
+                // Get CSRF token from meta tag or cookie
+                const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
+                    ?? document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1]?.replace(/%3D/g, '=')
+                    ?? '';
+
                 const response = await fetch(`/editor/projects/${projectStore.project.id}/assets`, {
                     method: 'POST',
                     body: formData,
+                    credentials: 'same-origin',
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-XSRF-TOKEN': csrfToken,
                         'Accept': 'application/json',
                     },
                 });
