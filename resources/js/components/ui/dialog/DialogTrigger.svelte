@@ -13,7 +13,7 @@
 {#if asChild}
     {@render children?.({ onClick: handleClick, 'aria-expanded': open() })}
 {:else}
-    <button type="button" onclick={handleClick} aria-expanded={open()}>
+    <button type="button" class="w-full" onclick={handleClick} aria-expanded={open()}>
         {@render children?.({})}
     </button>
 {/if}

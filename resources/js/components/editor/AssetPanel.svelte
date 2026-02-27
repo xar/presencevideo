@@ -101,6 +101,31 @@
 
         selectionStore.selectLayer(selectedScene.id, layer.id);
     }
+
+    function addAudioToTrack(asset: Asset) {
+        if (!projectStore.project) return;
+
+        // Get or create an audio track
+        let audioTracks = projectStore.project.audio_tracks;
+        let targetTrack = audioTracks[0];
+
+        if (!targetTrack) {
+            targetTrack = projectStore.addAudioTrack();
+        }
+
+        // Add clip at the end of existing clips, or at start
+        const lastClip = targetTrack.clips[targetTrack.clips.length - 1];
+        const startMs = lastClip ? lastClip.start_ms + lastClip.duration_ms : 0;
+
+        const clip = projectStore.addAudioClip(targetTrack.id, {
+            asset_id: asset.id,
+            start_ms: startMs,
+            duration_ms: asset.duration_ms ?? 5000,
+            volume: 1.0,
+        });
+
+        selectionStore.selectAudioClip(targetTrack.id, clip.id);
+    }
 </script>
 
 <input
@@ -188,11 +213,18 @@
                     {#each audioAssets as asset (asset.id)}
                         <button
                             type="button"
-                            class="w-full flex items-center gap-2 rounded border p-2 text-left text-xs hover:bg-muted"
-                            onclick={() => {}}
+                            class="w-full flex items-center gap-2 rounded border p-2 text-left text-xs hover:bg-muted hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
+                            onclick={() => addAudioToTrack(asset)}
+                            draggable="true"
+                            ondragstart={(e) => handleDragStart(e, asset)}
                         >
                             <Music class="h-4 w-4 text-muted-foreground" />
                             <span class="truncate flex-1">{asset.name}</span>
+                            {#if asset.duration_ms}
+                                <span class="text-muted-foreground text-[10px]">
+                                    {Math.floor(asset.duration_ms / 1000)}s
+                                </span>
+                            {/if}
                         </button>
                     {/each}
                 </div>

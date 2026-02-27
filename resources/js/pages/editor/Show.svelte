@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import AppHead from '@/components/AppHead.svelte';
     import AssetPanel from '@/components/editor/AssetPanel.svelte';
+    import AudioPlayback from '@/components/editor/AudioPlayback.svelte';
     import AudioTracks from '@/components/editor/AudioTracks.svelte';
     import EditorToolbar from '@/components/editor/EditorToolbar.svelte';
     import PreviewPlayer from '@/components/editor/PreviewPlayer.svelte';
@@ -87,4 +88,7 @@
         <VideoTracks />
         <AudioTracks />
     </div>
+
+    <!-- Audio playback manager (no visual output) -->
+    <AudioPlayback />
 </div>

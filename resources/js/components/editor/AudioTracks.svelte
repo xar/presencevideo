@@ -6,8 +6,10 @@
     import AudioClip from './AudioClip.svelte';
 
     let audioTracks = $derived(projectStore.project?.audio_tracks ?? []);
+    let assets = $derived(projectStore.project?.assets ?? []);
     let totalDuration = $derived(timelineStore.getTotalDuration());
     let pixelsPerMs = $derived(timelineStore.pixelsPerMs);
+    let dragOverTrackId = $state<string | null>(null);
 
     function addTrack() {
         projectStore.addAudioTrack();
@@ -23,6 +25,52 @@
 
     function handleClipUpdate(trackId: string, clipId: string, updates: Partial<AudioClipType>) {
         projectStore.updateAudioClip(trackId, clipId, updates);
+    }
+
+    function handleDragOver(e: DragEvent, trackId: string) {
+        e.preventDefault();
+        if (e.dataTransfer?.types.includes('application/json')) {
+            e.dataTransfer.dropEffect = 'copy';
+            dragOverTrackId = trackId;
+        }
+    }
+
+    function handleDragLeave(e: DragEvent) {
+        dragOverTrackId = null;
+    }
+
+    function handleDrop(e: DragEvent, track: AudioTrackType) {
+        e.preventDefault();
+        dragOverTrackId = null;
+
+        if (!e.dataTransfer) return;
+
+        const data = e.dataTransfer.getData('application/json');
+        if (!data) return;
+
+        try {
+            const parsed = JSON.parse(data);
+            if (parsed.type !== 'asset' || parsed.assetType !== 'audio') return;
+
+            // Find the asset to get duration
+            const asset = assets.find(a => a.id === parsed.assetId);
+
+            // Calculate drop position in milliseconds
+            const trackRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const dropX = e.clientX - trackRect.left;
+            const startMs = Math.max(0, Math.round(dropX / pixelsPerMs));
+
+            const clip = projectStore.addAudioClip(track.id, {
+                asset_id: parsed.assetId,
+                start_ms: startMs,
+                duration_ms: asset?.duration_ms ?? 5000,
+                volume: 1.0,
+            });
+
+            selectionStore.selectAudioClip(track.id, clip.id);
+        } catch (err) {
+            console.error('Failed to add audio clip:', err);
+        }
     }
 </script>
 
@@ -45,7 +93,13 @@
                 <span class="text-xs truncate flex-1">{track.name}</span>
             </div>
 
-            <div class="relative flex-1 overflow-hidden">
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+                class="relative flex-1 overflow-hidden transition-colors {dragOverTrackId === track.id ? 'bg-primary/10 ring-2 ring-inset ring-primary' : ''}"
+                ondragover={(e) => handleDragOver(e, track.id)}
+                ondragleave={handleDragLeave}
+                ondrop={(e) => handleDrop(e, track)}
+            >
                 <div
                     class="absolute inset-0"
                     style:width="{totalDuration * pixelsPerMs}px"

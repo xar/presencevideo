@@ -64,24 +64,22 @@
     style:min-width={minWidth ? `${minWidth}px` : undefined}
     {onclick}
 >
-    {#if previewUrl}
-        <img
-            src={previewUrl}
-            alt={scene.name ?? `Scene ${index + 1}`}
-            class="absolute inset-0 h-full w-full rounded-md object-cover"
-        />
-    {:else}
-        <div
-            class="absolute inset-0 rounded-md"
-            style:background-color={scene.background_color ?? '#000'}
-        >
-            {#if scene.layers.length === 0}
-                <div class="flex h-full items-center justify-center">
-                    <Video class="h-6 w-6 text-muted-foreground/30" />
-                </div>
-            {/if}
-        </div>
-    {/if}
+    <div
+        class="absolute inset-0 rounded-md overflow-hidden"
+        style:background-color={scene.background_color ?? '#18181b'}
+    >
+        {#if previewUrl}
+            <img
+                src={previewUrl}
+                alt={scene.name ?? `Scene ${index + 1}`}
+                class="h-full w-full object-contain"
+            />
+        {:else if scene.layers.length === 0}
+            <div class="flex h-full items-center justify-center">
+                <Video class="h-6 w-6 text-muted-foreground/30" />
+            </div>
+        {/if}
+    </div>
 
     {#if isPlaying}
         <div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
