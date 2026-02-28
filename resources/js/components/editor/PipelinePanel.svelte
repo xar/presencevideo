@@ -406,7 +406,7 @@
     }
 </script>
 
-<div class="flex h-full w-full flex-col border-l bg-background">
+<div class="flex overflow-auto w-full flex-col border-l bg-background">
     <!-- Header -->
     <div class="flex items-center gap-2 p-3 border-b">
         {#if currentMode !== 'menu'}

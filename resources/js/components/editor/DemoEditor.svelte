@@ -121,6 +121,7 @@
             },
         ],
         video_tracks: [],
+        subtitle_tracks: [],
     };
 
     onMount(() => {

@@ -70,6 +70,13 @@ class RenderProject implements ShouldQueue
                 $concatenated = $ffmpeg->overlayVideoTracks($concatenated, $videoTracks, $project);
             }
 
+            // Burn subtitles onto the video
+            $subtitleTracks = $project->subtitle_tracks ?? [];
+            if (! empty($subtitleTracks)) {
+                $this->render->update(['progress' => 78]);
+                $concatenated = $ffmpeg->burnSubtitles($concatenated, $subtitleTracks, $project);
+            }
+
             $audioTracks = $project->audio_tracks ?? [];
             $totalDurationMs = array_sum(array_column($scenes, 'duration_ms'));
 

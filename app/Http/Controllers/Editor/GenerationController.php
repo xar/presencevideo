@@ -261,11 +261,13 @@ class GenerationController extends Controller
 
         $generationType = GenerationType::from($type);
 
+        $isSpeechToText = $generationType === GenerationType::SpeechToText;
+
         $validated = $request->validate([
-            'prompt' => ['required', 'string', 'max:2000'],
+            'prompt' => [$isSpeechToText ? 'nullable' : 'required', 'string', 'max:2000'],
             'scene_id' => ['nullable', 'string', 'uuid'],
             'step_index' => ['nullable', 'integer', 'min:0'],
-            'input_asset_id' => ['nullable', 'exists:assets,id'],
+            'input_asset_id' => [$isSpeechToText ? 'required' : 'nullable', 'exists:assets,id'],
             'model_key' => ['nullable', 'string'],
             'model_id' => ['nullable', 'string'], // Direct fal.ai endpoint ID for catalog models
             'parameters' => ['nullable', 'array'],
@@ -304,6 +306,15 @@ class GenerationController extends Controller
             }
         }
 
+        // Fall back to wizper for speech_to_text
+        if (! $modelConfig && $isSpeechToText) {
+            $modelConfig = [
+                'key' => 'fal-ai/wizper',
+                'id' => 'fal-ai/wizper',
+                'defaults' => [],
+            ];
+        }
+
         if (! $modelConfig) {
             return response()->json(['error' => 'No models available for this type'], 422);
         }
@@ -323,7 +334,7 @@ class GenerationController extends Controller
             'type' => $generationType,
             'provider' => 'fal',
             'model' => $modelConfig['id'],
-            'prompt' => $validated['prompt'],
+            'prompt' => $validated['prompt'] ?? '',
             'input_asset_id' => $validated['input_asset_id'] ?? null,
             'parameters' => $parameters,
             'status' => GenerationStatus::Pending,

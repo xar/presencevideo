@@ -26,6 +26,7 @@ class ProjectFactory extends Factory
             'fps' => 30,
             'scenes' => [],
             'audio_tracks' => [],
+            'subtitle_tracks' => [],
             'status' => ProjectStatus::Draft,
         ];
     }

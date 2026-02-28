@@ -8,6 +8,8 @@ import type {
     AudioClip,
     VideoTrack,
     VideoClip,
+    SubtitleTrack,
+    SubtitleEntry,
     Asset,
 } from '@/types';
 
@@ -50,6 +52,22 @@ export type ProjectStore = {
         updates: Partial<VideoClip>,
     ) => void;
     deleteVideoClip: (trackId: string, clipId: string) => void;
+    addSubtitleTrack: (track?: Partial<SubtitleTrack>) => SubtitleTrack;
+    updateSubtitleTrack: (
+        trackId: string,
+        updates: Partial<SubtitleTrack>,
+    ) => void;
+    deleteSubtitleTrack: (trackId: string) => void;
+    addSubtitleEntry: (
+        trackId: string,
+        entry: Partial<SubtitleEntry>,
+    ) => SubtitleEntry;
+    updateSubtitleEntry: (
+        trackId: string,
+        entryId: string,
+        updates: Partial<SubtitleEntry>,
+    ) => void;
+    deleteSubtitleEntry: (trackId: string, entryId: string) => void;
     save: () => Promise<void>;
     markDirty: () => void;
     dismissSaveError: () => void;
@@ -393,6 +411,117 @@ function deleteVideoClip(trackId: string, clipId: string): void {
     });
 }
 
+function addSubtitleTrack(trackData?: Partial<SubtitleTrack>): SubtitleTrack {
+    if (!project) throw new Error('No project loaded');
+
+    const track: SubtitleTrack = {
+        id: uuid(),
+        name: `Subtitles ${(project.subtitle_tracks?.length ?? 0) + 1}`,
+        enabled: true,
+        style: {
+            font_size: 48,
+            font_color: '#ffffff',
+            background_color: '#00000080',
+            position: 'bottom',
+        },
+        entries: [],
+        ...trackData,
+    };
+
+    project = {
+        ...project,
+        subtitle_tracks: [...(project.subtitle_tracks ?? []), track],
+    };
+    markDirty();
+
+    return track;
+}
+
+function updateSubtitleTrack(
+    trackId: string,
+    updates: Partial<SubtitleTrack>,
+): void {
+    if (!project) return;
+
+    project = {
+        ...project,
+        subtitle_tracks: (project.subtitle_tracks ?? []).map((track) =>
+            track.id === trackId ? { ...track, ...updates } : track,
+        ),
+    };
+    markDirty();
+}
+
+function deleteSubtitleTrack(trackId: string): void {
+    if (!project) return;
+
+    project = {
+        ...project,
+        subtitle_tracks: (project.subtitle_tracks ?? []).filter(
+            (track) => track.id !== trackId,
+        ),
+    };
+    markDirty();
+}
+
+function addSubtitleEntry(
+    trackId: string,
+    entryData: Partial<SubtitleEntry>,
+): SubtitleEntry {
+    if (!project) throw new Error('No project loaded');
+
+    const track = (project.subtitle_tracks ?? []).find(
+        (t) => t.id === trackId,
+    );
+    if (!track) throw new Error('Subtitle track not found');
+
+    const entry: SubtitleEntry = {
+        id: uuid(),
+        start_ms: 0,
+        end_ms: 3000,
+        text: '',
+        ...entryData,
+    };
+
+    updateSubtitleTrack(trackId, {
+        entries: [...track.entries, entry],
+    });
+
+    return entry;
+}
+
+function updateSubtitleEntry(
+    trackId: string,
+    entryId: string,
+    updates: Partial<SubtitleEntry>,
+): void {
+    if (!project) return;
+
+    const track = (project.subtitle_tracks ?? []).find(
+        (t) => t.id === trackId,
+    );
+    if (!track) return;
+
+    updateSubtitleTrack(trackId, {
+        entries: track.entries.map((entry) =>
+            entry.id === entryId ? { ...entry, ...updates } : entry,
+        ),
+    });
+}
+
+function deleteSubtitleEntry(trackId: string, entryId: string): void {
+    if (!project) return;
+
+    const track = (project.subtitle_tracks ?? []).find(
+        (t) => t.id === trackId,
+    );
+    if (!track) return;
+
+    updateSubtitleTrack(trackId, {
+        entries: track.entries.filter((entry) => entry.id !== entryId),
+    });
+}
+
 async function save(): Promise<void> {
     if (!project || !isDirty || isSaving) return;
 
@@ -411,6 +540,7 @@ async function save(): Promise<void> {
                 scenes: project!.scenes,
                 audio_tracks: project!.audio_tracks,
                 video_tracks: project!.video_tracks,
+                subtitle_tracks: project!.subtitle_tracks,
             },
             {
                 preserveScroll: true,
@@ -483,6 +613,12 @@ export function createProjectStore(): ProjectStore {
         addVideoClip,
         updateVideoClip,
         deleteVideoClip,
+        addSubtitleTrack,
+        updateSubtitleTrack,
+        deleteSubtitleTrack,
+        addSubtitleEntry,
+        updateSubtitleEntry,
+        deleteSubtitleEntry,
         save,
         markDirty,
         dismissSaveError,

@@ -9,4 +9,5 @@ enum GenerationType: string
     case TextToMusic = 'text_to_music';
     case TextToSpeech = 'text_to_speech';
     case TextToSfx = 'text_to_sfx';
+    case SpeechToText = 'speech_to_text';
 }

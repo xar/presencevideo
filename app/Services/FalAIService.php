@@ -38,6 +38,7 @@ class FalAIService
                 GenerationType::TextToMusic => $this->generateMusic($generation),
                 GenerationType::TextToSpeech => $this->generateSpeech($generation),
                 GenerationType::TextToSfx => $this->generateSfx($generation),
+                GenerationType::SpeechToText => $this->generateTranscription($generation),
             };
         } catch (\Throwable $e) {
             Log::error('Generation failed', [
@@ -294,6 +295,52 @@ class FalAIService
         return GenerationResult::success($asset->id, $result['request_id'] ?? null);
     }
 
+    protected function generateTranscription(Generation $generation): GenerationResult
+    {
+        $inputAsset = $generation->inputAsset;
+        if (! $inputAsset) {
+            return GenerationResult::failed('Input audio/video asset required for transcription');
+        }
+
+        $audioUrl = $this->getPublicUrl($inputAsset);
+
+        $input = array_merge(
+            ['audio_url' => $audioUrl],
+            $generation->parameters
+        );
+
+        // Use wizper model directly since it may not be in the registry
+        $modelId = $generation->model ?: 'fal-ai/wizper';
+
+        $result = $this->client->subscribe(
+            $modelId,
+            $input,
+            fn ($status) => $this->updateProgress($generation, $status),
+            onSubmit: fn ($requestId) => $this->saveRequestId($generation, $requestId)
+        );
+
+        return $this->processTranscriptionResult($result);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    protected function processTranscriptionResult(array $result): GenerationResult
+    {
+        $text = $result['text'] ?? '';
+        $chunks = $result['chunks'] ?? [];
+
+        if (empty($text) && empty($chunks)) {
+            return GenerationResult::failed('No transcription generated');
+        }
+
+        return GenerationResult::transcription(
+            $text,
+            $chunks,
+            $result['request_id'] ?? null,
+        );
+    }
+
     /**
      * @return array{id: string, name: string, description: string, parameters: array<string, mixed>, defaults: array<string, mixed>}
      */
@@ -447,6 +494,7 @@ class FalAIService
             GenerationType::ImageToVideo => $this->processVideoResult($generation, $result),
             GenerationType::TextToMusic, GenerationType::TextToSfx => $this->processMusicResult($generation, $result),
             GenerationType::TextToSpeech => $this->processSpeechResult($generation, $result),
+            GenerationType::SpeechToText => $this->processTranscriptionResult($result),
         };
     }
 
@@ -653,7 +701,10 @@ class GenerationResult
         public ?string $requestId = null,
         /** @var array<string> */
         public array $alternatives = [],
-        public ?string $error = null
+        public ?string $error = null,
+        public ?string $transcriptionText = null,
+        /** @var array<array{text: string, timestamp: array{0: float, 1: float}}>|null */
+        public ?array $transcriptionChunks = null,
     ) {}
 
     /**
@@ -667,5 +718,18 @@ class GenerationResult
     public static function failed(string $error): self
     {
         return new self(false, error: $error);
+    }
+
+    /**
+     * @param  array<array{text: string, timestamp: array{0: float, 1: float}}>  $chunks
+     */
+    public static function transcription(string $text, array $chunks, ?string $requestId = null): self
+    {
+        return new self(
+            success: true,
+            requestId: $requestId,
+            transcriptionText: $text,
+            transcriptionChunks: $chunks,
+        );
     }
 }

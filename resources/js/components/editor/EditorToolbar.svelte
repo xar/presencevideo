@@ -16,9 +16,12 @@
     import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
     import { projectStore, selectionStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
+    import ResolutionPicker from './ResolutionPicker.svelte';
+    import ExportDialog from './ExportDialog.svelte';
 
     let showSavedMessage = $state(false);
     let savedTimer: ReturnType<typeof setTimeout> | null = null;
+    let exportDialogOpen = $state(false);
 
     // Track when save completes to show brief "Saved" feedback
     let wasSaving = $state(false);
@@ -51,15 +54,6 @@
 
     function handleSave() {
         projectStore.save();
-    }
-
-    function handleExport() {
-        const project = projectStore.project;
-        if (!project) return;
-
-        router.post(`/editor/projects/${project.id}/render`, {}, {
-            preserveScroll: true,
-        });
     }
 </script>
 
@@ -186,6 +180,10 @@
 
         <Separator orientation="vertical" class="h-6" />
 
+        <ResolutionPicker />
+
+        <Separator orientation="vertical" class="h-6" />
+
         <div class="flex items-center gap-1">
             <Tooltip>
                 <TooltipTrigger>
@@ -207,7 +205,7 @@
             <Tooltip>
                 <TooltipTrigger>
                     {#snippet child({ props })}
-                        <Button {...props} variant="ghost" size="icon" onclick={handleExport}>
+                        <Button {...props} variant="ghost" size="icon" onclick={() => (exportDialogOpen = true)}>
                             <Download class="h-4 w-4" />
                         </Button>
                     {/snippet}
@@ -217,3 +215,5 @@
         </div>
     </TooltipProvider>
 </div>
+
+<ExportDialog bind:open={exportDialogOpen} />

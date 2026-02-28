@@ -2,6 +2,7 @@
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
     import type { Scene, Layer, TextLayer, ImageLayer, VideoLayer, VideoClip, VideoTrack } from '@/types';
     import LayerItem from './LayerItem.svelte';
+    import SubtitleOverlay from './SubtitleOverlay.svelte';
     import VideoTrackOverlay from './VideoTrackOverlay.svelte';
 
     let project = $derived(projectStore.project);
@@ -241,6 +242,9 @@
                     onUpdate={(updates) => handleVideoClipUpdate(trackId, clip.id, updates)}
                 />
             {/each}
+
+            <!-- Subtitle overlay -->
+            <SubtitleOverlay scale={canvasScale} />
 
             {#if isDragOver}
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-primary/10">

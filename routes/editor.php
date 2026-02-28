@@ -27,7 +27,7 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
     Route::get('/generations/catalog/model', [GenerationController::class, 'getCatalogModel'])->name('editor.generations.catalog.model');
     Route::post('/projects/{project}/generate/{type}', [GenerationController::class, 'store'])
         ->name('editor.generations.store')
-        ->where('type', 'text_to_image|image_to_video|text_to_music|text_to_speech|text_to_sfx');
+        ->where('type', 'text_to_image|image_to_video|text_to_music|text_to_speech|text_to_sfx|speech_to_text');
     Route::get('/generations/{generation}', [GenerationController::class, 'show'])->name('editor.generations.show');
 
     // Render

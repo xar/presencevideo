@@ -22,6 +22,7 @@ class Project extends Model
         'scenes',
         'audio_tracks',
         'video_tracks',
+        'subtitle_tracks',
         'status',
     ];
 
@@ -37,6 +38,7 @@ class Project extends Model
             'scenes' => 'array',
             'audio_tracks' => 'array',
             'video_tracks' => 'array',
+            'subtitle_tracks' => 'array',
             'status' => ProjectStatus::class,
         ];
     }

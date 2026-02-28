@@ -78,6 +78,15 @@ class GenerationFactory extends Factory
         ]);
     }
 
+    public function speechToText(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => GenerationType::SpeechToText,
+            'model' => 'fal-ai/wizper',
+            'prompt' => '',
+        ]);
+    }
+
     public function processing(): static
     {
         return $this->state(fn (array $attributes) => [

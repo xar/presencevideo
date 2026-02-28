@@ -35,12 +35,25 @@ class RunGeneration implements ShouldQueue
             $result = $falAI->generate($this->generation);
 
             if ($result->success) {
-                $this->generation->update([
+                $updateData = [
                     'status' => GenerationStatus::Completed,
                     'output_asset_id' => $result->assetId,
                     'fal_request_id' => $result->requestId,
                     'alternatives' => $result->alternatives ?? [],
-                ]);
+                ];
+
+                // Store transcription data in parameters for speech_to_text
+                if ($result->transcriptionChunks !== null) {
+                    $updateData['parameters'] = array_merge(
+                        $this->generation->parameters ?? [],
+                        [
+                            'transcription_text' => $result->transcriptionText,
+                            'transcription_chunks' => $result->transcriptionChunks,
+                        ]
+                    );
+                }
+
+                $this->generation->update($updateData);
             } else {
                 $this->generation->update([
                     'status' => GenerationStatus::Failed,

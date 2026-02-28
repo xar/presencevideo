@@ -533,6 +533,109 @@ class FFmpegService
         return $outputPath;
     }
 
+    /**
+     * Burn subtitle tracks onto the video using drawtext filters.
+     *
+     * @param  array<array<string, mixed>>  $subtitleTracks
+     */
+    public function burnSubtitles(string $inputPath, array $subtitleTracks, Project $project): string
+    {
+        $filterParts = [];
+
+        foreach ($subtitleTracks as $track) {
+            $enabled = $track['enabled'] ?? true;
+            if (! $enabled) {
+                continue;
+            }
+
+            $style = $track['style'] ?? [];
+            $fontSize = $style['font_size'] ?? 48;
+            $fontColor = $style['font_color'] ?? 'white';
+            $bgColor = $style['background_color'] ?? '#00000080';
+            $position = $style['position'] ?? 'bottom';
+
+            // Convert hex colors to FFmpeg format
+            $fontColor = $this->hexToFfmpegColor($fontColor);
+            $bgColor = $this->hexToFfmpegColor($bgColor);
+
+            $yExpr = $position === 'top' ? '20' : '(h-text_h-20)';
+
+            $entries = $track['entries'] ?? [];
+
+            foreach ($entries as $entry) {
+                $text = $entry['text'] ?? '';
+                if (empty($text)) {
+                    continue;
+                }
+
+                $startSec = ($entry['start_ms'] ?? 0) / 1000;
+                $endSec = ($entry['end_ms'] ?? 0) / 1000;
+
+                // Escape text for FFmpeg drawtext filter
+                $escapedText = str_replace(
+                    ["'", ':', '\\', '%'],
+                    ["\\'", '\\:', '\\\\', '%%'],
+                    $text
+                );
+
+                $filterParts[] = sprintf(
+                    "drawtext=text='%s':fontsize=%d:fontcolor=%s:x=(w-text_w)/2:y=%s:box=1:boxcolor=%s:boxborderw=5:enable='between(t\\,%f\\,%f)'",
+                    $escapedText,
+                    $fontSize,
+                    $fontColor,
+                    $yExpr,
+                    $bgColor,
+                    $startSec,
+                    $endSec
+                );
+            }
+        }
+
+        if (empty($filterParts)) {
+            return $inputPath;
+        }
+
+        $outputPath = $this->getTempPath('subtitled_'.Str::uuid().'.mp4');
+
+        $command = [
+            'ffmpeg', '-y',
+            '-i', $inputPath,
+            '-vf', implode(',', $filterParts),
+            '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-level', '4.0',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'fast',
+            '-c:a', 'copy',
+            '-movflags', '+faststart',
+            $outputPath,
+        ];
+
+        $result = Process::timeout(600)->run($command);
+
+        if (! $result->successful()) {
+            throw new \RuntimeException('Subtitle burn failed: '.$result->errorOutput());
+        }
+
+        @unlink($inputPath);
+
+        return $outputPath;
+    }
+
+    /**
+     * Convert hex color (with optional alpha) to FFmpeg-compatible format.
+     */
+    protected function hexToFfmpegColor(string $color): string
+    {
+        // Already in a valid FFmpeg format (named color or no #)
+        if (! str_starts_with($color, '#')) {
+            return $color;
+        }
+
+        // #RRGGBBAA -> 0xRRGGBBAA (FFmpeg format)
+        return '0x'.ltrim($color, '#');
+    }
+
     protected function getTempPath(string $filename): string
     {
         $tempDir = storage_path('app/temp');

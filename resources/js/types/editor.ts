@@ -11,6 +11,7 @@ export type Project = {
     scenes: Scene[];
     audio_tracks: AudioTrack[];
     video_tracks: VideoTrack[];
+    subtitle_tracks: SubtitleTrack[];
     status: ProjectStatus;
     created_at: string;
     updated_at: string;
@@ -113,6 +114,29 @@ export type VideoClip = {
     opacity?: number;
 };
 
+// Subtitle Types
+export type SubtitleEntry = {
+    id: string;
+    start_ms: number;
+    end_ms: number;
+    text: string;
+};
+
+export type SubtitleStyle = {
+    font_size: number;
+    font_color: string;
+    background_color: string;
+    position: 'top' | 'bottom';
+};
+
+export type SubtitleTrack = {
+    id: string;
+    name: string;
+    enabled: boolean;
+    style: SubtitleStyle;
+    entries: SubtitleEntry[];
+};
+
 // Asset Types
 export type AssetType = 'video' | 'image' | 'audio';
 export type AssetSource = 'upload' | 'generated';
@@ -145,7 +169,8 @@ export type GenerationType =
     | 'image_to_video'
     | 'text_to_music'
     | 'text_to_speech'
-    | 'text_to_sfx';
+    | 'text_to_sfx'
+    | 'speech_to_text';
 
 export type GenerationStatus =
     | 'pending'

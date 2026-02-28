@@ -20,17 +20,41 @@
     let newProjectName = $state('');
     let isCreating = $state(false);
 
+    type ResolutionPreset = {
+        label: string;
+        width: number;
+        height: number;
+        category: string;
+    };
+
+    const resolutionPresets: ResolutionPreset[] = [
+        { label: 'TikTok / Reels', width: 1080, height: 1920, category: 'Portrait' },
+        { label: 'YouTube / FHD', width: 1920, height: 1080, category: 'Landscape' },
+        { label: 'Instagram Square', width: 1080, height: 1080, category: 'Square' },
+        { label: 'YouTube / 4K', width: 3840, height: 2160, category: 'Landscape' },
+        { label: 'Instagram Portrait', width: 1080, height: 1350, category: 'Portrait' },
+        { label: 'HD 720p', width: 1280, height: 720, category: 'Landscape' },
+    ];
+
+    let selectedPresetIndex = $state(0);
+
     function createProject() {
         if (!newProjectName.trim() || isCreating) return;
 
+        const preset = resolutionPresets[selectedPresetIndex];
         isCreating = true;
         router.post(
             '/editor/projects',
-            { name: newProjectName.trim() },
+            {
+                name: newProjectName.trim(),
+                resolution_width: preset.width,
+                resolution_height: preset.height,
+            },
             {
                 onSuccess: () => {
                     isCreateDialogOpen = false;
                     newProjectName = '';
+                    selectedPresetIndex = 0;
                     isCreating = false;
                 },
                 onError: () => {
@@ -69,10 +93,10 @@
                         New Project
                     </Button>
                 </DialogTrigger>
-                <DialogContent class="sm:max-w-md">
+                <DialogContent class="sm:max-w-lg">
                     <DialogTitle>Create New Project</DialogTitle>
                     <DialogDescription>
-                        Give your project a name to get started.
+                        Give your project a name and choose a resolution.
                     </DialogDescription>
                     <form onsubmit={(e) => { e.preventDefault(); createProject(); }}>
                         <div class="grid gap-4 py-4">
@@ -85,6 +109,21 @@
                                     placeholder="My Awesome Video"
                                     autofocus
                                 />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label>Resolution</Label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    {#each resolutionPresets as preset, i}
+                                        <button
+                                            type="button"
+                                            class="flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-2.5 text-center transition-colors {selectedPresetIndex === i ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}"
+                                            onclick={() => (selectedPresetIndex = i)}
+                                        >
+                                            <span class="text-xs font-medium leading-tight">{preset.label}</span>
+                                            <span class="text-[10px] text-muted-foreground tabular-nums">{preset.width} × {preset.height}</span>
+                                        </button>
+                                    {/each}
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>
