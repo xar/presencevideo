@@ -77,8 +77,16 @@ class FFmpegService
         $command[] = $currentBase;
         $command[] = '-c:v';
         $command[] = 'libx264';
+        $command[] = '-profile:v';
+        $command[] = 'high';
+        $command[] = '-level';
+        $command[] = '4.0';
+        $command[] = '-pix_fmt';
+        $command[] = 'yuv420p';
         $command[] = '-preset';
         $command[] = 'fast';
+        $command[] = '-movflags';
+        $command[] = '+faststart';
         $command[] = '-t';
         $command[] = (string) $durationSec;
         $command[] = $outputPath;
@@ -322,8 +330,16 @@ class FFmpegService
             'ffmpeg', '-y',
             '-i', $videoPath,
             '-i', $audioPath,
-            '-c:v', 'copy',
+            '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-level', '4.0',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'fast',
             '-c:a', 'aac',
+            '-ar', '44100',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            '-brand', 'mp42',
             '-shortest',
             $outputPath,
         ]);
@@ -354,7 +370,11 @@ class FFmpegService
             '-f', 'lavfi',
             '-i', sprintf('color=c=black:s=%dx%d:d=%f:r=%d', $width, $height, $durationSec, $fps),
             '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-level', '4.0',
+            '-pix_fmt', 'yuv420p',
             '-preset', 'fast',
+            '-movflags', '+faststart',
             $outputPath,
         ]);
 
@@ -487,10 +507,18 @@ class FFmpegService
         $command[] = '0:a?';
         $command[] = '-c:v';
         $command[] = 'libx264';
+        $command[] = '-profile:v';
+        $command[] = 'high';
+        $command[] = '-level';
+        $command[] = '4.0';
+        $command[] = '-pix_fmt';
+        $command[] = 'yuv420p';
         $command[] = '-preset';
         $command[] = 'fast';
         $command[] = '-c:a';
         $command[] = 'copy';
+        $command[] = '-movflags';
+        $command[] = '+faststart';
         $command[] = $outputPath;
 
         $result = Process::timeout(600)->run($command);

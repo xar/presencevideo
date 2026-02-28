@@ -18,8 +18,34 @@
     } = $props();
 
     let videoEl: HTMLVideoElement | undefined = $state();
+    let videoReady = $state(false);
     let isPlaying = $derived(timelineStore.isPlaying);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
+
+    // Track video metadata loading
+    $effect(() => {
+        if (!videoEl) {
+            videoReady = false;
+            return;
+        }
+
+        // Reset ready state when video element changes
+        videoReady = false;
+
+        if (videoEl.readyState >= 1) {
+            videoReady = true;
+            return;
+        }
+
+        const handleLoaded = () => {
+            videoReady = true;
+        };
+
+        videoEl.addEventListener('loadedmetadata', handleLoaded);
+        return () => {
+            videoEl?.removeEventListener('loadedmetadata', handleLoaded);
+        };
+    });
 
     // Calculate time within the current scene based on timeline position
     let sceneTimeMs = $derived.by(() => {
@@ -44,7 +70,7 @@
 
     // Sync video playback with timeline
     $effect(() => {
-        if (!videoEl || layer.type !== 'video') return;
+        if (!videoEl || layer.type !== 'video' || !videoReady) return;
 
         // Access reactive values to ensure effect re-runs
         const playing = isPlaying;
@@ -52,7 +78,13 @@
 
         const videoLayer = layer as VideoLayer;
         const trimStart = videoLayer.trim_start_ms ?? 0;
-        const targetTime = (sceneTime + trimStart) / 1000;
+        const videoDuration = videoEl.duration || 0;
+
+        // Calculate target time and clamp to video duration
+        let targetTime = (sceneTime + trimStart) / 1000;
+        if (videoDuration > 0) {
+            targetTime = Math.min(targetTime, videoDuration - 0.01);
+        }
 
         // When not playing, sync video to target time
         if (!playing) {

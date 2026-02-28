@@ -10,6 +10,7 @@ use App\Models\Generation;
 use App\Services\FalAI\FalClient;
 use App\Services\FalAI\ModelRegistry;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -545,6 +546,14 @@ class FalAIService
 
         Storage::disk('local')->put($path, $content);
 
+        // Transcode video to H.264 for browser compatibility
+        if ($type === AssetType::Video) {
+            $fullPath = Storage::disk('local')->path($path);
+            $this->transcodeToH264($fullPath);
+            // Update file size after transcoding
+            $content = Storage::disk('local')->get($path);
+        }
+
         return Asset::create([
             'user_id' => $generation->user_id,
             'project_id' => $generation->project_id,
@@ -561,6 +570,44 @@ class FalAIService
                 'model' => $generation->model,
             ],
         ]);
+    }
+
+    /**
+     * Transcode video to H.264 for browser compatibility.
+     */
+    protected function transcodeToH264(string $inputPath): void
+    {
+        $tempOutput = $inputPath.'.transcoded.mp4';
+
+        $result = Process::timeout(600)->run([
+            'ffmpeg', '-y',
+            '-i', $inputPath,
+            '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-level', '4.0',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'fast',
+            '-crf', '23',
+            '-c:a', 'aac',
+            '-ar', '44100',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            $tempOutput,
+        ]);
+
+        if ($result->successful() && file_exists($tempOutput)) {
+            // Replace original with transcoded version
+            unlink($inputPath);
+            rename($tempOutput, $inputPath);
+            Log::info('Video transcoded to H.264', ['path' => $inputPath]);
+        } else {
+            // Clean up temp file if transcoding failed
+            @unlink($tempOutput);
+            Log::warning('Video transcoding failed, keeping original', [
+                'path' => $inputPath,
+                'error' => $result->errorOutput(),
+            ]);
+        }
     }
 
     protected function getMimeType(AssetType $type, string $extension): string

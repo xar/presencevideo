@@ -157,8 +157,10 @@ function deleteSelected(): void {
         selection.sceneId &&
         selection.layerId
     ) {
-        projectStore.deleteLayer(selection.sceneId, selection.layerId);
-        clearSelection();
+        const sceneId = selection.sceneId;
+        projectStore.deleteLayer(sceneId, selection.layerId);
+        // Keep scene selected after deleting layer
+        selectScene(sceneId);
     } else if (
         selection.type === 'audio_clip' &&
         selection.audioTrackId &&
