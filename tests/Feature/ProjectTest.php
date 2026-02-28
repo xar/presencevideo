@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ProjectStatus;
+use App\Models\Generation;
 use App\Models\Project;
 use App\Models\User;
 
@@ -148,4 +149,25 @@ test('project scenes and audio tracks default to empty arrays', function () {
 
     expect($project->scenes)->toBe([]);
     expect($project->audio_tracks)->toBe([]);
+});
+
+test('project show includes active generations', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->create(['user_id' => $user->id]);
+
+    // Create pending and processing generations (should be included)
+    $pending = Generation::factory()->forProject($project)->create();
+    $processing = Generation::factory()->forProject($project)->processing()->create();
+
+    // Create completed and failed generations (should NOT be included)
+    Generation::factory()->forProject($project)->completed()->create();
+    Generation::factory()->forProject($project)->failed()->create();
+
+    $response = $this->actingAs($user)->get(route('editor.projects.show', $project));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('editor/Show')
+        ->has('activeGenerations', 2)
+    );
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import AppHead from '@/components/AppHead.svelte';
     import AssetPanel from '@/components/editor/AssetPanel.svelte';
     import AudioPlayback from '@/components/editor/AudioPlayback.svelte';
@@ -10,11 +10,11 @@
     import SceneEditor from '@/components/editor/SceneEditor.svelte';
     import SceneStrip from '@/components/editor/SceneStrip.svelte';
     import VideoTracks from '@/components/editor/VideoTracks.svelte';
-    import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { projectStore, timelineStore, selectionStore, generationTracker } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
-    import type { Project } from '@/types';
+    import type { Project, Generation } from '@/types';
 
-    let { project }: { project: Project } = $props();
+    let { project, activeGenerations = [] }: { project: Project; activeGenerations?: Generation[] } = $props();
 
     // Sync assets from server when they change (e.g., after generation completes)
     $effect(() => {
@@ -43,6 +43,7 @@
 
     onMount(() => {
         projectStore.setProject(project);
+        generationTracker.init(activeGenerations);
 
         if (project.scenes.length > 0) {
             selectionStore.selectScene(project.scenes[0].id);
@@ -117,6 +118,10 @@
             window.removeEventListener('keydown', handleKeydown);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
+    });
+
+    onDestroy(() => {
+        generationTracker.cleanup();
     });
 </script>
 

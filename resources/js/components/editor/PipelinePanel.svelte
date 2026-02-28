@@ -22,7 +22,7 @@
     import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { projectStore, selectionStore, generationTracker } from '@/lib/editor';
     import type { GenerationType, GenerationStatus, Asset, ModelConfig, ModelsResponse } from '@/types';
     import ModelParameters from './ModelParameters.svelte';
     import ModelPicker from './ModelPicker.svelte';
@@ -231,6 +231,13 @@
 
             if (response.ok) {
                 const data = await response.json();
+                generationTracker.add({
+                    id: data.generation.id,
+                    type: data.generation.type,
+                    prompt: data.generation.prompt,
+                    status: data.generation.status,
+                    created_at: data.generation.created_at,
+                }, { skipPolling: true });
                 pollGeneration(data.generation.id);
             } else {
                 const error = await response.json();
@@ -265,6 +272,7 @@
 
                 if (status === 'completed') {
                     isGenerating = false;
+                    generationTracker.remove(generationId);
                     if (callback && data.generation.output_asset) {
                         callback(data.generation.output_asset);
                     } else {
@@ -275,6 +283,7 @@
                     }
                 } else if (status === 'failed') {
                     isGenerating = false;
+                    generationTracker.remove(generationId);
                     alert('Generation failed: ' + (data.generation.error_message || 'Unknown error'));
                 } else {
                     setTimeout(checkStatus, 2000);
@@ -367,6 +376,13 @@
 
             if (response.ok) {
                 const data = await response.json();
+                generationTracker.add({
+                    id: data.generation.id,
+                    type: data.generation.type,
+                    prompt: data.generation.prompt,
+                    status: data.generation.status,
+                    created_at: data.generation.created_at,
+                }, { skipPolling: true });
                 updatePipelineStep(index, { generationId: data.generation.id });
                 pollGeneration(data.generation.id, (asset) => {
                     updatePipelineStep(index, { status: 'completed', asset });

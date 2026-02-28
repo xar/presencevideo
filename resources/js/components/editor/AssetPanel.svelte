@@ -1,15 +1,20 @@
 <script lang="ts">
     import { router } from '@inertiajs/svelte';
-    import { Upload, Image, Video, Music, Loader2 } from 'lucide-svelte';
+    import { Upload, Image, Video, Music, Loader2, Sparkles } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { projectStore, selectionStore, generationTracker } from '@/lib/editor';
     import type { Asset, AssetType } from '@/types';
 
-    let assets = $derived(projectStore.project?.assets ?? []);
+    let assets = $derived(
+        [...(projectStore.project?.assets ?? [])].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+    );
     let imageAssets = $derived(assets.filter((a) => a.type === 'image'));
     let videoAssets = $derived(assets.filter((a) => a.type === 'video'));
     let audioAssets = $derived(assets.filter((a) => a.type === 'audio'));
+    let pendingGenerations = $derived(generationTracker.generations);
 
     let isUploading = $state(false);
     let uploadError = $state<string | null>(null);
@@ -145,6 +150,35 @@
     </div>
 
     <div class="flex-1 overflow-y-auto p-2 space-y-4">
+        {#if pendingGenerations.length > 0}
+            <div>
+                <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                    <Sparkles class="h-3 w-3" />
+                    Generating
+                </div>
+                <div class="space-y-2">
+                    {#each pendingGenerations as gen (gen.id)}
+                        {@const genTypeLabel = gen.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        <div class="flex items-center gap-2 rounded border border-primary/30 bg-primary/5 p-2 text-xs">
+                            {#if gen.status === 'failed'}
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-destructive/10">
+                                    <Sparkles class="h-4 w-4 text-destructive" />
+                                </div>
+                            {:else}
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-primary/10">
+                                    <Loader2 class="h-4 w-4 text-primary animate-spin" />
+                                </div>
+                            {/if}
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium truncate">{genTypeLabel}</p>
+                                <p class="text-muted-foreground truncate">{gen.prompt}</p>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        {/if}
+
         {#if imageAssets.length > 0}
             <div>
                 <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
@@ -241,7 +275,7 @@
                 {uploadError}
                 <button type="button" class="ml-2 underline" onclick={() => uploadError = null}>Dismiss</button>
             </div>
-        {:else if assets.length === 0}
+        {:else if assets.length === 0 && pendingGenerations.length === 0}
             <div class="flex flex-col items-center justify-center py-8 text-center">
                 <Upload class="h-8 w-8 text-muted-foreground/50" />
                 <p class="mt-2 text-sm text-muted-foreground">No assets yet</p>

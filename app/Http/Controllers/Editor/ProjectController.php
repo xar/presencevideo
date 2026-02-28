@@ -49,6 +49,10 @@ class ProjectController extends Controller
 
         return Inertia::render('editor/Show', [
             'project' => $project,
+            'activeGenerations' => $project->generations()
+                ->whereIn('status', ['pending', 'processing'])
+                ->orderByDesc('created_at')
+                ->get(),
         ]);
     }
 

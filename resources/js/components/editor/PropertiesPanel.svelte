@@ -431,6 +431,100 @@
                 </Button>
             </div>
         </div>
+    {:else if selection.type === 'audio_clip' && selectedAudioClip}
+        <div>
+            <h3 class="text-sm font-semibold mb-3">Audio Clip Properties</h3>
+
+            <div class="space-y-3">
+                <!-- Asset info -->
+                {#if audioClipAsset}
+                    <div class="flex items-start gap-2 rounded-md border bg-muted/50 p-2">
+                        <Music class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div class="min-w-0 space-y-0.5">
+                            <p class="text-xs font-medium truncate">{audioClipAsset.name}</p>
+                            <div class="text-[11px] text-muted-foreground space-y-0.5">
+                                {#if audioClipAsset.duration_ms}
+                                    <p>Original duration: {formatTime(audioClipAsset.duration_ms)}</p>
+                                {/if}
+                                <p>{audioClipAsset.mime_type} &middot; {formatFileSize(audioClipAsset.size_bytes)}</p>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+
+                <Separator />
+
+                <!-- Timing -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label class="text-xs">Start</Label>
+                        <Input
+                            type="text"
+                            value={formatTime(selectedAudioClip.clip.start_ms)}
+                            onchange={(e) => {
+                                const ms = parseTime((e.target as HTMLInputElement).value);
+                                updateAudioClip('start_ms', ms);
+                            }}
+                            class="h-8 font-mono text-xs"
+                        />
+                    </div>
+                    <div>
+                        <Label class="text-xs">Duration</Label>
+                        <Input
+                            type="text"
+                            value={formatTime(selectedAudioClip.clip.duration_ms)}
+                            onchange={(e) => {
+                                const ms = parseTime((e.target as HTMLInputElement).value);
+                                if (ms >= 100) {
+                                    updateAudioClip('duration_ms', ms);
+                                }
+                            }}
+                            class="h-8 font-mono text-xs"
+                        />
+                    </div>
+                </div>
+
+                <!-- Match to original duration -->
+                {#if audioClipAsset?.duration_ms && audioClipAsset.duration_ms !== selectedAudioClip.clip.duration_ms}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="w-full text-xs"
+                        onclick={() => {
+                            if (audioClipAsset?.duration_ms) {
+                                updateAudioClip('duration_ms', audioClipAsset.duration_ms);
+                            }
+                        }}
+                    >
+                        Match original duration ({formatTime(audioClipAsset.duration_ms)})
+                    </Button>
+                {/if}
+
+                <Separator />
+
+                <!-- Volume -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <Label class="text-xs">Volume</Label>
+                        <span class="text-xs text-muted-foreground">{Math.round(selectedAudioClip.clip.volume * 100)}%</span>
+                    </div>
+                    <Slider
+                        value={[selectedAudioClip.clip.volume * 100]}
+                        min={0}
+                        max={100}
+                        step={1}
+                        onValueChange={(v) => updateAudioClip('volume', v[0] / 100)}
+                    />
+                </div>
+
+                <Separator />
+
+                <Button variant="destructive" size="sm" class="w-full" onclick={deleteAudioClip}>
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    Delete Audio Clip
+                </Button>
+            </div>
+        </div>
     {:else}
         <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
             <p class="text-sm">Select a scene or layer to edit its properties</p>
