@@ -125,6 +125,12 @@
         projectStore.updateVideoClip(trackId, clipId, updates);
     }
 
+    let sortedLayers = $derived(
+        displayedScene
+            ? [...displayedScene.layers].sort((a, b) => a.z_index - b.z_index)
+            : [],
+    );
+
     function getCursor(): string {
         switch (currentTool) {
             case 'text':
@@ -214,7 +220,7 @@
             role="button"
             tabindex="0"
         >
-            {#each [...displayedScene.layers].sort((a, b) => a.z_index - b.z_index) as layer (layer.id)}
+            {#each sortedLayers as layer (layer.id)}
                 <LayerItem
                     {layer}
                     scale={canvasScale}

@@ -1,5 +1,8 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { historyStore } from '@/lib/editor/history.svelte';
+    import { useDragResize } from '@/lib/editor/useDragResize.svelte';
     import { cn } from '@/lib/utils';
     import type { VideoClip } from '@/types';
 
@@ -58,107 +61,32 @@
         }
     });
 
-    let isDragging = $state(false);
-    let isResizing = $state<string | null>(null);
-    let dragStart = $state({ x: 0, y: 0, clipX: 0, clipY: 0, clipW: 0, clipH: 0 });
+    const dragResize = useDragResize({
+        getPosition: () => ({ x: clip.x, y: clip.y, width: clip.width, height: clip.height }),
+        onUpdate: (updates) => onUpdate?.(updates),
+        scale: () => scale,
+        minWidth: 40,
+        minHeight: 40,
+    });
 
     function handleMouseDown(e: MouseEvent) {
-        if (e.button !== 0 || isResizing) return;
-        e.stopPropagation();
-
-        isDragging = true;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            clipX: clip.x,
-            clipY: clip.y,
-            clipW: clip.width,
-            clipH: clip.height,
+        historyStore.beginBatch();
+        dragResize.handleMouseDown(e);
+        const onUp = () => {
+            historyStore.endBatch();
+            window.removeEventListener('mouseup', onUp);
         };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    function handleMouseMove(e: MouseEvent) {
-        if (isDragging) {
-            const deltaX = (e.clientX - dragStart.x) / scale;
-            const deltaY = (e.clientY - dragStart.y) / scale;
-
-            onUpdate?.({
-                x: Math.round(dragStart.clipX + deltaX),
-                y: Math.round(dragStart.clipY + deltaY),
-            });
-        } else if (isResizing) {
-            const deltaX = (e.clientX - dragStart.x) / scale;
-            const deltaY = (e.clientY - dragStart.y) / scale;
-
-            let newX = dragStart.clipX;
-            let newY = dragStart.clipY;
-            let newW = dragStart.clipW;
-            let newH = dragStart.clipH;
-
-            if (isResizing.includes('left')) {
-                newX = dragStart.clipX + deltaX;
-                newW = dragStart.clipW - deltaX;
-            }
-            if (isResizing.includes('right')) {
-                newW = dragStart.clipW + deltaX;
-            }
-            if (isResizing.includes('top')) {
-                newY = dragStart.clipY + deltaY;
-                newH = dragStart.clipH - deltaY;
-            }
-            if (isResizing.includes('bottom')) {
-                newH = dragStart.clipH + deltaY;
-            }
-
-            // Minimum size
-            if (newW < 40) {
-                if (isResizing.includes('left')) {
-                    newX = dragStart.clipX + dragStart.clipW - 40;
-                }
-                newW = 40;
-            }
-            if (newH < 40) {
-                if (isResizing.includes('top')) {
-                    newY = dragStart.clipY + dragStart.clipH - 40;
-                }
-                newH = 40;
-            }
-
-            onUpdate?.({
-                x: Math.round(newX),
-                y: Math.round(newY),
-                width: Math.round(newW),
-                height: Math.round(newH),
-            });
-        }
-    }
-
-    function handleMouseUp() {
-        isDragging = false;
-        isResizing = null;
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', onUp);
     }
 
     function handleResizeStart(corner: string, e: MouseEvent) {
-        e.stopPropagation();
-        e.preventDefault();
-
-        isResizing = corner;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            clipX: clip.x,
-            clipY: clip.y,
-            clipW: clip.width,
-            clipH: clip.height,
+        historyStore.beginBatch();
+        dragResize.handleResizeStart(corner, e);
+        const onUp = () => {
+            historyStore.endBatch();
+            window.removeEventListener('mouseup', onUp);
         };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', onUp);
     }
 
     function getAssetUrl(): string | null {
@@ -168,6 +96,10 @@
     }
 
     let assetUrl = $derived(getAssetUrl());
+
+    onDestroy(() => {
+        dragResize.cleanup();
+    });
 </script>
 
 <div

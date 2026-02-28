@@ -1,5 +1,8 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { historyStore } from '@/lib/editor/history.svelte';
+    import { useDragResize } from '@/lib/editor/useDragResize.svelte';
     import { cn } from '@/lib/utils';
     import type { Layer, TextLayer, ImageLayer, VideoLayer } from '@/types';
 
@@ -29,7 +32,6 @@
             return;
         }
 
-        // Reset ready state when video element changes
         videoReady = false;
 
         if (videoEl.readyState >= 1) {
@@ -52,7 +54,6 @@
         const project = projectStore.project;
         if (!project?.scenes?.length) return 0;
 
-        // Use timeline's current scene during playback for accurate sync
         const currentScene = isPlaying
             ? timelineStore.getCurrentScene()
             : selectionStore.getSelectedScene();
@@ -72,7 +73,6 @@
     $effect(() => {
         if (!videoEl || layer.type !== 'video' || !videoReady) return;
 
-        // Access reactive values to ensure effect re-runs
         const playing = isPlaying;
         const sceneTime = sceneTimeMs;
 
@@ -80,13 +80,11 @@
         const trimStart = videoLayer.trim_start_ms ?? 0;
         const videoDuration = videoEl.duration || 0;
 
-        // Calculate target time and clamp to video duration
         let targetTime = (sceneTime + trimStart) / 1000;
         if (videoDuration > 0) {
             targetTime = Math.min(targetTime, videoDuration - 0.01);
         }
 
-        // When not playing, sync video to target time
         if (!playing) {
             if (Math.abs(videoEl.currentTime - targetTime) > 0.05) {
                 videoEl.currentTime = targetTime;
@@ -97,8 +95,6 @@
             return;
         }
 
-        // When playing, start video and let it play naturally
-        // Only seek if significantly out of sync
         if (Math.abs(videoEl.currentTime - targetTime) > 0.3) {
             videoEl.currentTime = targetTime;
         }
@@ -110,107 +106,32 @@
         }
     });
 
-    let isDragging = $state(false);
-    let isResizing = $state<string | null>(null);
-    let dragStart = $state({ x: 0, y: 0, layerX: 0, layerY: 0, layerW: 0, layerH: 0 });
+    const dragResize = useDragResize({
+        getPosition: () => ({ x: layer.x, y: layer.y, width: layer.width, height: layer.height }),
+        onUpdate: (updates) => onUpdate?.(updates),
+        scale: () => scale,
+        minWidth: 20,
+        minHeight: 20,
+    });
 
     function handleMouseDown(e: MouseEvent) {
-        if (e.button !== 0 || isResizing) return;
-        e.stopPropagation();
-
-        isDragging = true;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            layerX: layer.x,
-            layerY: layer.y,
-            layerW: layer.width,
-            layerH: layer.height,
+        historyStore.beginBatch();
+        dragResize.handleMouseDown(e);
+        const onUp = () => {
+            historyStore.endBatch();
+            window.removeEventListener('mouseup', onUp);
         };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    function handleMouseMove(e: MouseEvent) {
-        if (isDragging) {
-            const deltaX = (e.clientX - dragStart.x) / scale;
-            const deltaY = (e.clientY - dragStart.y) / scale;
-
-            onUpdate?.({
-                x: Math.round(dragStart.layerX + deltaX),
-                y: Math.round(dragStart.layerY + deltaY),
-            });
-        } else if (isResizing) {
-            const deltaX = (e.clientX - dragStart.x) / scale;
-            const deltaY = (e.clientY - dragStart.y) / scale;
-
-            let newX = dragStart.layerX;
-            let newY = dragStart.layerY;
-            let newW = dragStart.layerW;
-            let newH = dragStart.layerH;
-
-            if (isResizing.includes('left')) {
-                newX = dragStart.layerX + deltaX;
-                newW = dragStart.layerW - deltaX;
-            }
-            if (isResizing.includes('right')) {
-                newW = dragStart.layerW + deltaX;
-            }
-            if (isResizing.includes('top')) {
-                newY = dragStart.layerY + deltaY;
-                newH = dragStart.layerH - deltaY;
-            }
-            if (isResizing.includes('bottom')) {
-                newH = dragStart.layerH + deltaY;
-            }
-
-            // Minimum size
-            if (newW < 20) {
-                if (isResizing.includes('left')) {
-                    newX = dragStart.layerX + dragStart.layerW - 20;
-                }
-                newW = 20;
-            }
-            if (newH < 20) {
-                if (isResizing.includes('top')) {
-                    newY = dragStart.layerY + dragStart.layerH - 20;
-                }
-                newH = 20;
-            }
-
-            onUpdate?.({
-                x: Math.round(newX),
-                y: Math.round(newY),
-                width: Math.round(newW),
-                height: Math.round(newH),
-            });
-        }
-    }
-
-    function handleMouseUp() {
-        isDragging = false;
-        isResizing = null;
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', onUp);
     }
 
     function handleResizeStart(corner: string, e: MouseEvent) {
-        e.stopPropagation();
-        e.preventDefault();
-
-        isResizing = corner;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            layerX: layer.x,
-            layerY: layer.y,
-            layerW: layer.width,
-            layerH: layer.height,
+        historyStore.beginBatch();
+        dragResize.handleResizeStart(corner, e);
+        const onUp = () => {
+            historyStore.endBatch();
+            window.removeEventListener('mouseup', onUp);
         };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', onUp);
     }
 
     function getAssetUrl(assetId: number): string | null {
@@ -218,6 +139,10 @@
         const asset = assets.find((a) => a.id === assetId);
         return asset?.url ?? null;
     }
+
+    onDestroy(() => {
+        dragResize.cleanup();
+    });
 </script>
 
 <div

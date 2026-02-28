@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { Plus } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
@@ -163,40 +164,50 @@
         window.removeEventListener('mousemove', handleResizeMove);
         window.removeEventListener('mouseup', handleResizeEnd);
     }
+
+    onDestroy(() => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+    });
 </script>
 
-<div
-    class="flex h-24 items-center gap-2 overflow-x-auto border-b bg-muted/30 px-4 py-2 transition-colors {isDragOverStrip ? 'bg-primary/10 ring-2 ring-primary ring-inset' : ''}"
-    ondragover={handleStripDragOver}
-    ondragleave={handleStripDragLeave}
-    ondrop={handleStripDrop}
-    role="list"
->
-    {#each scenes as scene, index (scene.id)}
-        <div
-            class="flex-shrink-0"
-            role="listitem"
-            draggable={!isResizing}
-            ondragstart={(e) => handleDragStart(e, index)}
-            ondragover={(e) => handleDragOver(e, index)}
-            ondrop={(e) => handleDrop(e, index)}
-            ondragend={handleDragEnd}
-        >
-            <SceneCard
-                {scene}
-                {index}
-                {assets}
-                isSelected={scene.id === selectedSceneId}
-                isPlaying={isPlaying && index === playingSceneIndex}
-                width={getSceneWidth(scene)}
-                minWidth={MIN_WIDTH}
-                onclick={() => handleSceneClick(scene)}
-                onResizeStart={(e) => handleResizeStart(e, scene)}
-            />
-        </div>
-    {/each}
+<div class="flex h-24 border-b bg-muted/30">
+    <div class="flex w-32 shrink-0 items-center border-r bg-background px-2">
+        <span class="text-xs text-muted-foreground">Scenes</span>
+    </div>
+    <div
+        class="flex flex-1 items-center gap-2 overflow-x-auto px-2 py-2 transition-colors {isDragOverStrip ? 'bg-primary/10 ring-2 ring-primary ring-inset' : ''}"
+        ondragover={handleStripDragOver}
+        ondragleave={handleStripDragLeave}
+        ondrop={handleStripDrop}
+        role="list"
+    >
+        {#each scenes as scene, index (scene.id)}
+            <div
+                class="flex-shrink-0"
+                role="listitem"
+                draggable={!isResizing}
+                ondragstart={(e) => handleDragStart(e, index)}
+                ondragover={(e) => handleDragOver(e, index)}
+                ondrop={(e) => handleDrop(e, index)}
+                ondragend={handleDragEnd}
+            >
+                <SceneCard
+                    {scene}
+                    {index}
+                    {assets}
+                    isSelected={scene.id === selectedSceneId}
+                    isPlaying={isPlaying && index === playingSceneIndex}
+                    width={getSceneWidth(scene)}
+                    minWidth={MIN_WIDTH}
+                    onclick={() => handleSceneClick(scene)}
+                    onResizeStart={(e) => handleResizeStart(e, scene)}
+                />
+            </div>
+        {/each}
 
-    <Button variant="outline" size="icon" class="h-16 w-24 flex-shrink-0" onclick={addScene}>
-        <Plus class="h-6 w-6" />
-    </Button>
+        <Button variant="outline" size="icon" class="h-16 w-24 flex-shrink-0" onclick={addScene}>
+            <Plus class="h-6 w-6" />
+        </Button>
+    </div>
 </div>

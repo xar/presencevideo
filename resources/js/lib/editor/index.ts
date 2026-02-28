@@ -13,3 +13,8 @@ export {
     createSelectionStore,
     type SelectionStore,
 } from './selection.svelte';
+export {
+    historyStore,
+    createHistoryStore,
+    type HistoryStore,
+} from './history.svelte';

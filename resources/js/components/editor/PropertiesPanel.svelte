@@ -1,15 +1,17 @@
 <script lang="ts">
-    import { Trash2, Scissors } from 'lucide-svelte';
+    import { Trash2, Scissors, Music } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
+    import { Slider } from '@/components/ui/slider';
     import { projectStore, selectionStore } from '@/lib/editor';
-    import type { TextLayer, ImageLayer, VideoLayer, Layer, Asset } from '@/types';
+    import type { TextLayer, ImageLayer, VideoLayer, Layer, AudioClip, Asset } from '@/types';
 
     let selection = $derived(selectionStore.selection);
     let selectedScene = $derived(selectionStore.getSelectedScene());
     let selectedLayer = $derived(selectionStore.getSelectedLayer());
+    let selectedAudioClip = $derived(selectionStore.getSelectedAudioClip());
 
     // Get asset for video/image layers
     function getAsset(assetId: number): Asset | undefined {
@@ -105,6 +107,29 @@
         return Math.max(0, Math.round(seconds * 1000));
     }
 
+    // Audio clip helpers
+    let audioClipAsset = $derived.by(() => {
+        if (!selectedAudioClip) return undefined;
+        return getAsset(selectedAudioClip.clip.asset_id);
+    });
+
+    function updateAudioClip(field: keyof AudioClip, value: number) {
+        if (!selectedAudioClip) return;
+        projectStore.updateAudioClip(selectedAudioClip.trackId, selectedAudioClip.clip.id, { [field]: value });
+    }
+
+    function deleteAudioClip() {
+        if (!selectedAudioClip) return;
+        projectStore.deleteAudioClip(selectedAudioClip.trackId, selectedAudioClip.clip.id);
+        selectionStore.clearSelection();
+    }
+
+    function formatFileSize(bytes: number): string {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
     function deleteLayer() {
         if (selectedScene && selectedLayer) {
             projectStore.deleteLayer(selectedScene.id, selectedLayer.id);
@@ -142,7 +167,7 @@
                         <Input
                             type="number"
                             value={selectedLayer.x}
-                            oninput={(e) => updateLayerPosition('x', e)}
+                            onchange={(e) => updateLayerPosition('x', e)}
                             class="h-8"
                         />
                     </div>
@@ -151,7 +176,7 @@
                         <Input
                             type="number"
                             value={selectedLayer.y}
-                            oninput={(e) => updateLayerPosition('y', e)}
+                            onchange={(e) => updateLayerPosition('y', e)}
                             class="h-8"
                         />
                     </div>
@@ -163,7 +188,7 @@
                         <Input
                             type="number"
                             value={selectedLayer.width}
-                            oninput={(e) => updateLayerSize('width', e)}
+                            onchange={(e) => updateLayerSize('width', e)}
                             class="h-8"
                         />
                     </div>
@@ -172,7 +197,7 @@
                         <Input
                             type="number"
                             value={selectedLayer.height}
-                            oninput={(e) => updateLayerSize('height', e)}
+                            onchange={(e) => updateLayerSize('height', e)}
                             class="h-8"
                         />
                     </div>
@@ -220,7 +245,7 @@
                                         <Input
                                             type="text"
                                             value={formatTime(trimStart)}
-                                            oninput={(e) => {
+                                            onchange={(e) => {
                                                 const ms = parseTime((e.target as HTMLInputElement).value);
                                                 if (ms < trimEnd) {
                                                     updateVideoLayer('trim_start_ms', ms);
@@ -234,7 +259,7 @@
                                         <Input
                                             type="text"
                                             value={formatTime(trimEnd)}
-                                            oninput={(e) => {
+                                            onchange={(e) => {
                                                 const ms = Math.min(parseTime((e.target as HTMLInputElement).value), videoDuration);
                                                 if (ms > trimStart) {
                                                     updateVideoLayer('trim_end_ms', ms);
@@ -287,7 +312,7 @@
                             <Input
                                 type="number"
                                 value={textLayer.font_size}
-                                oninput={(e) => updateTextLayer('font_size', parseInt((e.target as HTMLInputElement).value) || 48)}
+                                onchange={(e) => updateTextLayer('font_size', parseInt((e.target as HTMLInputElement).value) || 48)}
                                 class="h-8"
                             />
                         </div>
@@ -317,7 +342,7 @@
                                 min="0"
                                 max="20"
                                 value={textLayer.stroke_width ?? 0}
-                                oninput={(e) => updateTextLayer('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
+                                onchange={(e) => updateTextLayer('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
                                 class="h-8"
                             />
                         </div>
@@ -370,7 +395,7 @@
                         step="0.1"
                         min="0.1"
                         value={formatDuration(selectedScene.duration_ms)}
-                        oninput={updateSceneDuration}
+                        onchange={updateSceneDuration}
                         class="h-8"
                     />
                 </div>

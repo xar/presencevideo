@@ -22,6 +22,7 @@ export type SelectionStore = {
     getSelectedAudioClip: () => { trackId: string; clip: AudioClip } | null;
     getSelectedVideoClip: () => { trackId: string; clip: VideoClip } | null;
     deleteSelected: () => void;
+    validateSelection: () => void;
 };
 
 let selection = $state<Selection>({
@@ -35,6 +36,64 @@ let selection = $state<Selection>({
 });
 
 let tool = $state<Tool>('select');
+
+/**
+ * Validate selection IDs still exist in project — auto-clear stale references.
+ * Called imperatively after project mutations since module-level $effect is not allowed.
+ */
+function validateSelection(): void {
+    const p = projectStore.project;
+    if (!p || selection.type === null) return;
+
+    if (selection.sceneId) {
+        const sceneExists = p.scenes.some((s) => s.id === selection.sceneId);
+        if (!sceneExists) {
+            if (p.scenes.length > 0) {
+                selectScene(p.scenes[0].id);
+            } else {
+                clearSelection();
+            }
+            return;
+        }
+
+        if (selection.layerId) {
+            const scene = p.scenes.find((s) => s.id === selection.sceneId);
+            const layerExists = scene?.layers.some(
+                (l) => l.id === selection.layerId,
+            );
+            if (!layerExists) {
+                selectScene(selection.sceneId);
+                return;
+            }
+        }
+    }
+
+    if (selection.audioTrackId && selection.audioClipId) {
+        const track = p.audio_tracks.find(
+            (t) => t.id === selection.audioTrackId,
+        );
+        const clipExists = track?.clips.some(
+            (c) => c.id === selection.audioClipId,
+        );
+        if (!track || !clipExists) {
+            clearSelection();
+            return;
+        }
+    }
+
+    if (selection.videoTrackId && selection.videoClipId) {
+        const track = p.video_tracks.find(
+            (t) => t.id === selection.videoTrackId,
+        );
+        const clipExists = track?.clips.some(
+            (c) => c.id === selection.videoClipId,
+        );
+        if (!track || !clipExists) {
+            clearSelection();
+            return;
+        }
+    }
+}
 
 function selectScene(sceneId: string): void {
     selection = {
@@ -203,6 +262,7 @@ export function createSelectionStore(): SelectionStore {
         getSelectedAudioClip,
         getSelectedVideoClip,
         deleteSelected,
+        validateSelection,
     };
 }
 

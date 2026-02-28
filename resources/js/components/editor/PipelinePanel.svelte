@@ -244,7 +244,18 @@
     }
 
     async function pollGeneration(generationId: number, callback?: (asset: Asset) => void) {
+        const MAX_POLLS = 150; // 5 minutes at 2s intervals
+        let pollCount = 0;
+
         const checkStatus = async () => {
+            pollCount++;
+
+            if (pollCount > MAX_POLLS) {
+                isGenerating = false;
+                alert('Generation timed out after 5 minutes. Please try again.');
+                return;
+            }
+
             try {
                 const response = await fetch(`/editor/generations/${generationId}`);
                 if (!response.ok) return;

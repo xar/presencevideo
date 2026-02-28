@@ -15,6 +15,7 @@ export type ProjectStore = {
     project: Project | null;
     isDirty: boolean;
     isSaving: boolean;
+    lastSaveError: string | null;
     setProject: (project: Project) => void;
     syncAssets: (assets: Asset[]) => void;
     updateProject: (updates: Partial<Project>) => void;
@@ -51,11 +52,16 @@ export type ProjectStore = {
     deleteVideoClip: (trackId: string, clipId: string) => void;
     save: () => Promise<void>;
     markDirty: () => void;
+    dismissSaveError: () => void;
+    onBeforeMutate: (callback: () => void) => void;
 };
 
 let project = $state<Project | null>(null);
 let isDirty = $state(false);
 let isSaving = $state(false);
+let lastSaveError = $state<string | null>(null);
+let editVersion = $state(0);
+let beforeMutateCallback: (() => void) | null = null;
 
 function setProject(p: Project): void {
     project = p;
@@ -64,8 +70,12 @@ function setProject(p: Project): void {
 
 function syncAssets(assets: Asset[]): void {
     if (!project) return;
-    // Only update if assets have actually changed (new assets added)
-    if (project.assets?.length !== assets.length) {
+    // Compare by id:updated_at pairs to detect both additions and updates
+    const currentKey = (project.assets ?? [])
+        .map((a) => `${a.id}:${a.updated_at}`)
+        .join(',');
+    const newKey = assets.map((a) => `${a.id}:${a.updated_at}`).join(',');
+    if (currentKey !== newKey) {
         project = { ...project, assets };
     }
 }
@@ -73,7 +83,7 @@ function syncAssets(assets: Asset[]): void {
 function updateProject(updates: Partial<Project>): void {
     if (!project) return;
     project = { ...project, ...updates };
-    isDirty = true;
+    markDirty();
 }
 
 function addScene(sceneData?: Partial<Scene>): Scene {
@@ -92,7 +102,7 @@ function addScene(sceneData?: Partial<Scene>): Scene {
         ...project,
         scenes: [...project.scenes, scene],
     };
-    isDirty = true;
+    markDirty();
 
     return scene;
 }
@@ -106,7 +116,7 @@ function updateScene(sceneId: string, updates: Partial<Scene>): void {
             scene.id === sceneId ? { ...scene, ...updates } : scene,
         ),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function deleteScene(sceneId: string): void {
@@ -116,7 +126,7 @@ function deleteScene(sceneId: string): void {
         ...project,
         scenes: project.scenes.filter((scene) => scene.id !== sceneId),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function reorderScenes(fromIndex: number, toIndex: number): void {
@@ -127,7 +137,7 @@ function reorderScenes(fromIndex: number, toIndex: number): void {
     scenes.splice(toIndex, 0, removed);
 
     project = { ...project, scenes };
-    isDirty = true;
+    markDirty();
 }
 
 function addLayer(sceneId: string, layerData: Partial<Layer>): Layer {
@@ -136,13 +146,17 @@ function addLayer(sceneId: string, layerData: Partial<Layer>): Layer {
     const scene = project.scenes.find((s) => s.id === sceneId);
     if (!scene) throw new Error('Scene not found');
 
+    const maxZ = scene.layers.length > 0
+        ? Math.max(...scene.layers.map((l) => l.z_index))
+        : -1;
+
     const layer = {
         id: uuid(),
         x: 0,
         y: 0,
         width: project.resolution_width,
         height: project.resolution_height,
-        z_index: scene.layers.length,
+        z_index: maxZ + 1,
         ...layerData,
     } as Layer;
 
@@ -196,7 +210,7 @@ function addAudioTrack(trackData?: Partial<AudioTrack>): AudioTrack {
         ...project,
         audio_tracks: [...project.audio_tracks, track],
     };
-    isDirty = true;
+    markDirty();
 
     return track;
 }
@@ -210,7 +224,7 @@ function updateAudioTrack(trackId: string, updates: Partial<AudioTrack>): void {
             track.id === trackId ? { ...track, ...updates } : track,
         ),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function deleteAudioTrack(trackId: string): void {
@@ -222,7 +236,7 @@ function deleteAudioTrack(trackId: string): void {
             (track) => track.id !== trackId,
         ),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function addAudioClip(
@@ -293,7 +307,7 @@ function addVideoTrack(trackData?: Partial<VideoTrack>): VideoTrack {
         ...project,
         video_tracks: [...project.video_tracks, track],
     };
-    isDirty = true;
+    markDirty();
 
     return track;
 }
@@ -307,7 +321,7 @@ function updateVideoTrack(trackId: string, updates: Partial<VideoTrack>): void {
             track.id === trackId ? { ...track, ...updates } : track,
         ),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function deleteVideoTrack(trackId: string): void {
@@ -319,7 +333,7 @@ function deleteVideoTrack(trackId: string): void {
             (track) => track.id !== trackId,
         ),
     };
-    isDirty = true;
+    markDirty();
 }
 
 function addVideoClip(
@@ -383,6 +397,8 @@ async function save(): Promise<void> {
     if (!project || !isDirty || isSaving) return;
 
     isSaving = true;
+    lastSaveError = null;
+    const versionAtSaveStart = editVersion;
 
     return new Promise((resolve, reject) => {
         router.put(
@@ -399,12 +415,17 @@ async function save(): Promise<void> {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    isDirty = false;
+                    // Only clear dirty if no edits happened during save
+                    if (editVersion === versionAtSaveStart) {
+                        isDirty = false;
+                    }
                     isSaving = false;
                     resolve();
                 },
                 onError: (errors) => {
                     isSaving = false;
+                    const msg = Object.values(errors).flat().join(', ');
+                    lastSaveError = msg || 'Save failed';
                     reject(errors);
                 },
             },
@@ -412,8 +433,18 @@ async function save(): Promise<void> {
     });
 }
 
+function dismissSaveError(): void {
+    lastSaveError = null;
+}
+
 function markDirty(): void {
+    beforeMutateCallback?.();
     isDirty = true;
+    editVersion++;
+}
+
+function onBeforeMutate(callback: () => void): void {
+    beforeMutateCallback = callback;
 }
 
 export function createProjectStore(): ProjectStore {
@@ -426,6 +457,9 @@ export function createProjectStore(): ProjectStore {
         },
         get isSaving() {
             return isSaving;
+        },
+        get lastSaveError() {
+            return lastSaveError;
         },
         setProject,
         syncAssets,
@@ -451,6 +485,8 @@ export function createProjectStore(): ProjectStore {
         deleteVideoClip,
         save,
         markDirty,
+        dismissSaveError,
+        onBeforeMutate,
     };
 }
 

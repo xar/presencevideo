@@ -11,6 +11,7 @@
     import SceneStrip from '@/components/editor/SceneStrip.svelte';
     import VideoTracks from '@/components/editor/VideoTracks.svelte';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { historyStore } from '@/lib/editor/history.svelte';
     import type { Project } from '@/types';
 
     let { project }: { project: Project } = $props();
@@ -20,6 +21,24 @@
         if (project.assets && projectStore.project) {
             projectStore.syncAssets(project.assets);
         }
+    });
+
+    // Validate selection after project mutations (e.g., scene/layer deleted externally)
+    $effect(() => {
+        if (projectStore.project) {
+            selectionStore.validateSelection();
+        }
+    });
+
+    // Autosave every 30s when dirty
+    $effect(() => {
+        if (!projectStore.isDirty) return;
+
+        const timer = setTimeout(() => {
+            projectStore.save().catch(() => {});
+        }, 30_000);
+
+        return () => clearTimeout(timer);
     });
 
     onMount(() => {
@@ -55,12 +74,48 @@
                 e.preventDefault();
                 projectStore.save();
             }
+
+            // Undo: Cmd+Z
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+                if (inEditable) return;
+                e.preventDefault();
+                historyStore.undo();
+            }
+
+            // Redo: Cmd+Shift+Z
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+                if (inEditable) return;
+                e.preventDefault();
+                historyStore.redo();
+            }
+
+            // Tool shortcuts
+            if (!inEditable) {
+                if (e.key === 'v' || e.key === 'V') {
+                    selectionStore.setTool('select');
+                }
+                if (e.key === 't' || e.key === 'T') {
+                    selectionStore.setTool('text');
+                }
+                if (e.key === 'h' || e.key === 'H') {
+                    selectionStore.setTool('pan');
+                }
+            }
+        }
+
+        // Warn about unsaved changes on navigation
+        function handleBeforeUnload(e: BeforeUnloadEvent) {
+            if (projectStore.isDirty) {
+                e.preventDefault();
+            }
         }
 
         window.addEventListener('keydown', handleKeydown);
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             window.removeEventListener('keydown', handleKeydown);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     });
 </script>
