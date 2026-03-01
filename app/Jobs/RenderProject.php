@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\RenderStatus;
+use App\Models\Asset;
 use App\Models\Render;
 use App\Services\FFmpegService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,6 +42,9 @@ class RenderProject implements ShouldQueue
             if (empty($scenes)) {
                 throw new \RuntimeException('No scenes to render');
             }
+
+            // Validate all asset files exist before starting render
+            $this->validateAssetFiles($project);
 
             $this->render->update([
                 'status' => RenderStatus::Compositing,
@@ -118,6 +122,63 @@ class RenderProject implements ShouldQueue
             ]);
 
             throw $e;
+        }
+    }
+
+    /**
+     * Validate that all asset files referenced by the project exist on disk.
+     */
+    protected function validateAssetFiles(\App\Models\Project $project): void
+    {
+        $assetIds = collect();
+
+        // Collect asset IDs from scene layers
+        foreach ($project->scenes ?? [] as $scene) {
+            foreach ($scene['layers'] ?? [] as $layer) {
+                if (! empty($layer['asset_id'])) {
+                    $assetIds->push($layer['asset_id']);
+                }
+            }
+        }
+
+        // Collect asset IDs from audio tracks
+        foreach ($project->audio_tracks ?? [] as $track) {
+            foreach ($track['clips'] ?? [] as $clip) {
+                if (! empty($clip['asset_id'])) {
+                    $assetIds->push($clip['asset_id']);
+                }
+            }
+        }
+
+        // Collect asset IDs from video tracks
+        foreach ($project->video_tracks ?? [] as $track) {
+            foreach ($track['clips'] ?? [] as $clip) {
+                if (! empty($clip['asset_id'])) {
+                    $assetIds->push($clip['asset_id']);
+                }
+            }
+        }
+
+        $assetIds = $assetIds->unique()->values();
+
+        if ($assetIds->isEmpty()) {
+            return;
+        }
+
+        $assets = Asset::whereIn('id', $assetIds)->get();
+        $missing = [];
+
+        foreach ($assets as $asset) {
+            if (! Storage::disk($asset->disk)->exists($asset->path)) {
+                $missing[] = "{$asset->name} (ID: {$asset->id}, path: {$asset->path})";
+            }
+        }
+
+        if (! empty($missing)) {
+            throw new \RuntimeException(
+                'Asset files not found on disk: '.implode(', ', $missing).
+                '. Files may have been lost during deployment. Please re-upload the missing assets.'
+            );
         }
     }
 }
