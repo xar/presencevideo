@@ -16,6 +16,8 @@
 
     let { project, activeGenerations = [] }: { project: Project; activeGenerations?: Generation[] } = $props();
 
+    let jsonEditorOpen = $state(false);
+
     // Sync assets from server when they change (e.g., after generation completes)
     $effect(() => {
         if (project.assets && projectStore.project) {
@@ -76,6 +78,12 @@
                 projectStore.save();
             }
 
+            // JSON Code Editor: Cmd+Shift+E
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'e') {
+                e.preventDefault();
+                jsonEditorOpen = !jsonEditorOpen;
+            }
+
             // Undo: Cmd+Z
             if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
                 if (inEditable) return;
@@ -128,7 +136,7 @@
 <AppHead title={project.name} />
 
 <div class="flex h-screen flex-col bg-background">
-    <EditorToolbar />
+    <EditorToolbar bind:jsonEditorOpen />
 
     <div class="flex flex-1 overflow-hidden">
         <AssetPanel />

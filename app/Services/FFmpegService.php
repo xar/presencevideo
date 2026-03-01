@@ -541,6 +541,7 @@ class FFmpegService
     public function burnSubtitles(string $inputPath, array $subtitleTracks, Project $project): string
     {
         $filterParts = [];
+        $videoWidth = $project->resolution_width;
 
         foreach ($subtitleTracks as $track) {
             $enabled = $track['enabled'] ?? true;
@@ -560,6 +561,9 @@ class FFmpegService
 
             $yExpr = $position === 'top' ? '20' : '(h-text_h-20)';
 
+            // Limit text width to 90% of video width to match preview's max-w-[90%]
+            $maxTextWidth = (int) round($videoWidth * 0.9);
+
             $entries = $track['entries'] ?? [];
 
             foreach ($entries as $entry) {
@@ -571,15 +575,22 @@ class FFmpegService
                 $startSec = ($entry['start_ms'] ?? 0) / 1000;
                 $endSec = ($entry['end_ms'] ?? 0) / 1000;
 
+                // Approximate max chars per line based on video width and font size
+                // Average char width is roughly 0.6 * fontSize for most fonts
+                $avgCharWidth = $fontSize * 0.6;
+                $maxCharsPerLine = max(10, (int) floor($maxTextWidth / $avgCharWidth));
+                $wrappedText = wordwrap($text, $maxCharsPerLine, "\n", true);
+
                 // Escape text for FFmpeg drawtext filter
                 $escapedText = str_replace(
                     ["'", ':', '\\', '%'],
                     ["\\'", '\\:', '\\\\', '%%'],
-                    $text
+                    $wrappedText
                 );
 
+                // Use x centered, box for background, and line_spacing for readability
                 $filterParts[] = sprintf(
-                    "drawtext=text='%s':fontsize=%d:fontcolor=%s:x=(w-text_w)/2:y=%s:box=1:boxcolor=%s:boxborderw=5:enable='between(t\\,%f\\,%f)'",
+                    "drawtext=text='%s':fontsize=%d:fontcolor=%s:x=(w-text_w)/2:y=%s:box=1:boxcolor=%s:boxborderw=5:line_spacing=4:enable='between(t\\,%f\\,%f)'",
                     $escapedText,
                     $fontSize,
                     $fontColor,
@@ -606,7 +617,7 @@ class FFmpegService
             '-level', '4.0',
             '-pix_fmt', 'yuv420p',
             '-preset', 'fast',
-            '-c:a', 'copy',
+            '-an',
             '-movflags', '+faststart',
             $outputPath,
         ];
@@ -617,6 +628,7 @@ class FFmpegService
             throw new \RuntimeException('Subtitle burn failed: '.$result->errorOutput());
         }
 
+        // Clean up input file
         @unlink($inputPath);
 
         return $outputPath;

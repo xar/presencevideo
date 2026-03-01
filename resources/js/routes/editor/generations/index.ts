@@ -239,7 +239,7 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 export const show = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -254,7 +254,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 show.url = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -287,7 +287,7 @@ show.url = (args: { generation: number | { id: number } } | [generation: number 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 show.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -297,7 +297,7 @@ show.get = (args: { generation: number | { id: number } } | [generation: number 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 show.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -307,7 +307,7 @@ show.head = (args: { generation: number | { id: number } } | [generation: number
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 const showForm = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -317,7 +317,7 @@ const showForm = (args: { generation: number | { id: number } } | [generation: n
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 showForm.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -327,7 +327,7 @@ showForm.get = (args: { generation: number | { id: number } } | [generation: num
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:342
+* @see app/Http/Controllers/Editor/GenerationController.php:353
 * @route '/editor/generations/{generation}'
 */
 showForm.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

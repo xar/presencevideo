@@ -10,18 +10,37 @@
         Hand,
         ChevronLeft,
         X,
+        Code,
+        FileDown,
+        FileUp,
+        SquareTerminal,
     } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
+    import {
+        DropdownMenu,
+        DropdownMenuContent,
+        DropdownMenuItem,
+        DropdownMenuTrigger,
+    } from '@/components/ui/dropdown-menu';
     import { Separator } from '@/components/ui/separator';
     import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
     import { projectStore, selectionStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
+    import { downloadProjectJson, readProjectFile } from '@/lib/editor/project-json';
     import ResolutionPicker from './ResolutionPicker.svelte';
     import ExportDialog from './ExportDialog.svelte';
+    import JsonEditorDialog from './JsonEditorDialog.svelte';
+
+    let {
+        jsonEditorOpen = $bindable(false),
+    }: {
+        jsonEditorOpen?: boolean;
+    } = $props();
 
     let showSavedMessage = $state(false);
     let savedTimer: ReturnType<typeof setTimeout> | null = null;
     let exportDialogOpen = $state(false);
+    let fileInput: HTMLInputElement;
 
     // Track when save completes to show brief "Saved" feedback
     let wasSaving = $state(false);
@@ -54,6 +73,28 @@
 
     function handleSave() {
         projectStore.save();
+    }
+
+    function handleExportJson() {
+        if (projectStore.project) {
+            downloadProjectJson(projectStore.project);
+        }
+    }
+
+    async function handleImportJson(e: Event) {
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+
+        const result = await readProjectFile(file);
+        if (result.valid) {
+            projectStore.updateProject(result.data);
+        } else {
+            alert(`Import failed: ${result.error}`);
+        }
+
+        // Reset so the same file can be re-imported
+        input.value = '';
     }
 </script>
 
@@ -212,8 +253,67 @@
                 </TooltipTrigger>
                 <TooltipContent>Export Video</TooltipContent>
             </Tooltip>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    {#snippet children(menuProps)}
+                        <Tooltip>
+                            <TooltipTrigger>
+                                {#snippet child({ props: tooltipProps })}
+                                    <Button
+                                        {...tooltipProps}
+                                        variant="ghost"
+                                        size="icon"
+                                        onclick={menuProps.onclick}
+                                        aria-expanded={menuProps['aria-expanded']}
+                                        data-state={menuProps['data-state']}
+                                    >
+                                        <Code class="h-4 w-4" />
+                                    </Button>
+                                {/snippet}
+                            </TooltipTrigger>
+                            <TooltipContent>JSON Tools</TooltipContent>
+                        </Tooltip>
+                    {/snippet}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        {#snippet children(props)}
+                            <button class={props.class} onclick={(e) => { props.onClick?.(e); handleExportJson(); }}>
+                                <FileDown class="h-4 w-4" />
+                                Export JSON
+                            </button>
+                        {/snippet}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        {#snippet children(props)}
+                            <button class={props.class} onclick={(e) => { props.onClick?.(e); fileInput.click(); }}>
+                                <FileUp class="h-4 w-4" />
+                                Import JSON
+                            </button>
+                        {/snippet}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        {#snippet children(props)}
+                            <button class={props.class} onclick={(e) => { props.onClick?.(e); jsonEditorOpen = true; }}>
+                                <SquareTerminal class="h-4 w-4" />
+                                Code Editor
+                            </button>
+                        {/snippet}
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
     </TooltipProvider>
 </div>
 
+<input
+    bind:this={fileInput}
+    type="file"
+    accept=".json"
+    class="hidden"
+    onchange={handleImportJson}
+/>
+
 <ExportDialog bind:open={exportDialogOpen} />
+<JsonEditorDialog bind:open={jsonEditorOpen} />
