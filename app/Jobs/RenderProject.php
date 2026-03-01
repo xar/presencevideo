@@ -8,6 +8,8 @@ use App\Services\FFmpegService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class RenderProject implements ShouldQueue
 {
@@ -86,10 +88,15 @@ class RenderProject implements ShouldQueue
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             }
 
+            // Move to permanent storage and store a relative path
+            $storagePath = 'renders/final_'.Str::uuid().'.mp4';
+            Storage::put($storagePath, file_get_contents($finalOutput));
+            @unlink($finalOutput);
+
             $this->render->update([
                 'status' => RenderStatus::Completed,
                 'progress' => 100,
-                'output_path' => $finalOutput,
+                'output_path' => $storagePath,
                 'completed_at' => now(),
             ]);
 
