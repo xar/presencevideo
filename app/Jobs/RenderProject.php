@@ -85,18 +85,20 @@ class RenderProject implements ShouldQueue
             $finalOutput = $concatenated;
             if (! empty($audioTracks)) {
                 $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
+                // mergeAudioVideo stores in Storage and returns a relative path
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
+            } else {
+                // Move temp file to permanent storage
+                $storagePath = 'renders/final_'.Str::uuid().'.mp4';
+                Storage::put($storagePath, file_get_contents($finalOutput));
+                @unlink($finalOutput);
+                $finalOutput = $storagePath;
             }
-
-            // Move to permanent storage and store a relative path
-            $storagePath = 'renders/final_'.Str::uuid().'.mp4';
-            Storage::put($storagePath, file_get_contents($finalOutput));
-            @unlink($finalOutput);
 
             $this->render->update([
                 'status' => RenderStatus::Completed,
                 'progress' => 100,
-                'output_path' => $storagePath,
+                'output_path' => $finalOutput,
                 'completed_at' => now(),
             ]);
 

@@ -617,7 +617,7 @@ class FFmpegService
             '-level', '4.0',
             '-pix_fmt', 'yuv420p',
             '-preset', 'fast',
-            '-an',
+            '-c:a', 'copy',
             '-movflags', '+faststart',
             $outputPath,
         ];

@@ -185,7 +185,6 @@
                 bind:this={videoEl}
                 src={url}
                 class="h-full w-full object-cover pointer-events-none"
-                muted
                 playsinline
                 preload="auto"
             ></video>
