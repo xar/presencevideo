@@ -1,9 +1,12 @@
 <script lang="ts">
-    import { router } from '@inertiajs/svelte';
     import { Upload, Image, Video, Music, Loader2, Sparkles } from 'lucide-svelte';
+    import AssetThumbnail from '@/components/editor/AssetThumbnail.svelte';
+    import UploadQueueStatus from '@/components/editor/UploadQueueStatus.svelte';
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
-    import { projectStore, selectionStore, generationTracker } from '@/lib/editor';
+    import { projectStore, generationTracker } from '@/lib/editor';
+    import { addAssetToEditor, serializeAssetDragData } from '@/lib/editor/asset-actions';
+    import { uploadQueue } from '@/lib/editor/upload-queue.svelte';
     import type { Asset, AssetType } from '@/types';
 
     let assets = $derived(
@@ -16,12 +19,10 @@
     let audioAssets = $derived(assets.filter((a) => a.type === 'audio'));
     let pendingGenerations = $derived(generationTracker.generations);
 
-    let isUploading = $state(false);
-    let uploadError = $state<string | null>(null);
     let fileInput: HTMLInputElement;
 
     function openFileDialog(type: AssetType) {
-        if (fileInput && !isUploading) {
+        if (fileInput && !uploadQueue.isUploading) {
             fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
             fileInput.dataset.type = type;
             fileInput.click();
@@ -35,101 +36,14 @@
 
         if (!files?.length || !projectStore.project) return;
 
-        isUploading = true;
-        uploadError = null;
-
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('type', type);
-
-            try {
-                // Get CSRF token from meta tag or cookie
-                const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
-                    ?? document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1]?.replace(/%3D/g, '=')
-                    ?? '';
-
-                const response = await fetch(`/editor/projects/${projectStore.project.id}/assets`, {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin',
-                    headers: {
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-XSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json',
-                    },
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `Upload failed: ${response.status}`);
-                }
-
-                router.reload({ only: ['project'] });
-            } catch (err) {
-                console.error('Upload failed:', err);
-                uploadError = err instanceof Error ? err.message : 'Upload failed';
-            }
-        }
-
-        isUploading = false;
+        await uploadQueue.upload(projectStore.project.id, files, type);
         input.value = '';
     }
 
     function handleDragStart(e: DragEvent, asset: Asset) {
         if (!e.dataTransfer) return;
         e.dataTransfer.effectAllowed = 'copy';
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            type: 'asset',
-            assetId: asset.id,
-            assetType: asset.type,
-            width: asset.width,
-            height: asset.height,
-        }));
-    }
-
-    function addAssetToScene(asset: Asset) {
-        const selectedScene = selectionStore.getSelectedScene();
-        if (!selectedScene) return;
-
-        const layerType = asset.type === 'audio' ? null : asset.type;
-        if (!layerType) return;
-
-        const layer = projectStore.addLayer(selectedScene.id, {
-            type: layerType,
-            asset_id: asset.id,
-            x: 0,
-            y: 0,
-            width: asset.width ?? projectStore.project!.resolution_width,
-            height: asset.height ?? projectStore.project!.resolution_height,
-        });
-
-        selectionStore.selectLayer(selectedScene.id, layer.id);
-    }
-
-    function addAudioToTrack(asset: Asset) {
-        if (!projectStore.project) return;
-
-        // Get or create an audio track
-        let audioTracks = projectStore.project.audio_tracks;
-        let targetTrack = audioTracks[0];
-
-        if (!targetTrack) {
-            targetTrack = projectStore.addAudioTrack();
-        }
-
-        // Add clip at the end of existing clips, or at start
-        const lastClip = targetTrack.clips[targetTrack.clips.length - 1];
-        const startMs = lastClip ? lastClip.start_ms + lastClip.duration_ms : 0;
-
-        const clip = projectStore.addAudioClip(targetTrack.id, {
-            asset_id: asset.id,
-            start_ms: startMs,
-            duration_ms: asset.duration_ms ?? 5000,
-            volume: 1.0,
-        });
-
-        selectionStore.selectAudioClip(targetTrack.id, clip.id);
+        e.dataTransfer.setData('application/json', serializeAssetDragData(asset));
     }
 </script>
 
@@ -190,15 +104,11 @@
                         <button
                             type="button"
                             class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAssetToScene(asset)}
+                            onclick={() => addAssetToEditor(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >
-                            <img
-                                src={asset.thumbnail_url ?? asset.url}
-                                alt={asset.name}
-                                class="h-full w-full object-cover pointer-events-none"
-                            />
+                            <AssetThumbnail {asset} />
                         </button>
                     {/each}
                 </div>
@@ -216,21 +126,11 @@
                         <button
                             type="button"
                             class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAssetToScene(asset)}
+                            onclick={() => addAssetToEditor(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >
-                            {#if asset.thumbnail_url}
-                                <img
-                                    src={asset.thumbnail_url}
-                                    alt={asset.name}
-                                    class="h-full w-full object-cover pointer-events-none"
-                                />
-                            {:else}
-                                <div class="flex h-full items-center justify-center pointer-events-none">
-                                    <Video class="h-6 w-6 text-muted-foreground" />
-                                </div>
-                            {/if}
+                            <AssetThumbnail {asset} />
                         </button>
                     {/each}
                 </div>
@@ -248,7 +148,7 @@
                         <button
                             type="button"
                             class="w-full flex items-center gap-2 rounded border p-2 text-left text-xs hover:bg-muted hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAudioToTrack(asset)}
+                            onclick={() => addAssetToEditor(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >
@@ -265,16 +165,8 @@
             </div>
         {/if}
 
-        {#if isUploading}
-            <div class="flex flex-col items-center justify-center py-8 text-center">
-                <Loader2 class="h-8 w-8 text-primary animate-spin" />
-                <p class="mt-2 text-sm text-muted-foreground">Uploading...</p>
-            </div>
-        {:else if uploadError}
-            <div class="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
-                {uploadError}
-                <button type="button" class="ml-2 underline" onclick={() => uploadError = null}>Dismiss</button>
-            </div>
+        {#if uploadQueue.currentItem}
+            <UploadQueueStatus />
         {:else if assets.length === 0 && pendingGenerations.length === 0}
             <div class="flex flex-col items-center justify-center py-8 text-center">
                 <Upload class="h-8 w-8 text-muted-foreground/50" />
@@ -287,15 +179,15 @@
     <Separator />
 
     <div class="p-2 space-y-1">
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('image')} disabled={isUploading}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('image')} disabled={uploadQueue.isUploading}>
             <Image class="mr-2 h-3 w-3" />
             Upload Image
         </Button>
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('video')} disabled={isUploading}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('video')} disabled={uploadQueue.isUploading}>
             <Video class="mr-2 h-3 w-3" />
             Upload Video
         </Button>
-        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('audio')} disabled={isUploading}>
+        <Button variant="outline" size="sm" class="w-full justify-start" onclick={() => openFileDialog('audio')} disabled={uploadQueue.isUploading}>
             <Music class="mr-2 h-3 w-3" />
             Upload Audio
         </Button>

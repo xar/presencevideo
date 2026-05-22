@@ -1,6 +1,5 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
-    import Video from 'lucide-svelte/icons/video';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
     import NavMain from '@/components/NavMain.svelte';
@@ -14,42 +13,33 @@
         SidebarMenuButton,
         SidebarMenuItem,
     } from '@/components/ui/sidebar';
+    import { appHome, sidebarNavItems } from '@/lib/navigation';
     import { toUrl } from '@/lib/utils';
-    import editor from '@/routes/editor';
-    import type { NavItem } from '@/types';
 
     let {
         children,
     }: {
         children?: Snippet;
     } = $props();
-
-    const mainNavItems: NavItem[] = [
-        {
-            title: 'Projects',
-            href: editor.index(),
-            icon: Video,
-        },
-    ];
 </script>
 
 <Sidebar collapsible="icon" variant="inset">
     <SidebarHeader>
         <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" asChild>
-                        {#snippet children(props)}
-                            <Link {...props} href={toUrl(editor.index())} class={props.class}>
-                                <AppLogo />
-                            </Link>
-                        {/snippet}
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
+            <SidebarMenuItem>
+                <SidebarMenuButton size="lg" asChild>
+                    {#snippet children(props)}
+                        <Link {...props} href={toUrl(appHome)} class={props.class}>
+                            <AppLogo />
+                        </Link>
+                    {/snippet}
+                </SidebarMenuButton>
+            </SidebarMenuItem>
         </SidebarMenu>
     </SidebarHeader>
 
     <SidebarContent>
-        <NavMain items={mainNavItems} />
+        <NavMain items={sidebarNavItems} />
     </SidebarContent>
 
     <SidebarFooter>

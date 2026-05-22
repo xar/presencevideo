@@ -1,6 +1,6 @@
 <script lang="ts">
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
-    import type { Scene, Layer, TextLayer, ImageLayer, VideoLayer, VideoClip, VideoTrack } from '@/types';
+    import type { Scene, Layer, ImageLayer, VideoLayer, VideoClip, VideoTrack } from '@/types';
     import LayerItem from './LayerItem.svelte';
     import SubtitleOverlay from './SubtitleOverlay.svelte';
     import VideoTrackOverlay from './VideoTrackOverlay.svelte';
@@ -10,12 +10,8 @@
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
     let currentTool = $derived(selectionStore.tool);
 
-    // During playback, show the scene from timeline; otherwise show selected scene
     let displayedScene = $derived.by(() => {
-        if (isPlaying) {
-            return timelineStore.getCurrentScene();
-        }
-        return selectionStore.getSelectedScene();
+        return timelineStore.getCurrentScene() ?? selectionStore.getSelectedScene();
     });
 
     // Compute active video clips that should be displayed at current time
@@ -44,13 +40,11 @@
         return clips.sort((a, b) => a.clip.z_index - b.clip.z_index);
     });
 
-    // Auto-select scene when timeline moves to a new scene during playback
+    // Keep the selected scene in sync when playback or scrubbing crosses scene boundaries.
     $effect(() => {
-        if (isPlaying) {
-            const currentScene = timelineStore.getCurrentScene();
-            if (currentScene && selectionStore.selection.sceneId !== currentScene.id) {
-                selectionStore.selectScene(currentScene.id);
-            }
+        const currentScene = timelineStore.getCurrentScene();
+        if (currentScene && selectionStore.selection.sceneId !== currentScene.id) {
+            selectionStore.selectScene(currentScene.id);
         }
     });
 
@@ -70,10 +64,6 @@
     });
 
     function handleLayerClick(layer: Layer, e: MouseEvent) {
-        // When text tool is active, let the click propagate to canvas to add text
-        if (currentTool === 'text') {
-            return;
-        }
         e.stopPropagation();
         if (displayedScene) {
             selectionStore.selectLayer(displayedScene.id, layer.id);
@@ -83,28 +73,7 @@
     function handleCanvasClick(e: MouseEvent) {
         if (!displayedScene || !canvasEl) return;
 
-        if (currentTool === 'text') {
-            // Add a text layer at click position
-            const rect = canvasEl.getBoundingClientRect();
-            const x = Math.round((e.clientX - rect.left) / canvasScale);
-            const y = Math.round((e.clientY - rect.top) / canvasScale);
-
-            const layer = projectStore.addLayer(displayedScene.id, {
-                type: 'text',
-                text: 'Double-click to edit',
-                x: x - 100,
-                y: y - 24,
-                width: 200,
-                height: 48,
-                font_size: 48,
-                font_color: '#ffffff',
-            } as Partial<TextLayer>);
-
-            selectionStore.selectLayer(displayedScene.id, layer.id);
-            selectionStore.setTool('select');
-        } else {
-            selectionStore.selectScene(displayedScene.id);
-        }
+        selectionStore.selectScene(displayedScene.id);
     }
 
     function handleLayerUpdate(layer: Layer, updates: Partial<Layer>) {
@@ -114,10 +83,6 @@
     }
 
     function handleVideoClipClick(trackId: string, clip: VideoClip, e: MouseEvent) {
-        // When text tool is active, let the click propagate to canvas to add text
-        if (currentTool === 'text') {
-            return;
-        }
         e.stopPropagation();
         selectionStore.selectVideoClip(trackId, clip.id);
     }
@@ -134,8 +99,6 @@
 
     function getCursor(): string {
         switch (currentTool) {
-            case 'text':
-                return 'text';
             case 'pan':
                 return 'grab';
             default:
@@ -224,6 +187,7 @@
             {#each sortedLayers as layer (layer.id)}
                 <LayerItem
                     {layer}
+                    sceneId={displayedScene.id}
                     scale={canvasScale}
                     isSelected={selectionStore.selection.layerId === layer.id}
                     onclick={(e) => handleLayerClick(layer, e)}
@@ -250,12 +214,6 @@
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-primary/10">
                     <p class="text-white text-sm bg-primary px-3 py-1 rounded shadow-lg">
                         Drop to add layer
-                    </p>
-                </div>
-            {:else if currentTool === 'text' && !isPlaying}
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <p class="text-white/50 text-sm bg-black/50 px-3 py-1 rounded">
-                        Click to add text
                     </p>
                 </div>
             {/if}

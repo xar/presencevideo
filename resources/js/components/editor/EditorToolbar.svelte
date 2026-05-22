@@ -24,7 +24,7 @@
     } from '@/components/ui/dropdown-menu';
     import { Separator } from '@/components/ui/separator';
     import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-    import { projectStore, selectionStore } from '@/lib/editor';
+    import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
     import { downloadProjectJson, readProjectFile } from '@/lib/editor/project-json';
     import ResolutionPicker from './ResolutionPicker.svelte';
@@ -96,6 +96,35 @@
         // Reset so the same file can be re-imported
         input.value = '';
     }
+
+    function addTextOverlay() {
+        const project = projectStore.project;
+        if (!project) return;
+
+        const selectedTrackId = selectionStore.selection.videoTrackId;
+        const existingTrack = selectedTrackId
+            ? project.video_tracks.find((track) => track.id === selectedTrackId)
+            : project.video_tracks[0];
+        const track = existingTrack ?? projectStore.addVideoTrack();
+
+        const clip = projectStore.addVideoClip(track.id, {
+            type: 'text',
+            text: 'Text Overlay',
+            start_ms: timelineStore.currentTimeMs,
+            duration_ms: 3000,
+            x: Math.round(project.resolution_width * 0.25),
+            y: Math.round(project.resolution_height * 0.75),
+            width: Math.round(project.resolution_width * 0.5),
+            height: 96,
+            font_size: 48,
+            font_color: '#ffffff',
+            font_weight: 'bold',
+            background_color: '#00000080',
+        });
+
+        selectionStore.selectVideoClip(track.id, clip.id);
+        selectionStore.setTool('select');
+    }
 </script>
 
 <div class="flex h-12 items-center gap-2 border-b bg-background px-2">
@@ -153,15 +182,15 @@
                     {#snippet child({ props })}
                         <Button
                             {...props}
-                            variant={selectionStore.tool === 'text' ? 'secondary' : 'ghost'}
+                            variant="ghost"
                             size="icon"
-                            onclick={() => selectionStore.setTool('text')}
+                            onclick={addTextOverlay}
                         >
                             <Type class="h-4 w-4" />
                         </Button>
                     {/snippet}
                 </TooltipTrigger>
-                <TooltipContent>Text Tool (T)</TooltipContent>
+                <TooltipContent>Add Text Overlay</TooltipContent>
             </Tooltip>
 
             <Tooltip>

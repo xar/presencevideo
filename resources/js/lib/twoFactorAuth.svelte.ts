@@ -1,3 +1,4 @@
+import { appFetch } from '@/lib/http';
 import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
 
 type TwoFactorAuthState = {
@@ -20,13 +21,7 @@ export type TwoFactorAuthStateApi = {
 };
 
 const fetchJson = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url, {
-        credentials: 'same-origin',
-        headers: {
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
+    const response = await appFetch(url);
 
     if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.status}`);

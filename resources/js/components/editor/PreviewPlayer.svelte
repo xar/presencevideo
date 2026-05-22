@@ -3,6 +3,7 @@
     import { Button } from '@/components/ui/button';
     import { Slider } from '@/components/ui/slider';
     import { timelineStore, projectStore } from '@/lib/editor';
+    import { formatTimelineTime } from '@/lib/editor/formatting';
 
     let currentTime = $derived(timelineStore.currentTimeMs);
     let totalDuration = $derived(timelineStore.getTotalDuration());
@@ -15,14 +16,6 @@
 
     function zoomOut() {
         timelineStore.setZoom(zoom / 1.5);
-    }
-
-    function formatTime(ms: number): string {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const milliseconds = Math.floor((ms % 1000) / 10);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
     }
 
     function handleSliderChange(value: number[]) {
@@ -71,7 +64,7 @@
     </div>
 
     <div class="text-sm font-mono text-muted-foreground w-24">
-        {formatTime(currentTime)}
+        {formatTimelineTime(currentTime)}
     </div>
 
     <div class="flex-1">
@@ -84,7 +77,7 @@
     </div>
 
     <div class="text-sm font-mono text-muted-foreground w-24 text-right">
-        {formatTime(totalDuration)}
+        {formatTimelineTime(totalDuration)}
     </div>
 
     <div class="flex items-center gap-1 border-l pl-4 ml-2">

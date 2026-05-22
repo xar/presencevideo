@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/svelte';
+import { appFetch } from '@/lib/http';
 import type { Generation, GenerationStatus } from '@/types';
 
 type ActiveGeneration = {
@@ -101,7 +102,7 @@ async function poll(id: number): Promise<void> {
     }
 
     try {
-        const response = await fetch(`/editor/generations/${id}`);
+        const response = await appFetch(`/editor/generations/${id}`);
         if (!response.ok) return;
 
         const data = await response.json();

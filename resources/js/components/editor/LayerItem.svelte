@@ -1,19 +1,24 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import ResizeHandles, { type ResizeHandle } from '@/components/editor/ResizeHandles.svelte';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
+    import { editorFeatures } from '@/lib/editor/editor-features';
+    import { getCachedFramePreviewUrl } from '@/lib/editor/media-cache';
     import { useDragResize } from '@/lib/editor/useDragResize.svelte';
     import { cn } from '@/lib/utils';
     import type { Layer, TextLayer, ImageLayer, VideoLayer } from '@/types';
 
     let {
         layer,
+        sceneId,
         scale = 1,
         isSelected = false,
         onclick,
         onUpdate,
     }: {
         layer: Layer;
+        sceneId?: string;
         scale?: number;
         isSelected?: boolean;
         onclick?: (e: MouseEvent) => void;
@@ -22,6 +27,8 @@
 
     let videoEl: HTMLVideoElement | undefined = $state();
     let videoReady = $state(false);
+    let framePreviewUrl = $state<string | null>(null);
+    let lastFrameKey = $state<string | null>(null);
     let isPlaying = $derived(timelineStore.isPlaying);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
 
@@ -54,14 +61,14 @@
         const project = projectStore.project;
         if (!project?.scenes?.length) return 0;
 
-        const currentScene = isPlaying
-            ? timelineStore.getCurrentScene()
-            : selectionStore.getSelectedScene();
-        if (!currentScene) return 0;
+        const targetSceneId = sceneId
+            ?? timelineStore.getCurrentScene()?.id
+            ?? selectionStore.getSelectedScene()?.id;
+        if (!targetSceneId) return 0;
 
         let accumulated = 0;
         for (const scene of project.scenes) {
-            if (scene.id === currentScene.id) {
+            if (scene.id === targetSceneId) {
                 return Math.max(0, currentTimeMs - accumulated);
             }
             accumulated += scene.duration_ms;
@@ -69,33 +76,43 @@
         return 0;
     });
 
+    let targetVideoTime = $derived.by(() => {
+        if (layer.type !== 'video') return 0;
+
+        const videoLayer = layer as VideoLayer;
+        const trimStart = videoLayer.trim_start_ms ?? 0;
+
+        return Math.max(0, (sceneTimeMs + trimStart) / 1000);
+    });
+
+    let videoAssetUrl = $derived.by(() => {
+        if (layer.type !== 'video') return null;
+
+        return getAssetUrl((layer as VideoLayer).asset_id);
+    });
+
     // Sync video playback with timeline
     $effect(() => {
         if (!videoEl || layer.type !== 'video' || !videoReady) return;
 
         const playing = isPlaying;
-        const sceneTime = sceneTimeMs;
-
-        const videoLayer = layer as VideoLayer;
-        const trimStart = videoLayer.trim_start_ms ?? 0;
-        const videoDuration = videoEl.duration || 0;
-
-        let targetTime = (sceneTime + trimStart) / 1000;
-        if (videoDuration > 0) {
-            targetTime = Math.min(targetTime, videoDuration - 0.01);
-        }
+        const videoDuration = Number.isFinite(videoEl.duration) ? videoEl.duration : 0;
+        const maxTime = videoDuration > 0 ? Math.max(0, videoDuration - 0.01) : targetVideoTime;
+        const targetTime = Math.min(targetVideoTime, maxTime);
+        const drift = Math.abs(videoEl.currentTime - targetTime);
 
         if (!playing) {
-            if (Math.abs(videoEl.currentTime - targetTime) > 0.05) {
-                videoEl.currentTime = targetTime;
-            }
             if (!videoEl.paused) {
                 videoEl.pause();
+            }
+
+            if (drift > 0.01) {
+                videoEl.currentTime = targetTime;
             }
             return;
         }
 
-        if (Math.abs(videoEl.currentTime - targetTime) > 0.3) {
+        if (drift > 0.05) {
             videoEl.currentTime = targetTime;
         }
 
@@ -104,6 +121,22 @@
                 console.warn('Video play failed:', err);
             });
         }
+    });
+
+    $effect(() => {
+        if (!videoAssetUrl || isPlaying || !editorFeatures.clientPreviewFrames) return;
+
+        const frameKey = `${videoAssetUrl}:${Math.round(targetVideoTime / 0.1)}`;
+        if (lastFrameKey === frameKey) return;
+        lastFrameKey = frameKey;
+
+        getCachedFramePreviewUrl(videoAssetUrl, targetVideoTime)
+            .then((url) => {
+                if (lastFrameKey === frameKey) {
+                    framePreviewUrl = url;
+                }
+            })
+            .catch(() => {});
     });
 
     const dragResize = useDragResize({
@@ -124,7 +157,7 @@
         window.addEventListener('mouseup', onUp);
     }
 
-    function handleResizeStart(corner: string, e: MouseEvent) {
+    function handleResizeStart(corner: ResizeHandle, e: MouseEvent) {
         historyStore.beginBatch();
         dragResize.handleResizeStart(corner, e);
         const onUp = () => {
@@ -181,12 +214,21 @@
         {@const videoLayer = layer as VideoLayer}
         {@const url = getAssetUrl(videoLayer.asset_id)}
         {#if url}
+            {#if framePreviewUrl && !isPlaying}
+                <img
+                    src={framePreviewUrl}
+                    alt="Video frame preview"
+                    class="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                    draggable="false"
+                />
+            {/if}
             <video
                 bind:this={videoEl}
                 src={url}
-                class="h-full w-full object-cover pointer-events-none"
+                class="h-full w-full object-cover pointer-events-none {framePreviewUrl && !isPlaying ? 'opacity-0' : ''}"
                 playsinline
                 preload="auto"
+                muted
             ></video>
         {:else}
             <div class="h-full w-full bg-muted flex items-center justify-center">
@@ -214,39 +256,6 @@
     {/if}
 
     {#if isSelected}
-        <!-- Resize handles -->
-        <div
-            class="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nwse-resize z-10"
-            onmousedown={(e) => handleResizeStart('top-left', e)}
-        ></div>
-        <div
-            class="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nesw-resize z-10"
-            onmousedown={(e) => handleResizeStart('top-right', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nesw-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom-left', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nwse-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom-right', e)}
-        ></div>
-        <!-- Edge handles -->
-        <div
-            class="absolute -top-1 left-1/2 -translate-x-1/2 h-2 w-6 rounded bg-primary border border-background cursor-ns-resize z-10"
-            onmousedown={(e) => handleResizeStart('top', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1 left-1/2 -translate-x-1/2 h-2 w-6 rounded bg-primary border border-background cursor-ns-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom', e)}
-        ></div>
-        <div
-            class="absolute top-1/2 -left-1 -translate-y-1/2 h-6 w-2 rounded bg-primary border border-background cursor-ew-resize z-10"
-            onmousedown={(e) => handleResizeStart('left', e)}
-        ></div>
-        <div
-            class="absolute top-1/2 -right-1 -translate-y-1/2 h-6 w-2 rounded bg-primary border border-background cursor-ew-resize z-10"
-            onmousedown={(e) => handleResizeStart('right', e)}
-        ></div>
+        <ResizeHandles onStart={handleResizeStart} />
     {/if}
 </div>

@@ -7,6 +7,7 @@ import type {
     Scene,
 } from '@/types';
 import { projectStore } from './project.svelte';
+import { getAudioClipById, getLayerById, getSceneById, getVideoClipById } from './selectors';
 
 export type SelectionStore = {
     selection: Selection;
@@ -160,51 +161,27 @@ function setTool(newTool: Tool): void {
 }
 
 function getSelectedScene(): Scene | null {
-    const project = projectStore.project;
-    if (!project || !selection.sceneId) return null;
-    return project.scenes.find((s) => s.id === selection.sceneId) ?? null;
+    return getSceneById(projectStore.project, selection.sceneId);
 }
 
 function getSelectedLayer(): Layer | null {
-    const project = projectStore.project;
-    if (!project || !selection.sceneId || !selection.layerId) return null;
-
-    const scene = project.scenes.find((s) => s.id === selection.sceneId);
-    if (!scene) return null;
-
-    return scene.layers.find((l) => l.id === selection.layerId) ?? null;
+    return getLayerById(projectStore.project, selection.sceneId, selection.layerId);
 }
 
 function getSelectedAudioClip(): { trackId: string; clip: AudioClip } | null {
-    const project = projectStore.project;
-    if (!project || !selection.audioTrackId || !selection.audioClipId)
-        return null;
-
-    const track = project.audio_tracks.find(
-        (t) => t.id === selection.audioTrackId,
+    return getAudioClipById(
+        projectStore.project,
+        selection.audioTrackId,
+        selection.audioClipId,
     );
-    if (!track) return null;
-
-    const clip = track.clips.find((c) => c.id === selection.audioClipId);
-    if (!clip) return null;
-
-    return { trackId: track.id, clip };
 }
 
 function getSelectedVideoClip(): { trackId: string; clip: VideoClip } | null {
-    const project = projectStore.project;
-    if (!project || !selection.videoTrackId || !selection.videoClipId)
-        return null;
-
-    const track = project.video_tracks.find(
-        (t) => t.id === selection.videoTrackId,
+    return getVideoClipById(
+        projectStore.project,
+        selection.videoTrackId,
+        selection.videoClipId,
     );
-    if (!track) return null;
-
-    const clip = track.clips.find((c) => c.id === selection.videoClipId);
-    if (!clip) return null;
-
-    return { trackId: track.id, clip };
 }
 
 function deleteSelected(): void {

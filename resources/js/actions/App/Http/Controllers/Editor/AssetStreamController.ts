@@ -106,7 +106,7 @@ show.form = showForm
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 export const thumbnail = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -121,7 +121,7 @@ thumbnail.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -154,7 +154,7 @@ thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { i
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -164,7 +164,7 @@ thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { i
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -174,7 +174,7 @@ thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { 
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -184,7 +184,7 @@ const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -194,7 +194,7 @@ thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number |
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnailForm.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

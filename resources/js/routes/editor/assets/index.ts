@@ -186,7 +186,7 @@ stream.form = streamForm
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 export const thumbnail = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -201,7 +201,7 @@ thumbnail.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -234,7 +234,7 @@ thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { i
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -244,7 +244,7 @@ thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { i
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -254,7 +254,7 @@ thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { 
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -264,7 +264,7 @@ const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -274,7 +274,7 @@ thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number |
 
 /**
 * @see \App\Http\Controllers\Editor\AssetStreamController::thumbnail
-* @see app/Http/Controllers/Editor/AssetStreamController.php:33
+* @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
 thumbnailForm.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -291,7 +291,7 @@ thumbnail.form = thumbnailForm
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 export const destroy = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -306,7 +306,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -339,7 +339,7 @@ destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id:
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -349,7 +349,7 @@ destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { 
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 const destroyForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -364,7 +364,7 @@ const destroyForm = (args: { asset: number | { id: number } } | [asset: number |
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroyForm.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

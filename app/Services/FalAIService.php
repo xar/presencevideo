@@ -588,19 +588,21 @@ class FalAIService
         string $extension
     ): Asset {
         $content = $this->client->downloadFile($url);
+        $disk = config('filesystems.default');
 
         $filename = Str::uuid().'.'.$extension;
         $path = 'assets/'.$generation->project_id.'/generated/'.$filename;
 
-        Storage::disk('local')->put($path, $content);
-
         // Transcode video to H.264 for browser compatibility
         if ($type === AssetType::Video) {
-            $fullPath = Storage::disk('local')->path($path);
-            $this->transcodeToH264($fullPath);
-            // Update file size after transcoding
-            $content = Storage::disk('local')->get($path);
+            $tempPath = sys_get_temp_dir().'/'.$filename;
+            file_put_contents($tempPath, $content);
+            $this->transcodeToH264($tempPath);
+            $content = file_get_contents($tempPath);
+            @unlink($tempPath);
         }
+
+        Storage::disk($disk)->put($path, $content);
 
         return Asset::create([
             'user_id' => $generation->user_id,
@@ -609,7 +611,7 @@ class FalAIService
             'source' => AssetSource::Generated,
             'name' => Str::limit($generation->prompt, 50).'.'.$extension,
             'path' => $path,
-            'disk' => 'local',
+            'disk' => $disk,
             'mime_type' => $this->getMimeType($type, $extension),
             'size_bytes' => strlen($content),
             'metadata' => [

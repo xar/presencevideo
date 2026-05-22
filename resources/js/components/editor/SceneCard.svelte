@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Video, Play } from 'lucide-svelte';
+    import { formatClockTime } from '@/lib/editor/formatting';
     import { cn } from '@/lib/utils';
     import type { Scene, Asset } from '@/types';
 
@@ -25,30 +26,39 @@
         onResizeStart?: (e: MouseEvent) => void;
     } = $props();
 
-    function formatDuration(ms: number): string {
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
+    let imageLoadFailed = $state(false);
+
+    let previewAsset = $derived.by(() => {
+        const visualLayer = scene.layers.find(
+            (layer) => layer.type === 'image' || layer.type === 'video'
+        );
+
+        if (!visualLayer || !('asset_id' in visualLayer)) return null;
+
+        return assets.find((asset) => asset.id === visualLayer.asset_id) ?? null;
+    });
 
     // Find the first image/video layer's asset URL for preview
     let previewUrl = $derived.by(() => {
-        // First check if scene has explicit thumbnail
-        if (scene.thumbnail_url) return scene.thumbnail_url;
+        if (scene.thumbnail_url && !imageLoadFailed) return scene.thumbnail_url;
+        if (!previewAsset) return null;
 
-        // Find first visual layer (image or video)
-        const visualLayer = scene.layers.find(
-            (l) => l.type === 'image' || l.type === 'video'
-        );
-        if (!visualLayer || !('asset_id' in visualLayer)) return null;
+        if (previewAsset.thumbnail_url && !imageLoadFailed) {
+            return previewAsset.thumbnail_url;
+        }
 
-        // Find the asset
-        const asset = assets.find((a) => a.id === visualLayer.asset_id);
-        if (!asset) return null;
+        if (previewAsset.type === 'video') {
+            return imageLoadFailed ? (previewAsset.url ?? null) : null;
+        }
 
-        // Prefer thumbnail for videos, direct URL for images
-        return asset.thumbnail_url ?? asset.url ?? null;
+        return previewAsset.url ?? null;
+    });
+
+    $effect(() => {
+        scene.thumbnail_url;
+        previewAsset?.thumbnail_url;
+        previewAsset?.url;
+        imageLoadFailed = false;
     });
 </script>
 
@@ -73,6 +83,9 @@
                 src={previewUrl}
                 alt={scene.name ?? `Scene ${index + 1}`}
                 class="h-full w-full object-contain"
+                onerror={() => {
+                    imageLoadFailed = true;
+                }}
             />
         {:else if scene.layers.length === 0}
             <div class="flex h-full items-center justify-center">
@@ -90,7 +103,7 @@
     <div class="absolute inset-x-0 bottom-0 rounded-b-md bg-black/60 px-1 py-0.5">
         <div class="flex items-center justify-between text-[10px] text-white">
             <span class="truncate">{scene.name ?? `Scene ${index + 1}`}</span>
-            <span class="text-white/70">{formatDuration(scene.duration_ms)}</span>
+            <span class="text-white/70">{formatClockTime(scene.duration_ms)}</span>
         </div>
     </div>
 

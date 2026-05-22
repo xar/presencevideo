@@ -33,6 +33,15 @@ class AssetController extends Controller
             $disk
         );
 
+        $thumbnailPath = null;
+        if ($request->hasFile('thumbnail')) {
+            $thumbnailPath = $request->file('thumbnail')->storeAs(
+                'assets/'.$project->id.'/thumbnails',
+                Str::uuid().'.jpg',
+                $disk
+            );
+        }
+
         $asset = Asset::create([
             'user_id' => $request->user()->id,
             'project_id' => $project->id,
@@ -43,6 +52,10 @@ class AssetController extends Controller
             'disk' => $disk,
             'mime_type' => $file->getMimeType(),
             'size_bytes' => $file->getSize(),
+            'duration_ms' => $request->validated('duration_ms'),
+            'width' => $request->validated('width'),
+            'height' => $request->validated('height'),
+            'thumbnail_path' => $thumbnailPath,
             'metadata' => [],
         ]);
 

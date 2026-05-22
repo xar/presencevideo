@@ -102,7 +102,8 @@ export type VideoTrack = {
 
 export type VideoClip = {
     id: string;
-    asset_id: number;
+    type?: 'video' | 'text';
+    asset_id?: number;
     start_ms: number;
     duration_ms: number;
     trim_start_ms?: number;
@@ -112,6 +113,14 @@ export type VideoClip = {
     height: number;
     z_index: number;
     opacity?: number;
+    text?: string;
+    font_size?: number;
+    font_color?: string;
+    font_weight?: 'normal' | 'bold';
+    text_align?: 'left' | 'center' | 'right';
+    background_color?: string;
+    stroke_color?: string;
+    stroke_width?: number;
 };
 
 // Subtitle Types
@@ -226,7 +235,7 @@ export type Render = {
 };
 
 // Editor UI Types
-export type Tool = 'select' | 'text' | 'pan';
+export type Tool = 'select' | 'pan';
 
 export type Selection = {
     type: 'scene' | 'layer' | 'audio_clip' | 'video_clip' | null;

@@ -19,8 +19,9 @@
     } from '@/components/ui/dialog';
     import { Progress } from '@/components/ui/progress';
     import { Spinner } from '@/components/ui/spinner';
+    import QuickPreviewExportButton from '@/components/editor/QuickPreviewExportButton.svelte';
     import { projectStore } from '@/lib/editor';
-    import { store, show, download } from '@/actions/App/Http/Controllers/Editor/RenderController';
+    import { downloadRender, isRenderFinished, pollRender, startBackendRender } from '@/lib/editor/export-service';
     import type { Render, RenderStatus } from '@/types/editor';
 
     let {
@@ -49,20 +50,13 @@
 
     function startPolling(renderId: number) {
         stopPolling();
-        pollInterval = setInterval(async () => {
-            try {
-                const res = await fetch(show.url(renderId));
-                if (!res.ok) return;
-                const data = await res.json();
-                render = data.render;
+        pollInterval = pollRender(renderId, (updatedRender) => {
+            render = updatedRender;
 
-                if (render && (render.status === 'completed' || render.status === 'failed')) {
-                    stopPolling();
-                }
-            } catch {
-                // Silently continue polling
+            if (isRenderFinished(updatedRender)) {
+                stopPolling();
             }
-        }, 1500);
+        });
     }
 
     function stopPolling() {
@@ -92,27 +86,8 @@
         }
 
         try {
-            const res = await fetch(store.url(project.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-XSRF-TOKEN': decodeURIComponent(
-                        document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '',
-                    ),
-                },
-            });
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                startError = data?.message ?? `Export failed (${res.status})`;
-                isStarting = false;
-                return;
-            }
-
-            const data = await res.json();
-            render = data.render;
-            startPolling(data.render.id);
+            render = await startBackendRender(project);
+            startPolling(render.id);
         } catch {
             startError = 'Failed to start export. Please try again.';
         } finally {
@@ -122,13 +97,17 @@
 
     function handleDownload() {
         if (!render) return;
-        window.location.href = download.url(render.id);
+        downloadRender(render);
     }
 
     function handleRetry() {
         render = null;
         startError = null;
         startExport();
+    }
+
+    function handleQuickPreviewError(message: string): void {
+        startError = message;
     }
 
     // Prevent closing while actively rendering
@@ -244,6 +223,10 @@
                     Download MP4
                 </Button>
             {:else}
+                <QuickPreviewExportButton
+                    project={projectStore.project}
+                    onError={handleQuickPreviewError}
+                />
                 <Button variant="outline" disabled>
                     Exporting...
                 </Button>

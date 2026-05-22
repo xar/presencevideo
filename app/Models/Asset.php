@@ -86,4 +86,52 @@ class Asset extends Model
     {
         return Storage::disk($this->disk)->path($this->path);
     }
+
+    /**
+     * Get a local filesystem path for this asset, downloading from remote storage if needed.
+     * For local disk, returns the path directly. For S3/R2, downloads to a temp file.
+     * Caller is responsible for cleaning up temp files via Asset::cleanupTempFiles().
+     */
+    public function getLocalPath(): string
+    {
+        $disk = Storage::disk($this->disk);
+
+        // Local disk — file is already on the filesystem
+        if ($this->disk === 'local' || $this->disk === 'public') {
+            return $disk->path($this->path);
+        }
+
+        // Remote disk — download to temp
+        $extension = pathinfo($this->path, PATHINFO_EXTENSION);
+        $tempPath = sys_get_temp_dir().'/asset_'.$this->id.'_'.uniqid().'.'.$extension;
+
+        $stream = $disk->readStream($this->path);
+        if ($stream === null) {
+            throw new \RuntimeException("Asset file not found in storage: {$this->path} (disk: {$this->disk})");
+        }
+
+        $tempFile = fopen($tempPath, 'w');
+        stream_copy_to_stream($stream, $tempFile);
+        fclose($tempFile);
+        fclose($stream);
+
+        // Track temp files for cleanup
+        self::$tempFiles[] = $tempPath;
+
+        return $tempPath;
+    }
+
+    /** @var list<string> */
+    protected static array $tempFiles = [];
+
+    /**
+     * Clean up any temp files created by getLocalPath().
+     */
+    public static function cleanupTempFiles(): void
+    {
+        foreach (self::$tempFiles as $path) {
+            @unlink($path);
+        }
+        self::$tempFiles = [];
+    }
 }

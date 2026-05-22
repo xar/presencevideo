@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Editor;
 use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class AssetStreamController extends Controller
 {
     /**
      * Stream the asset file.
      */
-    public function show(Asset $asset): StreamedResponse
+    public function show(Asset $asset): Response
     {
         $this->authorize('view', $asset);
 
@@ -22,15 +22,22 @@ class AssetStreamController extends Controller
             abort(404);
         }
 
-        return $disk->response($asset->path, $asset->name, [
+        $headers = [
             'Content-Type' => $asset->mime_type,
-        ]);
+            'Accept-Ranges' => 'bytes',
+        ];
+
+        if (($asset->disk === 'local' || $asset->disk === 'public') && method_exists($disk, 'path')) {
+            return response()->file($disk->path($asset->path), $headers);
+        }
+
+        return $disk->response($asset->path, $asset->name, $headers);
     }
 
     /**
      * Stream the asset thumbnail.
      */
-    public function thumbnail(Asset $asset): StreamedResponse
+    public function thumbnail(Asset $asset): Response
     {
         $this->authorize('view', $asset);
 

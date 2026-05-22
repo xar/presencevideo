@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Plus, Eye, EyeOff } from 'lucide-svelte';
+    import { Plus, Eye, EyeOff, Type } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import type { VideoTrack as VideoTrackType, VideoClip as VideoClipType, Asset } from '@/types';
@@ -16,6 +16,28 @@
 
     function toggleVisibility(track: VideoTrackType) {
         projectStore.updateVideoTrack(track.id, { visible: !(track.visible ?? true) });
+    }
+
+    function addTextOverlay(trackId: string) {
+        const project = projectStore.project;
+        if (!project) return;
+
+        const clip = projectStore.addVideoClip(trackId, {
+            type: 'text',
+            text: 'Text Overlay',
+            start_ms: timelineStore.currentTimeMs,
+            duration_ms: 3000,
+            x: Math.round(project.resolution_width * 0.25),
+            y: Math.round(project.resolution_height * 0.75),
+            width: Math.round(project.resolution_width * 0.5),
+            height: 96,
+            font_size: 48,
+            font_color: '#ffffff',
+            font_weight: 'bold',
+            background_color: '#00000080',
+        });
+
+        selectionStore.selectVideoClip(trackId, clip.id);
     }
 
     function handleClipClick(trackId: string, clip: VideoClipType) {
@@ -97,12 +119,24 @@
                     {/if}
                 </Button>
                 <span class="text-xs truncate flex-1">{track.name}</span>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-6 w-6"
+                    title="Add text overlay at playhead"
+                    onclick={() => addTextOverlay(track.id)}
+                >
+                    <Type class="h-3 w-3" />
+                </Button>
             </div>
 
             <div
                 class="relative flex-1 overflow-hidden"
                 ondragover={handleDragOver}
                 ondrop={(e) => handleDrop(track.id, e)}
+                role="listbox"
+                aria-label="{track.name} clips"
+                tabindex="0"
             >
                 <div
                     class="absolute inset-0"

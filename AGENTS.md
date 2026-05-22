@@ -54,6 +54,22 @@ This project has domain-specific skills available. You MUST activate the relevan
 - Stick to existing directory structure; don't create new base folders without approval.
 - Do not change the application's dependencies without approval.
 
+## Video Composition Contract
+
+The editor uses a shared video document model stored on `projects` as JSON columns: `scenes`, `audio_tracks`, `video_tracks`, and `subtitle_tracks`. The frontend editor, backend `ProjectComposer`, validation, and renderer must remain compatible.
+
+When adding or changing any video composition capability, primitive, field, default, or method, you MUST update all relevant layers together:
+
+- Backend composition API in `app/Video/Composition/**`.
+- Backend validation in `app/Http/Requests/Editor/UpdateProjectRequest.php` or the canonical schema/normalizer when one exists.
+- Frontend types in `resources/js/types/editor.ts`.
+- Frontend editor state/defaults in `resources/js/lib/editor/project.svelte.ts` and any affected editor components.
+- Renderer support in `app/Services/FFmpegService.php` and render orchestration in `app/Jobs/RenderProject.php` if the field affects output.
+- Tests proving parity between frontend-shaped payloads, backend-composed payloads, and renderable project documents.
+- Usage docs in `.ai/docs-video-composition-usage.md` when public composition APIs change.
+
+Do not add a backend-only or frontend-only composition field unless it is explicitly marked as editor-only/future and is safely ignored or normalized. Prefer a canonical schema/normalizer for defaults, allowed values, coercion, and validation so both frontend saves and `ProjectComposer->save()` produce the same project document shape.
+
 ## Frontend Bundling
 
 - If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.

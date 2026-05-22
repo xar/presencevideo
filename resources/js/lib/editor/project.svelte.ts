@@ -365,7 +365,7 @@ function addVideoClip(
 
     const clip: VideoClip = {
         id: uuid(),
-        asset_id: 0,
+        type: 'video',
         start_ms: 0,
         duration_ms: 5000,
         x: 0,

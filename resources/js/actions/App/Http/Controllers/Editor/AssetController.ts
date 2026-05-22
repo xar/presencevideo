@@ -81,7 +81,7 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 export const destroy = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -96,7 +96,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -129,7 +129,7 @@ destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id:
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -139,7 +139,7 @@ destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { 
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 const destroyForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -154,7 +154,7 @@ const destroyForm = (args: { asset: number | { id: number } } | [asset: number |
 
 /**
 * @see \App\Http\Controllers\Editor\AssetController::destroy
-* @see app/Http/Controllers/Editor/AssetController.php:59
+* @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
 destroyForm.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

@@ -20,6 +20,10 @@ class StoreAssetRequest extends FormRequest
             'file' => ['required', 'file', 'max:512000'], // 500MB max
             'type' => ['required', Rule::enum(AssetType::class)],
             'name' => ['sometimes', 'string', 'max:255'],
+            'duration_ms' => ['sometimes', 'integer', 'min:0'],
+            'width' => ['sometimes', 'integer', 'min:1'],
+            'height' => ['sometimes', 'integer', 'min:1'],
+            'thumbnail' => ['sometimes', 'image', 'max:5120'],
         ];
     }
 

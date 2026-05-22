@@ -1,7 +1,10 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import ResizeHandles, { type ResizeHandle } from '@/components/editor/ResizeHandles.svelte';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
+    import { editorFeatures } from '@/lib/editor/editor-features';
+    import { getCachedFramePreviewUrl } from '@/lib/editor/media-cache';
     import { useDragResize } from '@/lib/editor/useDragResize.svelte';
     import { cn } from '@/lib/utils';
     import type { VideoClip } from '@/types';
@@ -23,6 +26,8 @@
     } = $props();
 
     let videoEl: HTMLVideoElement | undefined = $state();
+    let framePreviewUrl = $state<string | null>(null);
+    let lastFrameKey = $state<string | null>(null);
     let isPlaying = $derived(timelineStore.isPlaying);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
 
@@ -79,7 +84,7 @@
         window.addEventListener('mouseup', onUp);
     }
 
-    function handleResizeStart(corner: string, e: MouseEvent) {
+    function handleResizeStart(corner: ResizeHandle, e: MouseEvent) {
         historyStore.beginBatch();
         dragResize.handleResizeStart(corner, e);
         const onUp = () => {
@@ -90,12 +95,32 @@
     }
 
     function getAssetUrl(): string | null {
+        if (clip.type === 'text') {
+            return null;
+        }
+
         const assets = projectStore.project?.assets ?? [];
         const asset = assets.find((a) => a.id === clip.asset_id);
         return asset?.url ?? null;
     }
 
     let assetUrl = $derived(getAssetUrl());
+
+    $effect(() => {
+        if (!assetUrl || isPlaying || !editorFeatures.clientPreviewFrames) return;
+
+        const frameKey = `${assetUrl}:${Math.round(clipTimeMs / 250)}`;
+        if (lastFrameKey === frameKey) return;
+        lastFrameKey = frameKey;
+
+        getCachedFramePreviewUrl(assetUrl, clipTimeMs / 1000)
+            .then((url) => {
+                if (lastFrameKey === frameKey) {
+                    framePreviewUrl = url;
+                }
+            })
+            .catch(() => {});
+    });
 
     onDestroy(() => {
         dragResize.cleanup();
@@ -119,14 +144,36 @@
     role="button"
     tabindex="0"
 >
-    {#if assetUrl}
+    {#if clip.type === 'text'}
+        {@const strokeWidth = (clip.stroke_width ?? 0) * scale}
+        {@const strokeColor = clip.stroke_color ?? '#000000'}
+        <div
+            class="flex h-full w-full items-center justify-center overflow-hidden rounded px-3 text-center"
+            style:font-size="{(clip.font_size ?? 48) * scale}px"
+            style:color={clip.font_color ?? '#ffffff'}
+            style:font-weight={clip.font_weight ?? 'bold'}
+            style:text-align={clip.text_align ?? 'center'}
+            style:background-color={clip.background_color ?? 'transparent'}
+            style:-webkit-text-stroke={strokeWidth > 0 ? `${strokeWidth}px ${strokeColor}` : 'none'}
+            style:paint-order={strokeWidth > 0 ? 'stroke fill' : 'normal'}
+        >
+            {clip.text ?? 'Text Overlay'}
+        </div>
+    {:else if assetUrl}
+        {#if framePreviewUrl && !isPlaying}
+            <img
+                src={framePreviewUrl}
+                alt="Video frame preview"
+                class="absolute inset-0 h-full w-full object-cover pointer-events-none"
+            />
+        {/if}
         <video
             bind:this={videoEl}
             src={assetUrl}
-            class="h-full w-full object-cover pointer-events-none"
+            class="h-full w-full object-cover pointer-events-none {framePreviewUrl && !isPlaying ? 'opacity-0' : ''}"
             muted
             playsinline
-            preload="auto"
+            preload="metadata"
         ></video>
     {:else}
         <div class="h-full w-full bg-muted flex items-center justify-center">
@@ -135,39 +182,6 @@
     {/if}
 
     {#if isSelected}
-        <!-- Resize handles -->
-        <div
-            class="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nwse-resize z-10"
-            onmousedown={(e) => handleResizeStart('top-left', e)}
-        ></div>
-        <div
-            class="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nesw-resize z-10"
-            onmousedown={(e) => handleResizeStart('top-right', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nesw-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom-left', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background cursor-nwse-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom-right', e)}
-        ></div>
-        <!-- Edge handles -->
-        <div
-            class="absolute -top-1 left-1/2 -translate-x-1/2 h-2 w-6 rounded bg-primary border border-background cursor-ns-resize z-10"
-            onmousedown={(e) => handleResizeStart('top', e)}
-        ></div>
-        <div
-            class="absolute -bottom-1 left-1/2 -translate-x-1/2 h-2 w-6 rounded bg-primary border border-background cursor-ns-resize z-10"
-            onmousedown={(e) => handleResizeStart('bottom', e)}
-        ></div>
-        <div
-            class="absolute top-1/2 -left-1 -translate-y-1/2 h-6 w-2 rounded bg-primary border border-background cursor-ew-resize z-10"
-            onmousedown={(e) => handleResizeStart('left', e)}
-        ></div>
-        <div
-            class="absolute top-1/2 -right-1 -translate-y-1/2 h-6 w-2 rounded bg-primary border border-background cursor-ew-resize z-10"
-            onmousedown={(e) => handleResizeStart('right', e)}
-        ></div>
+        <ResizeHandles onStart={handleResizeStart} />
     {/if}
 </div>

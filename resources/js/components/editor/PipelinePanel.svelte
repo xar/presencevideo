@@ -23,6 +23,7 @@
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
     import { projectStore, selectionStore, generationTracker } from '@/lib/editor';
+    import { appFetch } from '@/lib/http';
     import type { GenerationType, GenerationStatus, Asset, ModelConfig, ModelsResponse } from '@/types';
     import ModelParameters from './ModelParameters.svelte';
     import ModelPicker from './ModelPicker.svelte';
@@ -49,12 +50,6 @@
     let parametersByModel = $state<Record<string, Record<string, unknown>>>({});
     let isLoadingCatalogModel = $state(false);
 
-    // Helper to get CSRF token from meta tag or cookie
-    function getCsrfToken(): string {
-        return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
-            ?? decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '')
-            ?? '';
-    }
     let catalogModels = $state<Record<string, ModelConfig>>({});
 
     // Pipeline state
@@ -108,7 +103,7 @@
 
     async function loadModels() {
         try {
-            const response = await fetch('/editor/generations/models');
+            const response = await appFetch('/editor/generations/models');
             if (response.ok) {
                 const data: ModelsResponse = await response.json();
                 models = data.models;
@@ -163,7 +158,7 @@
 
         isLoadingCatalogModel = true;
         try {
-            const response = await fetch(`/editor/generations/catalog/model?endpoint_id=${encodeURIComponent(endpointId)}`);
+            const response = await appFetch(`/editor/generations/catalog/model?endpoint_id=${encodeURIComponent(endpointId)}`);
             if (response.ok) {
                 const data = await response.json();
                 const model = data.model as ModelConfig;
@@ -206,18 +201,11 @@
         const isCatalogModel = currentModel?.is_catalog || currentModelKey.includes('/');
 
         try {
-            const csrfToken = getCsrfToken();
-            const response = await fetch(
+            const response = await appFetch(
                 `/editor/projects/${projectStore.project.id}/generate/${currentType}`,
                 {
                     method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-XSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({
+                    json: {
                         prompt: prompt.trim(),
                         scene_id: selectedScene.id,
                         model_key: isCatalogModel ? undefined : currentModelKey,
@@ -225,7 +213,7 @@
                         parameters: parameters,
                         // Automatically pass the scene's image for image-to-video
                         input_asset_id: currentType === 'image_to_video' ? sceneImageAsset?.id : undefined,
-                    }),
+                    },
                 }
             );
 
@@ -264,7 +252,7 @@
             }
 
             try {
-                const response = await fetch(`/editor/generations/${generationId}`);
+                const response = await appFetch(`/editor/generations/${generationId}`);
                 if (!response.ok) return;
 
                 const data = await response.json();
@@ -359,18 +347,11 @@
                 }
             }
 
-            const csrfToken = getCsrfToken();
-            const response = await fetch(
+            const response = await appFetch(
                 `/editor/projects/${projectStore.project.id}/generate/${step.type}`,
                 {
                     method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-XSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify(body),
+                    json: body,
                 }
             );
 

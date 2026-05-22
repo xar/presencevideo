@@ -16,6 +16,7 @@
     import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
     import { Input } from '@/components/ui/input';
     import { Separator } from '@/components/ui/separator';
+    import { appFetch } from '@/lib/http';
     import type { ModelConfig } from '@/types/editor';
 
     type CatalogModel = {
@@ -104,7 +105,7 @@
                 }
             }
 
-            const response = await fetch(`/editor/generations/catalog?${params}`);
+            const response = await appFetch(`/editor/generations/catalog?${params}`);
             if (response.ok) {
                 const data = await response.json();
                 catalogModels = data.models;

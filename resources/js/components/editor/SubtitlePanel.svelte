@@ -17,6 +17,8 @@
     import { Separator } from '@/components/ui/separator';
     import { Slider } from '@/components/ui/slider';
     import { projectStore, generationTracker } from '@/lib/editor';
+    import { formatTimelineTime, parseOptionalTimelineTime } from '@/lib/editor/formatting';
+    import { appFetch } from '@/lib/http';
     import type {
         Asset,
         SubtitleTrack,
@@ -39,17 +41,6 @@
         ),
     );
 
-    function getCsrfToken(): string {
-        return (
-            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-                ?.content ??
-            decodeURIComponent(
-                document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '',
-            ) ??
-            ''
-        );
-    }
-
     function convertChunksToEntries(
         chunks: { text: string; timestamp: [number, number] }[],
     ): SubtitleEntry[] {
@@ -68,21 +59,14 @@
         isGenerating = true;
 
         try {
-            const csrfToken = getCsrfToken();
-            const response = await fetch(
+            const response = await appFetch(
                 `/editor/projects/${project.id}/generate/speech_to_text`,
                 {
                     method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-XSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({
+                    json: {
                         input_asset_id: asset.id,
                         prompt: '',
-                    }),
+                    },
                 },
             );
 
@@ -127,7 +111,7 @@
             }
 
             try {
-                const response = await fetch(
+                const response = await appFetch(
                     `/editor/generations/${generationId}`,
                 );
                 if (!response.ok) return;
@@ -191,33 +175,13 @@
         }
     }
 
-    function formatTime(ms: number): string {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const millis = Math.round((ms % 1000) / 10);
-        return `${minutes}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(2, '0')}`;
-    }
-
-    function parseTime(value: string): number | null {
-        // Accepts formats: "1:23.45", "83.45", "83450" (ms)
-        const parts = value.match(/^(?:(\d+):)?(\d+)(?:\.(\d{1,3}))?$/);
-        if (!parts) return null;
-
-        const minutes = parts[1] ? parseInt(parts[1], 10) : 0;
-        const seconds = parseInt(parts[2], 10);
-        const fraction = parts[3] ? parts[3].padEnd(3, '0') : '000';
-
-        return (minutes * 60 + seconds) * 1000 + parseInt(fraction, 10);
-    }
-
     function handleTimeChange(
         trackId: string,
         entryId: string,
         field: 'start_ms' | 'end_ms',
         value: string,
     ) {
-        const ms = parseTime(value);
+        const ms = parseOptionalTimelineTime(value);
         if (ms !== null) {
             projectStore.updateSubtitleEntry(trackId, entryId, {
                 [field]: ms,
@@ -475,7 +439,7 @@
                                         <div class="flex items-center gap-1">
                                             <input
                                                 type="text"
-                                                value={formatTime(entry.start_ms)}
+                                                value={formatTimelineTime(entry.start_ms)}
                                                 class="w-16 rounded border bg-transparent px-1 py-0 text-[10px] text-center focus:outline-none focus:ring-1 focus:ring-ring"
                                                 onchange={(e) =>
                                                     handleTimeChange(
@@ -488,7 +452,7 @@
                                             <span class="text-[10px] text-muted-foreground">-</span>
                                             <input
                                                 type="text"
-                                                value={formatTime(entry.end_ms)}
+                                                value={formatTimelineTime(entry.end_ms)}
                                                 class="w-16 rounded border bg-transparent px-1 py-0 text-[10px] text-center focus:outline-none focus:ring-1 focus:ring-ring"
                                                 onchange={(e) =>
                                                     handleTimeChange(

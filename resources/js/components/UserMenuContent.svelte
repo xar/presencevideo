@@ -33,7 +33,7 @@
         <UserInfo {user} showEmail={true} />
     </div>
 </DropdownMenuLabel>
-<DropdownMenuSeparator class="my-1.5 bg-border/40" />
+<DropdownMenuSeparator />
 <DropdownMenuGroup>
     <DropdownMenuItem asChild>
         {#snippet children(props)}
@@ -46,7 +46,7 @@
         {/snippet}
     </DropdownMenuItem>
 </DropdownMenuGroup>
-<DropdownMenuSeparator class="my-1.5 bg-border/40" />
+<DropdownMenuSeparator />
 <DropdownMenuItem asChild>
     {#snippet children(props)}
         <Link

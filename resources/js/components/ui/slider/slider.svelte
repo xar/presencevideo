@@ -32,7 +32,7 @@
         <div
             class="absolute h-full bg-primary"
             style:width="{percentage}%"
-        />
+        ></div>
     </div>
     <input
         type="range"
@@ -47,5 +47,5 @@
     <div
         class="absolute h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
         style:left="calc({percentage}% - 8px)"
-    />
+    ></div>
 </div>

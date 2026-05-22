@@ -1,9 +1,8 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
-    import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Menu from 'lucide-svelte/icons/menu';
     import Search from 'lucide-svelte/icons/search';
-    import AppLogo from '@/components/AppLogo.svelte';
+    import AppBrandLink from '@/components/AppBrandLink.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import Breadcrumbs from '@/components/Breadcrumbs.svelte';
     import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,9 +34,9 @@
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl';
     import { getInitials } from '@/lib/initials';
+    import { mainNavItems, utilityNavItems } from '@/lib/navigation';
     import { toUrl } from '@/lib/utils';
-    import editor from '@/routes/editor';
-    import type { BreadcrumbItem, NavItem } from '@/types';
+    import type { BreadcrumbItem } from '@/types';
 
     let {
         breadcrumbs = [],
@@ -49,16 +48,6 @@
     const { currentUrl, isCurrentUrl, whenCurrentUrl } = currentUrlState();
 
     const activeItemStyles = 'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
-
-    const mainNavItems: NavItem[] = [
-        {
-            title: 'Projects',
-            href: editor.index(),
-            icon: LayoutGrid,
-        },
-    ];
-
-    const rightNavItems: NavItem[] = [];
 </script>
 
 <div>
@@ -100,7 +89,7 @@
                                 {/each}
                             </nav>
                             <div class="flex flex-col space-y-4">
-                                {#each rightNavItems as item (toUrl(item.href))}
+                                {#each utilityNavItems as item (toUrl(item.href))}
                                     <a
                                         href={toUrl(item.href)}
                                         target="_blank"
@@ -119,9 +108,7 @@
                 </Sheet>
             </div>
 
-            <Link href={toUrl(editor.index())} class="flex items-center gap-x-2">
-                <AppLogo />
-            </Link>
+            <AppBrandLink />
 
             <!-- Desktop Menu -->
             <div class="hidden h-full lg:flex lg:flex-1">
@@ -154,7 +141,7 @@
                     </Button>
 
                     <div class="hidden space-x-1 lg:flex">
-                        {#each rightNavItems as item (toUrl(item.href))}
+                        {#each utilityNavItems as item (toUrl(item.href))}
                             <TooltipProvider delayDuration={0}>
                                 <Tooltip>
                                     <TooltipTrigger>

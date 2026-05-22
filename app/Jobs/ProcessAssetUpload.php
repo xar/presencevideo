@@ -29,26 +29,32 @@ class ProcessAssetUpload implements ShouldQueue
      */
     public function handle(): void
     {
-        $fullPath = $this->asset->full_path;
+        $disk = Storage::disk($this->asset->disk);
 
-        if (! file_exists($fullPath)) {
-            Log::warning('Asset file not found', ['asset_id' => $this->asset->id, 'path' => $fullPath]);
+        if (! $disk->exists($this->asset->path)) {
+            Log::warning('Asset file not found', ['asset_id' => $this->asset->id, 'path' => $this->asset->path]);
 
             return;
         }
 
-        $updates = [];
+        $localPath = $this->asset->getLocalPath();
 
-        if ($this->asset->type === AssetType::Video) {
-            $updates = $this->processVideo($fullPath);
-        } elseif ($this->asset->type === AssetType::Audio) {
-            $updates = $this->processAudio($fullPath);
-        } elseif ($this->asset->type === AssetType::Image) {
-            $updates = $this->processImage($fullPath);
-        }
+        try {
+            $updates = [];
 
-        if (! empty($updates)) {
-            $this->asset->update($updates);
+            if ($this->asset->type === AssetType::Video) {
+                $updates = $this->processVideo($localPath);
+            } elseif ($this->asset->type === AssetType::Audio) {
+                $updates = $this->processAudio($localPath);
+            } elseif ($this->asset->type === AssetType::Image) {
+                $updates = $this->processImage($localPath);
+            }
+
+            if (! empty($updates)) {
+                $this->asset->update($updates);
+            }
+        } finally {
+            Asset::cleanupTempFiles();
         }
     }
 
@@ -143,12 +149,8 @@ class ProcessAssetUpload implements ShouldQueue
         $thumbnailDir = dirname($this->asset->path);
         $thumbnailPath = $thumbnailDir.'/thumbnails/'.$thumbnailFilename;
 
-        $fullThumbnailPath = Storage::disk($this->asset->disk)->path($thumbnailPath);
-        $thumbnailDirectory = dirname($fullThumbnailPath);
-
-        if (! is_dir($thumbnailDirectory)) {
-            mkdir($thumbnailDirectory, 0755, true);
-        }
+        // Generate thumbnail to a temp file, then upload to storage
+        $tempThumbnail = sys_get_temp_dir().'/'.$thumbnailFilename;
 
         $result = Process::run([
             'ffmpeg',
@@ -157,10 +159,13 @@ class ProcessAssetUpload implements ShouldQueue
             '-vframes', '1',
             '-vf', 'scale=320:-1',
             '-y',
-            $fullThumbnailPath,
+            $tempThumbnail,
         ]);
 
-        if ($result->successful() && file_exists($fullThumbnailPath)) {
+        if ($result->successful() && file_exists($tempThumbnail)) {
+            Storage::disk($this->asset->disk)->put($thumbnailPath, file_get_contents($tempThumbnail));
+            @unlink($tempThumbnail);
+
             return $thumbnailPath;
         }
 

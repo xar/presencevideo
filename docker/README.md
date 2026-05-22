@@ -1,4 +1,4 @@
-# Docker Setup for Video Editor
+# Docker Setup for Keyframes
 
 ## Quick Start (Local Development)
 
@@ -41,7 +41,7 @@ The same Docker image supports multiple modes via the `CONTAINER_MODE` environme
 ```env
 APP_ENV=production
 APP_KEY=base64:...
-APP_URL=https://your-domain.com
+APP_URL=https://usekeyframes.com
 CONTAINER_MODE=app
 AUTO_MIGRATE=true
 

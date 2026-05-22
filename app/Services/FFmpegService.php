@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\Project;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class FFmpegService
@@ -22,6 +21,9 @@ class FFmpegService
         $durationSec = $durationMs / 1000;
 
         $layers = $scene['layers'] ?? [];
+
+        // Sort layers by z_index so lower values are rendered first (background)
+        usort($layers, fn ($a, $b) => ($a['z_index'] ?? 0) <=> ($b['z_index'] ?? 0));
 
         if (empty($layers)) {
             return $this->createBlankVideo(
@@ -127,7 +129,7 @@ class FFmpegService
                 return null;
             }
 
-            $inputs[] = $asset->full_path;
+            $inputs[] = $asset->getLocalPath();
             $idx = count($inputs) - 1;
 
             $x = $layer['x'] ?? 0;
@@ -170,21 +172,47 @@ class FFmpegService
 
         if ($type === 'text') {
             $text = $layer['text'] ?? '';
-            $x = $layer['x'] ?? '(w-text_w)/2';
-            $y = $layer['y'] ?? '(h-text_h)/2';
+            $layerX = $layer['x'] ?? 0;
+            $layerY = $layer['y'] ?? 0;
+            $layerWidth = $layer['width'] ?? 100;
+            $layerHeight = $layer['height'] ?? 50;
             $fontSize = $layer['font_size'] ?? 48;
             $fontColor = $layer['font_color'] ?? 'white';
+            $strokeWidth = $layer['stroke_width'] ?? 0;
+            $strokeColor = $layer['stroke_color'] ?? 'black';
+
+            // Convert hex colors to FFmpeg format
+            $fontColor = $this->hexToFfmpegColor($fontColor);
+            $strokeColor = $this->hexToFfmpegColor($strokeColor);
+
+            // Center text within layer bounds (matching preview behavior)
+            // FFmpeg x/y positions the top-left of the text bounding box
+            // To center: x = layer_x + (layer_width - text_w) / 2
+            $centerX = (int) ($layerX + $layerWidth / 2);
+            $centerY = (int) ($layerY + $layerHeight / 2);
+            $xExpr = "({$centerX}-text_w/2)";
+            $yExpr = "({$centerY}-text_h/2)";
 
             $outputLabel = '[text'.$inputIndex.']';
 
-            $filterComplex[] = sprintf(
-                "%sdrawtext=text='%s':fontsize=%d:fontcolor=%s:x=%s:y=%s%s",
-                $currentBase,
-                addslashes($text),
+            // Build drawtext filter with optional stroke/border
+            $drawtextParams = sprintf(
+                "text='%s':fontsize=%d:fontcolor=%s:x=%s:y=%s",
+                $this->escapeDrawtext($text),
                 $fontSize,
                 $fontColor,
-                $x,
-                $y,
+                $xExpr,
+                $yExpr
+            );
+
+            if ($strokeWidth > 0) {
+                $drawtextParams .= sprintf(':borderw=%d:bordercolor=%s', $strokeWidth, $strokeColor);
+            }
+
+            $filterComplex[] = sprintf(
+                '%sdrawtext=%s%s',
+                $currentBase,
+                $drawtextParams,
                 $outputLabel
             );
 
@@ -263,7 +291,7 @@ class FFmpegService
                     continue;
                 }
 
-                $inputs[] = $asset->full_path;
+                $inputs[] = $asset->getLocalPath();
                 $startMs = $clip['start_ms'] ?? 0;
                 $clipDurationMs = $clip['duration_ms'] ?? ($asset->duration_ms ?? 10000);
                 $trimStartMs = $clip['trim_start_ms'] ?? 0;
@@ -348,14 +376,10 @@ class FFmpegService
             throw new \RuntimeException('Audio/video merge failed: '.$result->errorOutput());
         }
 
-        $rendersPath = 'renders/'.basename($outputPath);
-        Storage::put($rendersPath, file_get_contents($outputPath));
-
-        @unlink($outputPath);
         @unlink($videoPath);
         @unlink($audioPath);
 
-        return $rendersPath;
+        return $outputPath;
     }
 
     protected function createBlankVideo(
@@ -415,6 +439,7 @@ class FFmpegService
         $filterComplex = [];
         $currentBase = '[0:v]';
         $inputIndex = 1;
+        $overlayIndex = 1;
 
         foreach ($videoTracks as $track) {
             $visible = $track['visible'] ?? true;
@@ -425,6 +450,47 @@ class FFmpegService
             $clips = $track['clips'] ?? [];
 
             foreach ($clips as $clipIndex => $clip) {
+                $startSec = ($clip['start_ms'] ?? 0) / 1000;
+                $endSec = $startSec + (($clip['duration_ms'] ?? 5000) / 1000);
+                $x = $clip['x'] ?? 0;
+                $y = $clip['y'] ?? 0;
+                $width = $clip['width'] ?? 320;
+                $height = $clip['height'] ?? 180;
+                $opacity = $clip['opacity'] ?? 1.0;
+                $overlayOutput = '[out'.$overlayIndex.']';
+
+                if (($clip['type'] ?? 'video') === 'text') {
+                    $fontColor = $this->hexToFfmpegColor($clip['font_color'] ?? '#ffffff');
+                    $backgroundColor = $this->hexToFfmpegColor($clip['background_color'] ?? '#00000080');
+                    $fontSize = $clip['font_size'] ?? 48;
+                    $strokeWidth = $clip['stroke_width'] ?? 0;
+                    $strokeColor = $this->hexToFfmpegColor($clip['stroke_color'] ?? '#000000');
+                    $text = $this->escapeDrawtext($clip['text'] ?? 'Text Overlay');
+                    $strokeParams = $strokeWidth > 0 ? sprintf(':borderw=%d:bordercolor=%s', $strokeWidth, $strokeColor) : '';
+
+                    $filterComplex[] = sprintf(
+                        "%sdrawtext=text='%s':fontsize=%d:fontcolor=%s:x=%d+(%d-text_w)/2:y=%d+(%d-text_h)/2:box=1:boxcolor=%s:boxborderw=12%s:enable='between(t,%f,%f)'%s",
+                        $currentBase,
+                        $text,
+                        $fontSize,
+                        $fontColor,
+                        $x,
+                        $width,
+                        $y,
+                        $height,
+                        $backgroundColor,
+                        $strokeParams,
+                        $startSec,
+                        $endSec,
+                        $overlayOutput
+                    );
+
+                    $currentBase = $overlayOutput;
+                    $overlayIndex++;
+
+                    continue;
+                }
+
                 $assetId = $clip['asset_id'] ?? null;
                 if (! $assetId) {
                     continue;
@@ -435,18 +501,9 @@ class FFmpegService
                     continue;
                 }
 
-                $inputs[] = $asset->full_path;
-
-                $startSec = ($clip['start_ms'] ?? 0) / 1000;
-                $endSec = $startSec + (($clip['duration_ms'] ?? 5000) / 1000);
-                $x = $clip['x'] ?? 0;
-                $y = $clip['y'] ?? 0;
-                $width = $clip['width'] ?? 320;
-                $height = $clip['height'] ?? 180;
-                $opacity = $clip['opacity'] ?? 1.0;
+                $inputs[] = $asset->getLocalPath();
 
                 $scaledLabel = '[scaled'.$inputIndex.']';
-                $overlayOutput = '[out'.$inputIndex.']';
 
                 // Scale the overlay video
                 $filterComplex[] = sprintf(
@@ -484,11 +541,12 @@ class FFmpegService
 
                 $currentBase = $overlayOutput;
                 $inputIndex++;
+                $overlayIndex++;
             }
         }
 
         // If no overlays were added, just return the input
-        if (count($inputs) === 1) {
+        if ($filterComplex === []) {
             return $inputPath;
         }
 
@@ -582,11 +640,7 @@ class FFmpegService
                 $wrappedText = wordwrap($text, $maxCharsPerLine, "\n", true);
 
                 // Escape text for FFmpeg drawtext filter
-                $escapedText = str_replace(
-                    ["'", ':', '\\', '%'],
-                    ["\\'", '\\:', '\\\\', '%%'],
-                    $wrappedText
-                );
+                $escapedText = $this->escapeDrawtext($wrappedText);
 
                 // Use x centered, box for background, and line_spacing for readability
                 $filterParts[] = sprintf(
@@ -635,6 +689,24 @@ class FFmpegService
     }
 
     /**
+     * Escape text for use in FFmpeg drawtext filter.
+     *
+     * FFmpeg drawtext requires escaping:
+     * - Backslashes (\) must be escaped first
+     * - Colons (:) are option separators
+     * - Single quotes (') delimit text values
+     * - Percent signs (%) are used for text expansion
+     */
+    protected function escapeDrawtext(string $text): string
+    {
+        return str_replace(
+            ['\\', ':', "'", '%'],
+            ['\\\\', '\\:', "\\'", '%%'],
+            $text
+        );
+    }
+
+    /**
      * Convert hex color (with optional alpha) to FFmpeg-compatible format.
      */
     protected function hexToFfmpegColor(string $color): string
@@ -646,6 +718,120 @@ class FFmpegService
 
         // #RRGGBBAA -> 0xRRGGBBAA (FFmpeg format)
         return '0x'.ltrim($color, '#');
+    }
+
+    /**
+     * Mix two audio files together.
+     */
+    public function mixTwoAudioFiles(string $audio1, string $audio2, int $totalDurationMs): string
+    {
+        $outputPath = $this->getTempPath('mixed_'.Str::uuid().'.mp3');
+        $durationSec = $totalDurationMs / 1000;
+
+        $result = Process::timeout(300)->run([
+            'ffmpeg', '-y',
+            '-i', $audio1,
+            '-i', $audio2,
+            '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest[aout]',
+            '-map', '[aout]',
+            '-t', (string) $durationSec,
+            $outputPath,
+        ]);
+
+        @unlink($audio1);
+        @unlink($audio2);
+
+        if (! $result->successful()) {
+            throw new \RuntimeException('Audio mixing failed: '.$result->errorOutput());
+        }
+
+        return $outputPath;
+    }
+
+    /**
+     * Extract audio from video layers in scenes.
+     *
+     * @param  array<array<string, mixed>>  $scenes
+     */
+    public function extractSceneAudio(array $scenes): ?string
+    {
+        $inputs = [];
+        $filterComplex = [];
+        $mixInputs = [];
+        $inputIndex = 0;
+        $currentTimeMs = 0;
+
+        foreach ($scenes as $scene) {
+            $sceneDurationMs = $scene['duration_ms'] ?? 5000;
+            $layers = $scene['layers'] ?? [];
+
+            foreach ($layers as $layer) {
+                $type = $layer['type'] ?? null;
+                $assetId = $layer['asset_id'] ?? null;
+
+                if ($type !== 'video' || ! $assetId) {
+                    continue;
+                }
+
+                $asset = Asset::find($assetId);
+                if (! $asset) {
+                    continue;
+                }
+
+                $inputs[] = $asset->getLocalPath();
+                $outputLabel = '[a'.$inputIndex.']';
+
+                // Extract audio, trim to scene duration, delay to scene start time
+                $filter = sprintf(
+                    '[%d:a]atrim=0:%f,adelay=%d|%d,asetpts=PTS-STARTPTS%s',
+                    $inputIndex,
+                    $sceneDurationMs / 1000,
+                    $currentTimeMs,
+                    $currentTimeMs,
+                    $outputLabel
+                );
+
+                $filterComplex[] = $filter;
+                $mixInputs[] = $outputLabel;
+                $inputIndex++;
+            }
+
+            $currentTimeMs += $sceneDurationMs;
+        }
+
+        if (empty($mixInputs)) {
+            return null;
+        }
+
+        $outputPath = $this->getTempPath('scene_audio_'.Str::uuid().'.mp3');
+
+        if (count($mixInputs) === 1) {
+            $filterComplex[] = $mixInputs[0].'anull[aout]';
+        } else {
+            $filterComplex[] = implode('', $mixInputs).'amix=inputs='.count($mixInputs).':duration=longest[aout]';
+        }
+
+        $command = ['ffmpeg', '-y'];
+
+        foreach ($inputs as $input) {
+            $command[] = '-i';
+            $command[] = $input;
+        }
+
+        $command[] = '-filter_complex';
+        $command[] = implode(';', $filterComplex);
+        $command[] = '-map';
+        $command[] = '[aout]';
+        $command[] = $outputPath;
+
+        $result = Process::timeout(300)->run($command);
+
+        if (! $result->successful()) {
+            // Video might not have audio track - this is not fatal
+            return null;
+        }
+
+        return $outputPath;
     }
 
     protected function getTempPath(string $filename): string

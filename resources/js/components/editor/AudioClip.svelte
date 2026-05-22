@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { Music } from 'lucide-svelte';
+    import AudioWaveform from '@/components/editor/AudioWaveform.svelte';
     import { projectStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
     import { cn } from '@/lib/utils';
@@ -35,6 +36,13 @@
         const asset = assets.find((a) => a.id === clip.asset_id);
         return asset?.name ?? 'Audio';
     }
+
+    function getAssetUrl(): string | null {
+        const assets = projectStore.project?.assets ?? [];
+        const asset = assets.find((a) => a.id === clip.asset_id);
+        return asset?.url ?? null;
+    }
+
 
     function handleMouseDown(e: MouseEvent) {
         if (e.button !== 0) return;
@@ -162,19 +170,23 @@
     role="button"
     tabindex="0"
 >
-    <div class="flex h-full items-center gap-1 px-2 overflow-hidden">
-        <Music class="h-3 w-3 flex-shrink-0 text-primary-foreground" />
-        <span class="text-xs text-primary-foreground truncate">{getAssetName()}</span>
+    <AudioWaveform url={getAssetUrl()} />
+
+    <div class="relative flex h-full items-center gap-1 px-2 overflow-hidden">
+        <Music class="h-3 w-3 flex-shrink-0 text-primary-foreground drop-shadow" />
+        <span class="text-xs text-primary-foreground truncate drop-shadow">{getAssetName()}</span>
     </div>
 
     {#if isSelected}
         <div
             class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-white/50 rounded-l"
             onmousedown={handleTrimLeftDown}
-        />
+            role="presentation"
+        ></div>
         <div
             class="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-white/50 rounded-r"
             onmousedown={handleTrimRightDown}
-        />
+            role="presentation"
+        ></div>
     {/if}
 </div>

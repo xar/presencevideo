@@ -48,6 +48,10 @@
         values = { ...defaults };
     }
 
+    function getNumericStep(config: ParameterConfig): number {
+        return Number(config.step ?? 1);
+    }
+
     function hasChanges(): boolean {
         return Object.keys(parameters).some(key => {
             const current = values[key];
@@ -84,7 +88,7 @@
                                         value={[Number(getValue(key) ?? config.min ?? 0)]}
                                         min={config.min ?? 0}
                                         max={config.max ?? 100}
-                                        step={config.step ?? 1}
+                                        step={getNumericStep(config)}
                                         {disabled}
                                         onValueChange={(v) => setValue(key, v[0])}
                                     />
@@ -171,7 +175,7 @@
                                                         value={[Number(getValue(key) ?? config.min ?? 0)]}
                                                         min={config.min ?? 0}
                                                         max={config.max ?? 100}
-                                                        step={config.step ?? 1}
+                                                        step={getNumericStep(config)}
                                                         {disabled}
                                                         onValueChange={(v) => setValue(key, v[0])}
                                                     />

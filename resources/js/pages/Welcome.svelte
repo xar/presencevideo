@@ -73,7 +73,7 @@
     ];
 </script>
 
-<AppHead title="AI Video Editor for Makers" />
+<AppHead title="AI Video Creation with Control" />
 
 <div class="min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-x-hidden">
     <!-- Floating Pill Navigation -->
@@ -83,7 +83,7 @@
                 <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
                     <Play class="h-4 w-4 text-primary-foreground ml-0.5" />
                 </div>
-                <span class="text-xl font-bold tracking-tight">Presence</span>
+                <span class="text-xl font-bold tracking-tight">Keyframes</span>
             </div>
 
             <nav class="flex items-center gap-2 sm:gap-4">
@@ -133,7 +133,7 @@
                 <!-- Pill Badge -->
                 <div class="inline-flex items-center rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 text-sm font-medium backdrop-blur-sm mb-12 shadow-sm hover:bg-muted/50 transition-colors cursor-pointer group">
                     <span class="flex h-2 w-2 rounded-full bg-violet-500 mr-2 animate-pulse"></span>
-                    <span class="text-foreground/90">Presence 2.0 is now live</span>
+                    <span class="text-foreground/90">usekeyframes.com is now live</span>
                     <Separator orientation="vertical" class="mx-3 h-4" />
                     <span class="text-muted-foreground flex items-center group-hover:text-foreground transition-colors">
                         Read announcement <ArrowRight class="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -143,12 +143,12 @@
                 <!-- Clean, Monolithic Typography -->
                 <div class="max-w-4xl text-center flex flex-col items-center">
                     <h1 class="text-5xl font-semibold tracking-tighter sm:text-6xl md:text-7xl lg:text-[6rem] leading-[1.05] mb-8 text-foreground">
-                        Video editing, <br class="hidden sm:block" />
-                        reimagined for creators.
+                        AI video, <br class="hidden sm:block" />
+                        directed by keyframes.
                     </h1>
 
                     <p class="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed mb-10 font-normal">
-                        Generate visual stories from simple text. No timeline complexity, no missing assets. Just pure creative flow powered by state-of-the-art AI.
+                        Create cinematic videos from prompts, images, voice, and music — with the control to shape motion, timing, and story frame by frame.
                     </p>
 
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
@@ -228,10 +228,10 @@
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
                 <div class="mx-auto max-w-2xl text-center mb-16">
                     <h2 class="text-3xl font-bold tracking-tight md:text-5xl mb-4">
-                        AI does the heavy lifting.
+                        Generate the assets. Control the motion.
                     </h2>
                     <p class="text-lg text-muted-foreground">
-                        Generate stunning visuals, natural voices, and original music with just a few words. Our platform integrates the best models seamlessly.
+                        Keyframes brings images, video, voice, and music into one AI-native creative workspace — so your ideas move with intention.
                     </p>
                 </div>
 
@@ -303,7 +303,7 @@
             
             <!-- Large abstract typographic watermark -->
             <div class="absolute -top-24 left-0 -z-0 opacity-[0.03] text-[20vw] font-black tracking-tighter whitespace-nowrap select-none pointer-events-none">
-                PRESENCE
+                KEYFRAMES
             </div>
 
             <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative z-10">
@@ -329,13 +329,13 @@
                     </div>
                     <div class="md:col-span-3 text-lg md:text-xl text-background/70 space-y-6 max-w-3xl leading-relaxed">
                         <p>
-                            The hardest part isn't writing code. It's <strong class="text-background font-semibold">communicating your vision</strong>. I'd spend hours explaining an idea, only to watch eyes glaze over.
+                            The hardest part isn't writing code. It's <strong class="text-background font-semibold">communicating motion</strong>. A still frame can sell a look, but timing, rhythm, and change are what make people feel it.
                         </p>
                         <p>
-                            Then generative AI changed everything. I could finally show what I meant instantly.
+                            Then generative AI changed everything. Suddenly a prompt could become a shot, a voice, a soundtrack, and a sequence.
                         </p>
                         <p>
-                            I built this editor for people with ideas worth sharing, but without the time or budget for traditional video production.
+                            I built Keyframes for people with ideas worth showing — people who want speed without giving up creative control.
                         </p>
                     </div>
                 </div>
@@ -350,10 +350,10 @@
             <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 relative z-10 text-center">
                 <Layers class="h-16 w-16 mx-auto mb-6 text-primary" />
                 <h2 class="text-4xl font-extrabold tracking-tight md:text-6xl mb-6">
-                    Your ideas are waiting.
+                    Make the next frame matter.
                 </h2>
                 <p class="mx-auto max-w-xl text-xl text-muted-foreground mb-10">
-                    Stop explaining. Start showing. Join thousands of creators bringing their vision to life.
+                    Turn prompts and assets into videos that feel directed, not randomly generated.
                 </p>
 
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -397,10 +397,10 @@
                 <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
                     <Play class="h-3 w-3 text-primary-foreground ml-0.5" />
                 </div>
-                <span class="font-semibold tracking-tight text-sm">Presence</span>
+                <span class="font-semibold tracking-tight text-sm">Keyframes</span>
             </div>
             <p class="text-sm text-muted-foreground text-center">
-                Built for makers, by a maker. &copy; {new Date().getFullYear()} All rights reserved.
+                Built for makers, by a maker. usekeyframes.com &copy; {new Date().getFullYear()} All rights reserved.
             </p>
         </div>
     </footer>

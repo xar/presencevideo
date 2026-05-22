@@ -86,29 +86,41 @@ class RenderProject implements ShouldQueue
             $audioTracks = $project->audio_tracks ?? [];
             $totalDurationMs = array_sum(array_column($scenes, 'duration_ms'));
 
+            // Extract audio from video layers in scenes
+            $sceneAudio = $ffmpeg->extractSceneAudio($scenes);
+
             $finalOutput = $concatenated;
-            if (! empty($audioTracks)) {
-                $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
-                // mergeAudioVideo stores in Storage and returns a relative path
+
+            // If we have both scene audio and audio tracks, mix them together
+            if ($sceneAudio && ! empty($audioTracks)) {
+                $mixedTracks = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
+                $mixedAudio = $ffmpeg->mixTwoAudioFiles($sceneAudio, $mixedTracks, $totalDurationMs);
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
-            } else {
-                // Move temp file to permanent storage
-                $storagePath = 'renders/final_'.Str::uuid().'.mp4';
-                Storage::put($storagePath, file_get_contents($finalOutput));
-                @unlink($finalOutput);
-                $finalOutput = $storagePath;
+            } elseif ($sceneAudio) {
+                $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $sceneAudio);
+            } elseif (! empty($audioTracks)) {
+                $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
+                $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             }
+
+            // Move final output to permanent storage
+            $storagePath = 'renders/final_'.Str::uuid().'.mp4';
+            Storage::put($storagePath, file_get_contents($finalOutput));
+            @unlink($finalOutput);
 
             $this->render->update([
                 'status' => RenderStatus::Completed,
                 'progress' => 100,
-                'output_path' => $finalOutput,
+                'output_path' => $storagePath,
                 'completed_at' => now(),
             ]);
 
             foreach ($sceneVideos as $tempVideo) {
                 @unlink($tempVideo);
             }
+
+            // Clean up any temp files downloaded from remote storage
+            Asset::cleanupTempFiles();
         } catch (\Throwable $e) {
             Log::error('Render failed', [
                 'render_id' => $this->render->id,
@@ -120,6 +132,8 @@ class RenderProject implements ShouldQueue
                 'error_message' => $e->getMessage(),
                 'completed_at' => now(),
             ]);
+
+            Asset::cleanupTempFiles();
 
             throw $e;
         }

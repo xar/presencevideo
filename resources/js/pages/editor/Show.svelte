@@ -103,9 +103,6 @@
                 if (e.key === 'v' || e.key === 'V') {
                     selectionStore.setTool('select');
                 }
-                if (e.key === 't' || e.key === 'T') {
-                    selectionStore.setTool('text');
-                }
                 if (e.key === 'h' || e.key === 'H') {
                     selectionStore.setTool('pan');
                 }

@@ -6,12 +6,20 @@
     import { Separator } from '@/components/ui/separator';
     import { Slider } from '@/components/ui/slider';
     import { projectStore, selectionStore } from '@/lib/editor';
-    import type { TextLayer, ImageLayer, VideoLayer, Layer, AudioClip, Asset } from '@/types';
+    import {
+        formatFileSize,
+        formatSeconds,
+        formatTimelineTime,
+        parseSeconds,
+        parseTimelineTime,
+    } from '@/lib/editor/formatting';
+    import type { TextLayer, ImageLayer, VideoLayer, Layer, AudioClip, Asset, VideoClip } from '@/types';
 
     let selection = $derived(selectionStore.selection);
     let selectedScene = $derived(selectionStore.getSelectedScene());
     let selectedLayer = $derived(selectionStore.getSelectedLayer());
     let selectedAudioClip = $derived(selectionStore.getSelectedAudioClip());
+    let selectedVideoClip = $derived(selectionStore.getSelectedVideoClip());
 
     // Get asset for video/image layers
     function getAsset(assetId: number): Asset | undefined {
@@ -27,19 +35,9 @@
         return undefined;
     });
 
-    function formatDuration(ms: number): string {
-        const seconds = ms / 1000;
-        return seconds.toFixed(1);
-    }
-
-    function parseDuration(value: string): number {
-        const seconds = parseFloat(value) || 0;
-        return Math.max(100, Math.round(seconds * 1000));
-    }
-
     function updateSceneDuration(e: Event) {
         const input = e.target as HTMLInputElement;
-        const durationMs = parseDuration(input.value);
+        const durationMs = parseSeconds(input.value, 100);
         if (selectedScene) {
             projectStore.updateScene(selectedScene.id, { duration_ms: durationMs });
         }
@@ -87,26 +85,6 @@
         }
     }
 
-    function formatTime(ms: number): string {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const milliseconds = Math.floor((ms % 1000) / 10);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
-    }
-
-    function parseTime(value: string): number {
-        // Parse formats like "1:23.45" or "83.45" or "83"
-        const parts = value.split(':');
-        let seconds = 0;
-        if (parts.length === 2) {
-            seconds = parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-        } else {
-            seconds = parseFloat(parts[0]) || 0;
-        }
-        return Math.max(0, Math.round(seconds * 1000));
-    }
-
     // Audio clip helpers
     let audioClipAsset = $derived.by(() => {
         if (!selectedAudioClip) return undefined;
@@ -124,10 +102,15 @@
         selectionStore.clearSelection();
     }
 
-    function formatFileSize(bytes: number): string {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    function updateVideoClip(field: keyof VideoClip, value: string | number) {
+        if (!selectedVideoClip) return;
+        projectStore.updateVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id, { [field]: value });
+    }
+
+    function deleteVideoClip() {
+        if (!selectedVideoClip) return;
+        projectStore.deleteVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id);
+        selectionStore.clearSelection();
     }
 
     function deleteLayer() {
@@ -223,8 +206,8 @@
                             {@const trimEndPercent = ((videoDuration - trimEnd) / videoDuration) * 100}
                             <div class="space-y-2">
                                 <div class="flex justify-between text-xs text-muted-foreground">
-                                    <span>Duration: {formatTime(effectiveDuration)}</span>
-                                    <span>/ {formatTime(videoDuration)}</span>
+                                    <span>Duration: {formatTimelineTime(effectiveDuration)}</span>
+                                    <span>/ {formatTimelineTime(videoDuration)}</span>
                                 </div>
 
                                 <!-- Visual trim bar -->
@@ -244,9 +227,9 @@
                                         <Label class="text-xs">Start</Label>
                                         <Input
                                             type="text"
-                                            value={formatTime(trimStart)}
+                                            value={formatTimelineTime(trimStart)}
                                             onchange={(e) => {
-                                                const ms = parseTime((e.target as HTMLInputElement).value);
+                                                const ms = parseTimelineTime((e.target as HTMLInputElement).value);
                                                 if (ms < trimEnd) {
                                                     updateVideoLayer('trim_start_ms', ms);
                                                 }
@@ -258,9 +241,9 @@
                                         <Label class="text-xs">End</Label>
                                         <Input
                                             type="text"
-                                            value={formatTime(trimEnd)}
+                                            value={formatTimelineTime(trimEnd)}
                                             onchange={(e) => {
-                                                const ms = Math.min(parseTime((e.target as HTMLInputElement).value), videoDuration);
+                                                const ms = Math.min(parseTimelineTime((e.target as HTMLInputElement).value), videoDuration);
                                                 if (ms > trimStart) {
                                                     updateVideoLayer('trim_end_ms', ms);
                                                 }
@@ -394,7 +377,7 @@
                         type="number"
                         step="0.1"
                         min="0.1"
-                        value={formatDuration(selectedScene.duration_ms)}
+                        value={formatSeconds(selectedScene.duration_ms)}
                         onchange={updateSceneDuration}
                         class="h-8"
                     />
@@ -431,6 +414,175 @@
                 </Button>
             </div>
         </div>
+    {:else if selection.type === 'video_clip' && selectedVideoClip}
+        <div>
+            <h3 class="text-sm font-semibold mb-3">
+                {selectedVideoClip.clip.type === 'text' ? 'Text Overlay' : 'Video Clip'} Properties
+            </h3>
+
+            <div class="space-y-3">
+                {#if selectedVideoClip.clip.type === 'text'}
+                    <div>
+                        <Label class="text-xs">Text</Label>
+                        <textarea
+                            value={selectedVideoClip.clip.text ?? ''}
+                            oninput={(e) => updateVideoClip('text', (e.target as HTMLTextAreaElement).value)}
+                            rows="3"
+                            class="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                        ></textarea>
+                    </div>
+                {/if}
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label class="text-xs">Start</Label>
+                        <Input
+                            type="text"
+                            value={formatTimelineTime(selectedVideoClip.clip.start_ms)}
+                            onchange={(e) => updateVideoClip('start_ms', parseTimelineTime((e.target as HTMLInputElement).value))}
+                            class="h-8 font-mono text-xs"
+                        />
+                    </div>
+                    <div>
+                        <Label class="text-xs">Duration</Label>
+                        <Input
+                            type="text"
+                            value={formatTimelineTime(selectedVideoClip.clip.duration_ms)}
+                            onchange={(e) => updateVideoClip('duration_ms', Math.max(100, parseTimelineTime((e.target as HTMLInputElement).value)))}
+                            class="h-8 font-mono text-xs"
+                        />
+                    </div>
+                </div>
+
+                {#if selectedVideoClip.clip.type === 'text'}
+                    <Separator />
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <Label class="text-xs">X</Label>
+                            <Input
+                                type="number"
+                                value={selectedVideoClip.clip.x}
+                                onchange={(e) => updateVideoClip('x', parseInt((e.target as HTMLInputElement).value) || 0)}
+                                class="h-8"
+                            />
+                        </div>
+                        <div>
+                            <Label class="text-xs">Y</Label>
+                            <Input
+                                type="number"
+                                value={selectedVideoClip.clip.y}
+                                onchange={(e) => updateVideoClip('y', parseInt((e.target as HTMLInputElement).value) || 0)}
+                                class="h-8"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <Label class="text-xs">Width</Label>
+                            <Input
+                                type="number"
+                                value={selectedVideoClip.clip.width}
+                                onchange={(e) => updateVideoClip('width', Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
+                                class="h-8"
+                            />
+                        </div>
+                        <div>
+                            <Label class="text-xs">Height</Label>
+                            <Input
+                                type="number"
+                                value={selectedVideoClip.clip.height}
+                                onchange={(e) => updateVideoClip('height', Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
+                                class="h-8"
+                            />
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <Label class="text-xs">Font Size</Label>
+                            <Input
+                                type="number"
+                                value={selectedVideoClip.clip.font_size ?? 48}
+                                onchange={(e) => updateVideoClip('font_size', parseInt((e.target as HTMLInputElement).value) || 48)}
+                                class="h-8"
+                            />
+                        </div>
+                        <div>
+                            <Label class="text-xs">Color</Label>
+                            <div class="flex gap-1">
+                                <input
+                                    type="color"
+                                    value={selectedVideoClip.clip.font_color ?? '#ffffff'}
+                                    oninput={(e) => updateVideoClip('font_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 w-8 rounded border cursor-pointer"
+                                />
+                                <Input
+                                    value={selectedVideoClip.clip.font_color ?? '#ffffff'}
+                                    oninput={(e) => updateVideoClip('font_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 flex-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <Label class="text-xs">Stroke Width</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={selectedVideoClip.clip.stroke_width ?? 0}
+                                onchange={(e) => updateVideoClip('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
+                                class="h-8"
+                            />
+                        </div>
+                        <div>
+                            <Label class="text-xs">Stroke Color</Label>
+                            <div class="flex gap-1">
+                                <input
+                                    type="color"
+                                    value={selectedVideoClip.clip.stroke_color ?? '#000000'}
+                                    oninput={(e) => updateVideoClip('stroke_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 w-8 rounded border cursor-pointer"
+                                />
+                                <Input
+                                    value={selectedVideoClip.clip.stroke_color ?? '#000000'}
+                                    oninput={(e) => updateVideoClip('stroke_color', (e.target as HTMLInputElement).value)}
+                                    class="h-8 flex-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label class="text-xs">Background Color</Label>
+                        <div class="flex gap-1">
+                            <input
+                                type="color"
+                                value={(selectedVideoClip.clip.background_color ?? '#000000').slice(0, 7)}
+                                oninput={(e) => updateVideoClip('background_color', (e.target as HTMLInputElement).value)}
+                                class="h-8 w-8 rounded border cursor-pointer"
+                            />
+                            <Input
+                                value={selectedVideoClip.clip.background_color ?? '#00000080'}
+                                oninput={(e) => updateVideoClip('background_color', (e.target as HTMLInputElement).value)}
+                                class="h-8 flex-1"
+                            />
+                        </div>
+                    </div>
+                {/if}
+
+                <Button variant="destructive" size="sm" class="w-full" onclick={deleteVideoClip}>
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    Delete {selectedVideoClip.clip.type === 'text' ? 'Text Overlay' : 'Video Clip'}
+                </Button>
+            </div>
+        </div>
     {:else if selection.type === 'audio_clip' && selectedAudioClip}
         <div>
             <h3 class="text-sm font-semibold mb-3">Audio Clip Properties</h3>
@@ -444,7 +596,7 @@
                             <p class="text-xs font-medium truncate">{audioClipAsset.name}</p>
                             <div class="text-[11px] text-muted-foreground space-y-0.5">
                                 {#if audioClipAsset.duration_ms}
-                                    <p>Original duration: {formatTime(audioClipAsset.duration_ms)}</p>
+                                    <p>Original duration: {formatTimelineTime(audioClipAsset.duration_ms)}</p>
                                 {/if}
                                 <p>{audioClipAsset.mime_type} &middot; {formatFileSize(audioClipAsset.size_bytes)}</p>
                             </div>
@@ -460,9 +612,9 @@
                         <Label class="text-xs">Start</Label>
                         <Input
                             type="text"
-                            value={formatTime(selectedAudioClip.clip.start_ms)}
+                            value={formatTimelineTime(selectedAudioClip.clip.start_ms)}
                             onchange={(e) => {
-                                const ms = parseTime((e.target as HTMLInputElement).value);
+                                const ms = parseTimelineTime((e.target as HTMLInputElement).value);
                                 updateAudioClip('start_ms', ms);
                             }}
                             class="h-8 font-mono text-xs"
@@ -472,9 +624,9 @@
                         <Label class="text-xs">Duration</Label>
                         <Input
                             type="text"
-                            value={formatTime(selectedAudioClip.clip.duration_ms)}
+                            value={formatTimelineTime(selectedAudioClip.clip.duration_ms)}
                             onchange={(e) => {
-                                const ms = parseTime((e.target as HTMLInputElement).value);
+                                const ms = parseTimelineTime((e.target as HTMLInputElement).value);
                                 if (ms >= 100) {
                                     updateAudioClip('duration_ms', ms);
                                 }
@@ -496,7 +648,7 @@
                             }
                         }}
                     >
-                        Match original duration ({formatTime(audioClipAsset.duration_ms)})
+                        Match original duration ({formatTimelineTime(audioClipAsset.duration_ms)})
                     </Button>
                 {/if}
 

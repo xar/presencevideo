@@ -41,7 +41,7 @@
                     {
                         id: 'demo-layer-1',
                         type: 'text',
-                        text: 'Welcome to Presence',
+                        text: 'Welcome to Keyframes',
                         x: 460,
                         y: 400,
                         width: 1000,

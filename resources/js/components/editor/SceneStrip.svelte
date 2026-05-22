@@ -3,6 +3,7 @@
     import { Plus } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { generateUuid } from '@/lib/utils';
     import type { Scene, ImageLayer, VideoLayer } from '@/types';
     import SceneCard from './SceneCard.svelte';
 
@@ -120,7 +121,7 @@
                 name: asset?.name ?? `Scene ${scenes.length + 1}`,
                 duration_ms: sceneDuration,
                 layers: [{
-                    id: crypto.randomUUID(),
+                    id: generateUuid(),
                     type: parsed.assetType,
                     asset_id: parsed.assetId,
                     x: 0,
