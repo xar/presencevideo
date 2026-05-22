@@ -22,8 +22,12 @@ it('shows the agent chat page with previous conversations', function () {
         'role' => 'user',
         'content' => 'Hello',
         'attachments' => [],
-        'tool_calls' => [],
-        'tool_results' => [],
+        'tool_calls' => [
+            ['tool_id' => 'tool-1', 'tool_name' => 'ComposeVideoProject', 'arguments' => ['title' => 'Demo']],
+        ],
+        'tool_results' => [
+            ['tool_id' => 'tool-1', 'tool_name' => 'ComposeVideoProject', 'result' => ['project_id' => 123], 'successful' => true],
+        ],
         'usage' => [],
         'meta' => [],
     ]);
@@ -35,7 +39,9 @@ it('shows the agent chat page with previous conversations', function () {
             ->component('agent/Chat')
             ->has('conversations', 1)
             ->where('conversation.id', $conversation->id)
-            ->where('messages.0.content', 'Hello'));
+            ->where('messages.0.content', 'Hello')
+            ->where('messages.0.tool_calls.0.tool_name', 'ComposeVideoProject')
+            ->where('messages.0.tool_results.0.result.project_id', 123));
 });
 
 it('starts a new remembered conversation with the generic agent', function () {

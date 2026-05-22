@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Ai\Models\Conversation;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
 {
@@ -28,7 +29,7 @@ class ChatController extends Controller
 
         $messages = $conversation?->messages()
             ->orderBy('created_at')
-            ->get(['id', 'role', 'content', 'created_at'])
+            ->get(['id', 'role', 'content', 'tool_calls', 'tool_results', 'created_at'])
             ->values() ?? collect();
 
         return Inertia::render('agent/Chat', [
@@ -48,15 +49,32 @@ class ChatController extends Controller
         return to_route('agent.chat.show', $response->conversationId);
     }
 
-    public function stream(SendMessageRequest $request): mixed
+    public function stream(SendMessageRequest $request): StreamedResponse
     {
         $message = $request->validated('message');
-
-        return $this->agentForRequest($request)
+        $stream = $this->agentForRequest($request)
             ->stream($message)
             ->then(function ($response) use ($request, $message): void {
                 $this->updateConversationTitle($request, $response->conversationId, $message);
             });
+
+        return response()->stream(function () use ($stream): void {
+            foreach ($stream as $event) {
+                echo 'data: '.((string) $event)."\n\n";
+                flush();
+            }
+
+            echo 'data: '.json_encode([
+                'type' => 'conversation',
+                'conversation_id' => $stream->conversationId,
+            ])."\n\n";
+            echo "data: [DONE]\n\n";
+            flush();
+        }, headers: [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 
     public function latest(Request $request): JsonResponse

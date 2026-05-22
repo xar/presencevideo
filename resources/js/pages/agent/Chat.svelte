@@ -1,24 +1,21 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import { Link, router } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
     import AppLayout from '@/layouts/AppLayout.svelte';
     import agent from '@/routes/agent';
     import type { BreadcrumbItem } from '@/types';
-    import { Bot, PenLine, Send, Sparkles, User } from 'lucide-svelte';
+    import ChatMessageBubble from '@/components/agent/ChatMessageBubble.svelte';
+    import StreamingAssistantMessage from '@/components/agent/StreamingAssistantMessage.svelte';
+    import type { ChatMessage, ToolActivity } from '@/components/agent/types';
+    import { PenLine, Send, Sparkles } from 'lucide-svelte';
 
     type Conversation = {
         id: string;
         title: string | null;
         created_at: string;
         updated_at: string;
-    };
-
-    type ChatMessage = {
-        id: string;
-        role: 'user' | 'assistant' | 'system' | string;
-        content: string;
-        created_at: string;
     };
 
     let {
@@ -39,15 +36,21 @@
     let message = $state('');
     let localMessages = $state<ChatMessage[]>([]);
     let streamedResponse = $state('');
+    let streamedConversationId = $state<string | null>(null);
+    let streamedToolActivities = $state<ToolActivity[]>([]);
     let isStreaming = $state(false);
+    let shouldReserveLatestMessageSpace = $state(false);
     let error = $state<string | null>(null);
     let activeConversationId = $state<string | null | undefined>(undefined);
+    let messagesContainer: HTMLDivElement | null = $state(null);
 
     $effect(() => {
         if (activeConversationId !== conversation?.id) {
             activeConversationId = conversation?.id;
             localMessages = messages;
             streamedResponse = '';
+            streamedToolActivities = [];
+            shouldReserveLatestMessageSpace = false;
         }
     });
 
@@ -61,7 +64,10 @@
         message = '';
         error = null;
         streamedResponse = '';
+        streamedConversationId = null;
+        streamedToolActivities = [];
         isStreaming = true;
+        shouldReserveLatestMessageSpace = true;
         localMessages = [
             ...localMessages,
             {
@@ -71,6 +77,8 @@
                 created_at: new Date().toISOString()
             }
         ];
+
+        await scrollLatestUserMessageToTop();
 
         try {
             const response = await fetch(agent.chat.stream().url, {
@@ -92,25 +100,59 @@
 
             await readStream(response.body);
 
-            if (streamedResponse) {
+            if (streamedResponse || streamedToolActivities.length > 0) {
                 localMessages = [
                     ...localMessages,
                     {
                         id: `assistant-${Date.now()}`,
                         role: 'assistant',
                         content: streamedResponse,
+                        tool_calls: streamedToolActivities.map((activity) => ({
+                            tool_id: activity.id,
+                            tool_name: activity.name,
+                            arguments: activity.arguments,
+                            timestamp: activity.timestamp
+                        })),
+                        tool_results: streamedToolActivities
+                            .filter((activity) => activity.status !== 'running')
+                            .map((activity) => ({
+                                tool_id: activity.id,
+                                tool_name: activity.name,
+                                result: activity.result,
+                                successful: activity.successful,
+                                error: activity.error,
+                                timestamp: activity.timestamp
+                            })),
                         created_at: new Date().toISOString()
                     }
                 ];
                 streamedResponse = '';
+                streamedToolActivities = [];
             }
 
+            await scrollLatestUserMessageToTop('instant');
             await refreshConversation();
         } catch (streamError) {
             error = streamError instanceof Error ? streamError.message : 'The agent could not respond. Please try again.';
         } finally {
             isStreaming = false;
         }
+    }
+
+    async function scrollLatestUserMessageToTop(behavior: ScrollBehavior = 'smooth') {
+        await tick();
+
+        const container = messagesContainer;
+        const latestUserMessage = container?.querySelector<HTMLElement>('[data-latest-user-message="true"]');
+
+        if (!container || !latestUserMessage) {
+            return;
+        }
+
+        container.scrollTo({
+            top: latestUserMessage.offsetTop - container.offsetTop,
+            behavior,
+        });
     }
 
     async function readStream(body: ReadableStream<Uint8Array>) {
@@ -152,7 +194,41 @@
             if (data.type === 'text_delta') {
                 streamedResponse += data.delta ?? '';
             }
+
+            if (data.type === 'tool_call') {
+                upsertToolActivity({
+                    id: data.tool_id ?? data.id,
+                    name: data.tool_name ?? 'Action',
+                    arguments: data.arguments,
+                    status: 'running',
+                    timestamp: data.timestamp
+                });
+            }
+
+            if (data.type === 'tool_result') {
+                upsertToolActivity({
+                    id: data.tool_id ?? data.id,
+                    name: data.tool_name ?? 'Action',
+                    result: data.result,
+                    successful: data.successful,
+                    error: data.error,
+                    status: data.successful === false ? 'failed' : 'completed',
+                    timestamp: data.timestamp
+                });
+            }
+
+            if (data.type === 'conversation') {
+                streamedConversationId = data.conversation_id ?? null;
+            }
         }
+    }
+
+    function upsertToolActivity(activity: ToolActivity) {
+        const existing = streamedToolActivities.find((item) => item.id === activity.id);
+
+        streamedToolActivities = existing
+            ? streamedToolActivities.map((item) => item.id === activity.id ? { ...item, ...activity, arguments: activity.arguments ?? item.arguments } : item)
+            : [...streamedToolActivities, activity];
     }
 
     async function refreshConversation() {
@@ -162,15 +238,8 @@
             return;
         }
 
-        const response = await fetch(agent.chat.latest().url, {
-            headers: {
-                Accept: 'application/json'
-            }
-        });
-        const data = await response.json();
-
-        if (data.conversation?.id) {
-            router.visit(agent.chat.show(data.conversation.id).url, { replace: true });
+        if (streamedConversationId) {
+            router.visit(agent.chat.show(streamedConversationId).url, { replace: true, preserveScroll: true });
         }
     }
 
@@ -203,7 +272,7 @@
     <div class="mx-auto flex h-[calc(100dvh-7rem)] min-h-0 w-full flex-col overflow-hidden">
         <div
             class="flex min-h-0 flex-1 flex-col overflow-hidden border border-border/50 border-b-0 bg-card shadow-lg shadow-black/[0.04] dark:shadow-black/20">
-            <div class="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+            <div bind:this={messagesContainer} class="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
                 {#if localMessages.length === 0 && !streamedResponse && !isStreaming}
                     <div class="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
                         <div class="mb-6 flex size-16 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-inner">
@@ -216,27 +285,15 @@
                         </p>
                     </div>
                 {:else}
-                    <div class="mx-auto flex max-w-4xl flex-col gap-5">
+                    <div class="mx-auto flex max-w-4xl flex-col gap-5 {shouldReserveLatestMessageSpace ? 'pb-[65vh]' : 'pb-6'}">
                         {#each localMessages as message (message.id)}
-                            <div class="flex gap-3 {message.role === 'user' ? 'justify-end' : 'justify-start'}">
-
-                                <div class="max-w-[82%] rounded-3xl px-5 py-3 shadow-sm {message.role === 'user' ? 'bg-primary text-primary-foreground' : 'border border-border/60 bg-card text-card-foreground'}">
-                                    <p class="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
-                                </div>
-
-                            </div>
+                            <ChatMessageBubble
+                                {message}
+                                latestUserMessage={message.role === 'user' && message.id === localMessages.filter((item) => item.role === 'user').at(-1)?.id}
+                            />
                         {/each}
-                        {#if streamedResponse || isStreaming}
-                            <div class="flex justify-start gap-3">
-
-                                <div class="max-w-[82%] rounded-3xl border border-border/60 bg-card px-5 py-3 text-card-foreground shadow-sm">
-                                    {#if streamedResponse}
-                                        <p class="whitespace-pre-wrap text-sm leading-6">{streamedResponse}</p>
-                                    {:else}
-                                        <p class="text-sm leading-6 text-muted-foreground">Thinking…</p>
-                                    {/if}
-                                </div>
-                            </div>
+                        {#if streamedResponse || isStreaming || streamedToolActivities.length > 0}
+                            <StreamingAssistantMessage content={streamedResponse} activities={streamedToolActivities} />
                         {/if}
                     </div>
                 {/if}
