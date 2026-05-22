@@ -79,66 +79,62 @@
 
 <AppHead title="Projects" />
 
-<AppLayout {breadcrumbs}>
-    <div class="flex h-full flex-col gap-6 p-6 max-w-[1400px] mx-auto w-full">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-semibold tracking-tight text-foreground/90">Projects</h1>
-                <p class="text-sm text-muted-foreground mt-1">Create and manage your video projects</p>
-            </div>
-            <Dialog bind:open={isCreateDialogOpen}>
-                <DialogTrigger>
-                    <Button class="rounded-full px-5 shadow-sm">
-                        <Plus class="mr-2 h-4 w-4" />
-                        New Project
-                    </Button>
-                </DialogTrigger>
-                <DialogContent class="sm:max-w-lg">
-                    <DialogTitle>Create New Project</DialogTitle>
-                    <DialogDescription>
-                        Give your project a name and choose a resolution.
-                    </DialogDescription>
-                    <form onsubmit={(e) => { e.preventDefault(); createProject(); }}>
-                        <div class="grid gap-4 py-4">
-                            <div class="grid gap-2">
-                                <Label for="name">Project Name</Label>
-                                <Input
-                                    id="name"
-                                    value={newProjectName}
-                                    oninput={(e: Event) => newProjectName = (e.target as HTMLInputElement).value}
-                                    placeholder="My Awesome Video"
-                                    autofocus
-                                />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label>Resolution</Label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    {#each resolutionPresets as preset, i}
-                                        <button
-                                            type="button"
-                                            class="flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-2.5 text-center transition-colors {selectedPresetIndex === i ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}"
-                                            onclick={() => (selectedPresetIndex = i)}
-                                        >
-                                            <span class="text-xs font-medium leading-tight">{preset.label}</span>
-                                            <span class="text-[10px] text-muted-foreground tabular-nums">{preset.width} × {preset.height}</span>
-                                        </button>
-                                    {/each}
-                                </div>
+<AppLayout {breadcrumbs} title="Projects" description="Create and manage your video projects">
+    {#snippet actions()}
+        <Dialog bind:open={isCreateDialogOpen}>
+            <DialogTrigger>
+                <Button class="rounded-full px-5 shadow-sm">
+                    <Plus class="mr-2 h-4 w-4" />
+                    New Project
+                </Button>
+            </DialogTrigger>
+            <DialogContent class="sm:max-w-lg">
+                <DialogTitle>Create New Project</DialogTitle>
+                <DialogDescription>
+                    Give your project a name and choose a resolution.
+                </DialogDescription>
+                <form onsubmit={(e) => { e.preventDefault(); createProject(); }}>
+                    <div class="grid gap-4 py-4">
+                        <div class="grid gap-2">
+                            <Label for="name">Project Name</Label>
+                            <Input
+                                id="name"
+                                value={newProjectName}
+                                oninput={(e: Event) => newProjectName = (e.target as HTMLInputElement).value}
+                                placeholder="My Awesome Video"
+                                autofocus
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label>Resolution</Label>
+                            <div class="grid grid-cols-3 gap-2">
+                                {#each resolutionPresets as preset, i}
+                                    <button
+                                        type="button"
+                                        class="flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-2.5 text-center transition-colors {selectedPresetIndex === i ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}"
+                                        onclick={() => (selectedPresetIndex = i)}
+                                    >
+                                        <span class="text-xs font-medium leading-tight">{preset.label}</span>
+                                        <span class="text-[10px] text-muted-foreground tabular-nums">{preset.width} × {preset.height}</span>
+                                    </button>
+                                {/each}
                             </div>
                         </div>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onclick={() => (isCreateDialogOpen = false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={!newProjectName.trim() || isCreating}>
-                                {isCreating ? 'Creating...' : 'Create Project'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onclick={() => (isCreateDialogOpen = false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={!newProjectName.trim() || isCreating}>
+                            {isCreating ? 'Creating...' : 'Create Project'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    {/snippet}
 
+    <div class="flex h-full flex-col gap-6 p-6 max-w-[1400px] mx-auto w-full">
         {#if projects.length === 0}
             <Card class="flex flex-col items-center justify-center py-24 border-dashed bg-sidebar/30 shadow-none border-border/50 relative overflow-hidden group">
                 <div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-chart-3/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>

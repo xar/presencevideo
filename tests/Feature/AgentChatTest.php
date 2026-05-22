@@ -59,6 +59,26 @@ it('starts a new remembered conversation with the generic agent', function () {
         ->and($conversation->messages()->where('role', 'assistant')->exists())->toBeTrue();
 });
 
+it('streams a new remembered conversation with the generic agent', function () {
+    GenericAgent::fake(['Streamed hello.']);
+
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)
+        ->post(route('agent.chat.stream'), [
+            'message' => 'Stream this please',
+        ])
+        ->assertSuccessful();
+
+    expect($response->streamedContent())
+        ->toContain('data:')
+        ->toContain('[DONE]');
+
+    GenericAgent::assertPrompted('Stream this please');
+
+    expect($user->conversations()->where('title', 'Stream this please')->exists())->toBeTrue();
+});
+
 it('prevents continuing another users conversation', function () {
     GenericAgent::fake()->preventStrayPrompts();
 

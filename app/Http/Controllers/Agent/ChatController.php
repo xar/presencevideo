@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Agent;
 use App\Ai\Agents\GenericAgent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Agent\SendMessageRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -39,6 +40,39 @@ class ChatController extends Controller
 
     public function store(SendMessageRequest $request): RedirectResponse
     {
+        $message = $request->validated('message');
+        $response = $this->agentForRequest($request)->prompt($message);
+
+        $this->updateConversationTitle($request, $response->conversationId, $message);
+
+        return to_route('agent.chat.show', $response->conversationId);
+    }
+
+    public function stream(SendMessageRequest $request): mixed
+    {
+        $message = $request->validated('message');
+
+        return $this->agentForRequest($request)
+            ->stream($message)
+            ->then(function ($response) use ($request, $message): void {
+                $this->updateConversationTitle($request, $response->conversationId, $message);
+            });
+    }
+
+    public function latest(Request $request): JsonResponse
+    {
+        $conversation = $request->user()
+            ->conversations()
+            ->latest('updated_at')
+            ->first(['id', 'title', 'created_at', 'updated_at']);
+
+        return response()->json([
+            'conversation' => $conversation,
+        ]);
+    }
+
+    protected function agentForRequest(SendMessageRequest $request): GenericAgent
+    {
         $user = $request->user();
         $conversationId = $request->validated('conversation_id');
 
@@ -50,17 +84,20 @@ class ChatController extends Controller
             abort_unless($belongsToUser, 404);
         }
 
-        $agent = $conversationId === null
+        return $conversationId === null
             ? (new GenericAgent)->forUser($user)
             : (new GenericAgent)->continue($conversationId, as: $user);
+    }
 
-        $message = $request->validated('message');
-        $response = $agent->prompt($message);
+    protected function updateConversationTitle(SendMessageRequest $request, ?string $conversationId, string $message): void
+    {
+        if ($conversationId === null) {
+            return;
+        }
 
-        $user->conversations()
-            ->whereKey($response->conversationId)
+        $request->user()
+            ->conversations()
+            ->whereKey($conversationId)
             ->update(['title' => Str::limit($message, 60)]);
-
-        return to_route('agent.chat.show', $response->conversationId);
     }
 }

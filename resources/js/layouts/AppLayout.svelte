@@ -7,10 +7,16 @@
     let {
         breadcrumbs = [],
         variant = 'sidebar',
+        title,
+        description,
+        actions,
         children,
     }: {
         breadcrumbs?: BreadcrumbItem[];
         variant?: 'sidebar' | 'header';
+        title?: string;
+        description?: string;
+        actions?: Snippet;
         children?: Snippet;
     } = $props();
 </script>
@@ -20,7 +26,7 @@
         {@render children?.()}
     </AppHeaderLayout>
 {:else}
-    <AppSidebarLayout {breadcrumbs}>
+    <AppSidebarLayout {breadcrumbs} {title} {description} {actions}>
         {@render children?.()}
     </AppSidebarLayout>
 {/if}
