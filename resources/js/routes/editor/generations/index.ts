@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import catalogC6a558 from './catalog'
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 export const models = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ models.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 models.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ models.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 models.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -36,7 +36,7 @@ models.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 models.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -46,7 +46,7 @@ models.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 const modelsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -56,7 +56,7 @@ const modelsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 modelsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -66,7 +66,7 @@ modelsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::models
-* @see app/Http/Controllers/Editor/GenerationController.php:27
+* @see app/Http/Controllers/Editor/GenerationController.php:29
 * @route '/editor/generations/models'
 */
 modelsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -83,7 +83,7 @@ models.form = modelsForm
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 export const catalog = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -98,7 +98,7 @@ catalog.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 catalog.url = (options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ catalog.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 catalog.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -117,7 +117,7 @@ catalog.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 catalog.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -127,7 +127,7 @@ catalog.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 const catalogForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -137,7 +137,7 @@ const catalogForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> =>
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 catalogForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -147,7 +147,7 @@ catalogForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::catalog
-* @see app/Http/Controllers/Editor/GenerationController.php:47
+* @see app/Http/Controllers/Editor/GenerationController.php:49
 * @route '/editor/generations/catalog'
 */
 catalogForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -164,7 +164,7 @@ catalog.form = catalogForm
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::store
-* @see app/Http/Controllers/Editor/GenerationController.php:258
+* @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
 export const store = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -179,7 +179,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::store
-* @see app/Http/Controllers/Editor/GenerationController.php:258
+* @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
 store.url = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions) => {
@@ -207,7 +207,7 @@ store.url = (args: { project: number | { id: number }, type: string | number } |
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::store
-* @see app/Http/Controllers/Editor/GenerationController.php:258
+* @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
 store.post = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -217,7 +217,7 @@ store.post = (args: { project: number | { id: number }, type: string | number } 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::store
-* @see app/Http/Controllers/Editor/GenerationController.php:258
+* @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
 const storeForm = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -227,7 +227,7 @@ const storeForm = (args: { project: number | { id: number }, type: string | numb
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::store
-* @see app/Http/Controllers/Editor/GenerationController.php:258
+* @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
 storeForm.post = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -239,7 +239,7 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 export const show = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -254,7 +254,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 show.url = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -287,7 +287,7 @@ show.url = (args: { generation: number | { id: number } } | [generation: number 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 show.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -297,7 +297,7 @@ show.get = (args: { generation: number | { id: number } } | [generation: number 
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 show.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -307,7 +307,7 @@ show.head = (args: { generation: number | { id: number } } | [generation: number
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 const showForm = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -317,7 +317,7 @@ const showForm = (args: { generation: number | { id: number } } | [generation: n
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 showForm.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -327,7 +327,7 @@ showForm.get = (args: { generation: number | { id: number } } | [generation: num
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::show
-* @see app/Http/Controllers/Editor/GenerationController.php:353
+* @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
 showForm.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -41,6 +41,12 @@
         // Find the corresponding asset
         return projectStore.project.assets.find(a => a.id === imageLayer.asset_id) ?? null;
     });
+    let sourceImageAssetId = $state<number | null>(null);
+    let selectedSourceImageAsset = $derived.by(() => {
+        const assets = projectStore.project?.assets ?? [];
+        return assets.find((asset) => asset.id === sourceImageAssetId) ?? sceneImageAsset;
+    });
+    let sourceImageAssets = $derived((projectStore.project?.assets ?? []).filter((asset) => asset.type === 'image'));
     let currentModelKey = $state<string | null>(null);
     let prompt = $state('');
     let parameters = $state<Record<string, unknown>>({});
@@ -142,6 +148,16 @@
         }
     }
 
+    $effect(() => {
+        if (currentType === 'image_to_video' && sourceImageAssetId === null && sceneImageAsset?.id) {
+            sourceImageAssetId = sceneImageAsset.id;
+        }
+
+        if (currentType !== 'image_to_video') {
+            sourceImageAssetId = null;
+        }
+    });
+
     // Persist parameters when they change
     $effect(() => {
         if (currentModelKey && Object.keys(parameters).length > 0) {
@@ -189,9 +205,8 @@
     async function startGeneration() {
         if (!currentType || !prompt.trim() || !projectStore.project || !selectedScene || !currentModelKey) return;
 
-        // For image-to-video, require an image in the scene
-        if (currentType === 'image_to_video' && !sceneImageAsset) {
-            alert('Add an image to the scene first to animate it into a video.');
+        if (currentType === 'image_to_video' && !selectedSourceImageAsset) {
+            alert('Select an image asset first to animate it into a video.');
             return;
         }
 
@@ -211,8 +226,7 @@
                         model_key: isCatalogModel ? undefined : currentModelKey,
                         model_id: isCatalogModel ? currentModelKey : undefined,
                         parameters: parameters,
-                        // Automatically pass the scene's image for image-to-video
-                        input_asset_id: currentType === 'image_to_video' ? sceneImageAsset?.id : undefined,
+                        input_asset_id: currentType === 'image_to_video' ? selectedSourceImageAsset?.id : undefined,
                     },
                 }
             );
@@ -340,10 +354,12 @@
                 parameters: step.parameters,
             };
 
-            if (step.type === 'image_to_video' && index > 0) {
+            if (step.type === 'image_to_video') {
                 const prevStep = pipelineSteps[index - 1];
                 if (prevStep?.asset?.id) {
                     body.input_asset_id = prevStep.asset.id;
+                } else if (selectedSourceImageAsset?.id) {
+                    body.input_asset_id = selectedSourceImageAsset.id;
                 }
             }
 
@@ -566,7 +582,7 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-4">
             <!-- Input Image Preview for image-to-video -->
             {#if currentType === 'image_to_video'}
-                <Card class={sceneImageAsset ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>
+                <Card class={selectedSourceImageAsset ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>
                     <CardHeader class="p-3 pb-2">
                         <CardTitle class="text-xs flex items-center gap-2">
                             <Image class="h-3 w-3" />
@@ -574,24 +590,42 @@
                         </CardTitle>
                     </CardHeader>
                     <CardContent class="p-3 pt-0">
-                        {#if sceneImageAsset}
-                            <div class="space-y-2">
+                        <div class="space-y-2">
+                            <select
+                                value={selectedSourceImageAsset?.id ?? ''}
+                                class="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                disabled={isGenerating || sourceImageAssets.length === 0}
+                                onchange={(event) => {
+                                    const value = event.currentTarget.value;
+                                    sourceImageAssetId = value ? Number(value) : null;
+                                }}
+                            >
+                                {#if sourceImageAssets.length === 0}
+                                    <option value="">No image assets available</option>
+                                {:else}
+                                    {#each sourceImageAssets as asset (asset.id)}
+                                        <option value={asset.id}>{asset.name}</option>
+                                    {/each}
+                                {/if}
+                            </select>
+
+                            {#if selectedSourceImageAsset}
                                 <div class="aspect-video rounded-md overflow-hidden bg-muted">
                                     <img
-                                        src={sceneImageAsset.url ?? sceneImageAsset.thumbnail_url}
-                                        alt={sceneImageAsset.name}
+                                        src={selectedSourceImageAsset.url ?? selectedSourceImageAsset.thumbnail_url}
+                                        alt={selectedSourceImageAsset.name}
                                         class="w-full h-full object-contain"
                                     />
                                 </div>
                                 <p class="text-xs text-muted-foreground truncate">
-                                    {sceneImageAsset.name}
+                                    {selectedSourceImageAsset.name}
                                 </p>
-                            </div>
-                        {:else}
-                            <p class="text-xs text-destructive">
-                                No image in scene. Add an image layer first to animate it.
-                            </p>
-                        {/if}
+                            {:else}
+                                <p class="text-xs text-destructive">
+                                    Upload or generate an image asset first.
+                                </p>
+                            {/if}
+                        </div>
                     </CardContent>
                 </Card>
                 <Separator />
@@ -657,7 +691,7 @@
             <Button
                 class="w-full"
                 onclick={startGeneration}
-                disabled={!prompt.trim() || isGenerating || !currentModelKey || (currentType === 'image_to_video' && !sceneImageAsset)}
+                disabled={!prompt.trim() || isGenerating || !currentModelKey || (currentType === 'image_to_video' && !selectedSourceImageAsset)}
             >
                 {#if isGenerating}
                     <Loader2 class="mr-2 h-4 w-4 animate-spin" />

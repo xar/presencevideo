@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 export const model = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ model.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 model.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ model.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 model.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ model.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 model.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ model.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 const modelForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ const modelForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 modelForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ modelForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\GenerationController::model
-* @see app/Http/Controllers/Editor/GenerationController.php:84
+* @see app/Http/Controllers/Editor/GenerationController.php:86
 * @route '/editor/generations/catalog/model'
 */
 modelForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

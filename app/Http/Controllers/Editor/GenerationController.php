@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Editor;
 
+use App\Enums\AssetType;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Http\Controllers\Controller;
@@ -13,6 +14,7 @@ use App\Services\FalAI\ModelRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 
 class GenerationController extends Controller
 {
@@ -262,12 +264,25 @@ class GenerationController extends Controller
         $generationType = GenerationType::from($type);
 
         $isSpeechToText = $generationType === GenerationType::SpeechToText;
+        $isImageToVideo = $generationType === GenerationType::ImageToVideo;
+
+        $inputAssetRule = Rule::exists('assets', 'id')
+            ->where('project_id', $project->id)
+            ->where('user_id', $request->user()->id);
+
+        if ($isImageToVideo) {
+            $inputAssetRule->where('type', AssetType::Image->value);
+        }
+
+        if ($isSpeechToText) {
+            $inputAssetRule->whereIn('type', [AssetType::Audio->value, AssetType::Video->value]);
+        }
 
         $validated = $request->validate([
             'prompt' => [$isSpeechToText ? 'nullable' : 'required', 'string', 'max:2000'],
             'scene_id' => ['nullable', 'string', 'uuid'],
             'step_index' => ['nullable', 'integer', 'min:0'],
-            'input_asset_id' => [$isSpeechToText ? 'required' : 'nullable', 'exists:assets,id'],
+            'input_asset_id' => [$isSpeechToText || $isImageToVideo ? 'required' : 'nullable', 'integer', $inputAssetRule],
             'model_key' => ['nullable', 'string'],
             'model_id' => ['nullable', 'string'], // Direct fal.ai endpoint ID for catalog models
             'parameters' => ['nullable', 'array'],
