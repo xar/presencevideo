@@ -5,19 +5,19 @@
         "codex",
         "opencode"
     ],
+    "cloud": false,
     "guidelines": true,
     "herd_mcp": true,
     "mcp": true,
     "nightwatch_mcp": false,
-    "packages": [
-        "laravel/fortify"
-    ],
     "sail": false,
     "skills": [
+        "ai-sdk-development",
+        "fortify-development",
+        "laravel-best-practices",
         "wayfinder-development",
         "pest-testing",
         "inertia-svelte-development",
-        "tailwindcss-development",
-        "developing-with-fortify"
+        "tailwindcss-development"
     ]
 }

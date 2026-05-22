@@ -22,6 +22,11 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            agentConversations: Array<{
+                id: string;
+                title: string | null;
+                updated_at: string;
+            }>;
             [key: string]: unknown;
         };
     }

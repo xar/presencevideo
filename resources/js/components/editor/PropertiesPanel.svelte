@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { Trash2, Scissors, Music } from 'lucide-svelte';
+    import { Trash2, Scissors, Music, Maximize2 } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
     import { Slider } from '@/components/ui/slider';
     import { projectStore, selectionStore } from '@/lib/editor';
+    import { getCanvasFitDimensions } from '@/lib/editor/asset-actions';
     import {
         formatFileSize,
         formatSeconds,
@@ -71,6 +72,14 @@
         if (selectedScene && selectedLayer) {
             projectStore.updateLayer(selectedScene.id, selectedLayer.id, { [field]: value });
         }
+    }
+
+    function fitSelectedLayerToCanvas() {
+        const project = projectStore.project;
+        if (!project || !selectedScene || !selectedLayer || !selectedAsset) return;
+
+        const fit = getCanvasFitDimensions(project, selectedAsset);
+        projectStore.updateLayer(selectedScene.id, selectedLayer.id, fit);
     }
 
     function updateTextLayer(field: keyof TextLayer, value: string | number) {
@@ -185,6 +194,19 @@
                         />
                     </div>
                 </div>
+
+                {#if selectedAsset}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="w-full"
+                        onclick={fitSelectedLayerToCanvas}
+                    >
+                        <Maximize2 class="h-3 w-3 mr-2" />
+                        Fit to canvas
+                    </Button>
+                {/if}
 
                 {#if selectedLayer.type === 'video'}
                     {@const videoLayer = selectedLayer as VideoLayer}

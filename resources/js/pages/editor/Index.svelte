@@ -77,7 +77,7 @@
     }
 </script>
 
-<AppHead title="Keyframes" />
+<AppHead title="Projects" />
 
 <AppLayout {breadcrumbs}>
     <div class="flex h-full flex-col gap-6 p-6 max-w-[1400px] mx-auto w-full">

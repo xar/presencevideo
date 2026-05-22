@@ -3,8 +3,8 @@
     import { Plus } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
-    import { generateUuid } from '@/lib/utils';
-    import type { Scene, ImageLayer, VideoLayer } from '@/types';
+    import { getCanvasFitDimensions } from '@/lib/editor/asset-actions';
+    import type { Scene } from '@/types';
     import SceneCard from './SceneCard.svelte';
 
     const MIN_WIDTH = 48;
@@ -109,30 +109,25 @@
             if (parsed.assetType !== 'video' && parsed.assetType !== 'image') return;
 
             const project = projectStore.project;
-            const assetWidth = parsed.width ?? project.resolution_width;
-            const assetHeight = parsed.height ?? project.resolution_height;
-
-            // Get asset to check duration for video
             const asset = project.assets?.find(a => a.id === parsed.assetId);
-            const sceneDuration = asset?.duration_ms ?? 5000;
+            const sceneDuration = parsed.assetType === 'video' ? (asset?.duration_ms ?? 5000) : 5000;
+            const fit = getCanvasFitDimensions(project, {
+                width: parsed.width,
+                height: parsed.height,
+            });
 
-            // Create a new scene with the asset as a full-screen layer
             const scene = projectStore.addScene({
                 name: asset?.name ?? `Scene ${scenes.length + 1}`,
                 duration_ms: sceneDuration,
-                layers: [{
-                    id: generateUuid(),
-                    type: parsed.assetType,
-                    asset_id: parsed.assetId,
-                    x: 0,
-                    y: 0,
-                    width: project.resolution_width,
-                    height: project.resolution_height,
-                    z_index: 0,
-                } as ImageLayer | VideoLayer],
             });
 
-            selectionStore.selectScene(scene.id);
+            const layer = projectStore.addLayer(scene.id, {
+                type: parsed.assetType,
+                asset_id: parsed.assetId,
+                ...fit,
+            });
+
+            selectionStore.selectLayer(scene.id, layer.id);
         } catch (err) {
             console.error('Failed to create scene from asset:', err);
         }

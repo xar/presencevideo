@@ -6,5 +6,5 @@
     <Play class="size-4 text-primary-foreground ml-0.5" />
 </div>
 <div class="ml-1 grid flex-1 text-left text-sm">
-    <span class="mb-0.5 truncate leading-tight font-bold tracking-tight">Keyframes</span>
+    <span class="mb-0.5 truncate leading-tight font-bold tracking-tight">usekeyframes.com</span>
 </div>

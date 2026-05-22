@@ -87,15 +87,58 @@ export function useDragResize(options: DragResizeOptions): DragResizeState {
                 newH = dragStart.posH + deltaY;
             }
 
+            if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
+                const aspectRatio = dragStart.posW / dragStart.posH;
+                const handle = isResizing;
+                const isHorizontalHandle =
+                    handle === 'left' || handle === 'right';
+                const isVerticalHandle =
+                    handle === 'top' || handle === 'bottom';
+
+                if (
+                    isHorizontalHandle ||
+                    Math.abs(newW - dragStart.posW) >=
+                        Math.abs(newH - dragStart.posH)
+                ) {
+                    newH = newW / aspectRatio;
+                } else if (
+                    isVerticalHandle ||
+                    Math.abs(newH - dragStart.posH) >
+                        Math.abs(newW - dragStart.posW)
+                ) {
+                    newW = newH * aspectRatio;
+                }
+
+                if (handle.includes('left')) {
+                    newX = dragStart.posX + dragStart.posW - newW;
+                }
+
+                if (handle.includes('top')) {
+                    newY = dragStart.posY + dragStart.posH - newH;
+                }
+            }
+
             if (newW < minW) {
+                if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
+                    newH = minW / (dragStart.posW / dragStart.posH);
+                }
                 if (isResizing.includes('left')) {
                     newX = dragStart.posX + dragStart.posW - minW;
+                }
+                if (isResizing.includes('top') && e.shiftKey) {
+                    newY = dragStart.posY + dragStart.posH - newH;
                 }
                 newW = minW;
             }
             if (newH < minH) {
+                if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
+                    newW = minH * (dragStart.posW / dragStart.posH);
+                }
                 if (isResizing.includes('top')) {
                     newY = dragStart.posY + dragStart.posH - minH;
+                }
+                if (isResizing.includes('left') && e.shiftKey) {
+                    newX = dragStart.posX + dragStart.posW - newW;
                 }
                 newH = minH;
             }

@@ -1,6 +1,8 @@
 import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+import MessageSquarePlus from 'lucide-svelte/icons/message-square-plus';
 import Video from 'lucide-svelte/icons/video';
 import { edit as editAppearance } from '@/routes/appearance';
+import agent from '@/routes/agent';
 import editor from '@/routes/editor';
 import { edit as editProfile } from '@/routes/profile';
 import { show as showTwoFactor } from '@/routes/two-factor';
@@ -18,6 +20,11 @@ export const mainNavItems: NavItem[] = [
 ];
 
 export const sidebarNavItems: NavItem[] = [
+    {
+        title: 'New chat',
+        href: agent.chat.index(),
+        icon: MessageSquarePlus,
+    },
     {
         title: 'Projects',
         href: appHome,

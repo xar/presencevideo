@@ -1,4 +1,4 @@
-# Docker Setup for Keyframes
+# Docker Setup for usekeyframes.com
 
 ## Quick Start (Local Development)
 

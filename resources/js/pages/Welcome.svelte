@@ -83,7 +83,7 @@
                 <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
                     <Play class="h-4 w-4 text-primary-foreground ml-0.5" />
                 </div>
-                <span class="text-xl font-bold tracking-tight">Keyframes</span>
+                <span class="text-xl font-bold tracking-tight">usekeyframes.com</span>
             </div>
 
             <nav class="flex items-center gap-2 sm:gap-4">
@@ -133,7 +133,7 @@
                 <!-- Pill Badge -->
                 <div class="inline-flex items-center rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 text-sm font-medium backdrop-blur-sm mb-12 shadow-sm hover:bg-muted/50 transition-colors cursor-pointer group">
                     <span class="flex h-2 w-2 rounded-full bg-violet-500 mr-2 animate-pulse"></span>
-                    <span class="text-foreground/90">usekeyframes.com is now live</span>
+                    <span class="text-foreground/90">Private beta is now live</span>
                     <Separator orientation="vertical" class="mx-3 h-4" />
                     <span class="text-muted-foreground flex items-center group-hover:text-foreground transition-colors">
                         Read announcement <ArrowRight class="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -231,7 +231,7 @@
                         Generate the assets. Control the motion.
                     </h2>
                     <p class="text-lg text-muted-foreground">
-                        Keyframes brings images, video, voice, and music into one AI-native creative workspace — so your ideas move with intention.
+                        Bring images, video, voice, and music into one AI-native creative workspace — so your ideas move with intention.
                     </p>
                 </div>
 
@@ -335,7 +335,7 @@
                             Then generative AI changed everything. Suddenly a prompt could become a shot, a voice, a soundtrack, and a sequence.
                         </p>
                         <p>
-                            I built Keyframes for people with ideas worth showing — people who want speed without giving up creative control.
+                            I built this editor for people with ideas worth showing — people who want speed without giving up creative control.
                         </p>
                     </div>
                 </div>
@@ -397,7 +397,7 @@
                 <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
                     <Play class="h-3 w-3 text-primary-foreground ml-0.5" />
                 </div>
-                <span class="font-semibold tracking-tight text-sm">Keyframes</span>
+                <span class="font-semibold tracking-tight text-sm">usekeyframes.com</span>
             </div>
             <p class="text-sm text-muted-foreground text-center">
                 Built for makers, by a maker. usekeyframes.com &copy; {new Date().getFullYear()} All rights reserved.

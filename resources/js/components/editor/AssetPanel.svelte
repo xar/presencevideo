@@ -5,7 +5,7 @@
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import { projectStore, generationTracker } from '@/lib/editor';
-    import { addAssetToEditor, serializeAssetDragData } from '@/lib/editor/asset-actions';
+    import { addAssetToEditor, addVisualAssetAsScene, serializeAssetDragData } from '@/lib/editor/asset-actions';
     import { uploadQueue } from '@/lib/editor/upload-queue.svelte';
     import type { Asset, AssetType } from '@/types';
 
@@ -20,6 +20,7 @@
     let pendingGenerations = $derived(generationTracker.generations);
 
     let fileInput: HTMLInputElement;
+    let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
     function openFileDialog(type: AssetType) {
         if (fileInput && !uploadQueue.isUploading) {
@@ -38,6 +39,31 @@
 
         await uploadQueue.upload(projectStore.project.id, files, type);
         input.value = '';
+    }
+
+    function handleAssetClick(asset: Asset) {
+        if (clickTimer) {
+            clearTimeout(clickTimer);
+        }
+
+        clickTimer = setTimeout(() => {
+            addAssetToEditor(asset);
+            clickTimer = null;
+        }, 220);
+    }
+
+    function handleAssetDoubleClick(asset: Asset) {
+        if (clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+        }
+
+        if (asset.type === 'audio') {
+            addAssetToEditor(asset);
+            return;
+        }
+
+        addVisualAssetAsScene(asset);
     }
 
     function handleDragStart(e: DragEvent, asset: Asset) {
@@ -104,7 +130,8 @@
                         <button
                             type="button"
                             class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAssetToEditor(asset)}
+                            onclick={() => handleAssetClick(asset)}
+                            ondblclick={() => handleAssetDoubleClick(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >
@@ -126,7 +153,8 @@
                         <button
                             type="button"
                             class="aspect-video rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAssetToEditor(asset)}
+                            onclick={() => handleAssetClick(asset)}
+                            ondblclick={() => handleAssetDoubleClick(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >
@@ -148,7 +176,8 @@
                         <button
                             type="button"
                             class="w-full flex items-center gap-2 rounded border p-2 text-left text-xs hover:bg-muted hover:ring-2 hover:ring-primary cursor-grab active:cursor-grabbing"
-                            onclick={() => addAssetToEditor(asset)}
+                            onclick={() => handleAssetClick(asset)}
+                            ondblclick={() => handleAssetDoubleClick(asset)}
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, asset)}
                         >

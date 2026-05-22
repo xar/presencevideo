@@ -51,8 +51,8 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 FROM ubuntu:24.04 AS production
 
-LABEL maintainer="Keyframes Team"
-LABEL org.opencontainers.image.title="Keyframes"
+LABEL maintainer="usekeyframes.com Team"
+LABEL org.opencontainers.image.title="usekeyframes.com"
 LABEL org.opencontainers.image.description="AI-powered video editor with Laravel, Inertia.js, and Svelte"
 
 # Build arguments

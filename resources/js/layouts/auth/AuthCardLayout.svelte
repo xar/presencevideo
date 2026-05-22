@@ -26,7 +26,7 @@
             <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25">
                 <AppLogoIcon class="size-6 text-primary-foreground ml-0.5" />
             </div>
-            <span class="bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">Keyframes</span>
+            <span class="bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">usekeyframes.com</span>
         </Link>
 
         <div class="flex flex-col gap-6">
