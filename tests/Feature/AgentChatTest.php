@@ -44,7 +44,7 @@ it('shows the agent chat page with previous conversations', function () {
             ->where('messages.0.tool_results.0.result.project_id', 123));
 });
 
-it('starts a new remembered conversation with the generic agent', function () {
+it('starts a new remembered conversation with the generic agent in the background', function () {
     GenericAgent::fake(['Hello from the agent.']);
 
     $user = User::factory()->create();
@@ -53,16 +53,16 @@ it('starts a new remembered conversation with the generic agent', function () {
         ->post(route('agent.chat.store'), [
             'message' => 'Help me plan a video',
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHas('pending_agent_message', 'Help me plan a video');
 
-    GenericAgent::assertPrompted('Help me plan a video');
+    GenericAgent::assertQueued('Help me plan a video');
 
     $conversation = $user->conversations()->first();
 
     expect($conversation)->not->toBeNull()
         ->and($conversation->title)->toBe('Help me plan a video')
-        ->and($conversation->messages()->where('role', 'user')->where('content', 'Help me plan a video')->exists())->toBeTrue()
-        ->and($conversation->messages()->where('role', 'assistant')->exists())->toBeTrue();
+        ->and($conversation->messages()->exists())->toBeFalse();
 });
 
 it('streams a new remembered conversation with the generic agent', function () {

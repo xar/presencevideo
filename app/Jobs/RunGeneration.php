@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\GenerationStatus;
+use App\Models\AgentActivity;
 use App\Models\Generation;
 use App\Services\FalAIService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -55,6 +56,7 @@ class RunGeneration implements ShouldQueue
 
                 $this->generation->update($updateData);
 
+                $this->updateAgentActivity('completed', $result->assetId);
                 $this->continueAgentConversation('completed', $result->assetId);
             } else {
                 $this->generation->update([
@@ -62,6 +64,7 @@ class RunGeneration implements ShouldQueue
                     'error_message' => $result->error,
                 ]);
 
+                $this->updateAgentActivity('failed');
                 $this->continueAgentConversation('failed');
             }
         } catch (\Throwable $e) {
@@ -75,10 +78,38 @@ class RunGeneration implements ShouldQueue
                 'error_message' => $e->getMessage(),
             ]);
 
+            $this->updateAgentActivity('failed');
             $this->continueAgentConversation('failed');
 
             throw $e;
         }
+    }
+
+    protected function updateAgentActivity(string $status, ?int $assetId = null): void
+    {
+        $activityId = $this->generation->parameters['agent_activity_id'] ?? null;
+
+        if (! is_int($activityId) && ! is_numeric($activityId)) {
+            return;
+        }
+
+        $activity = AgentActivity::find($activityId);
+
+        if ($activity === null) {
+            return;
+        }
+
+        $activity->update([
+            'status' => $status,
+            'payload' => array_merge($activity->payload ?? [], [
+                'generation_id' => $this->generation->id,
+                'status' => $status,
+                'output_asset_id' => $assetId,
+                'error_message' => $this->generation->error_message,
+                'message' => $status === 'completed' ? 'fal.ai generation completed.' : 'fal.ai generation failed.',
+            ]),
+            'finished_at' => now(),
+        ]);
     }
 
     protected function continueAgentConversation(string $status, ?int $assetId = null): void

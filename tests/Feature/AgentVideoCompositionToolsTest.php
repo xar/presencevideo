@@ -10,6 +10,7 @@ use App\Ai\Tools\RenderVideoProject;
 use App\Jobs\ContinueAgentConversation;
 use App\Jobs\RenderProject;
 use App\Jobs\RunGeneration;
+use App\Models\AgentActivity;
 use App\Models\Asset;
 use App\Models\Generation;
 use App\Models\Project;
@@ -129,8 +130,10 @@ it('queues fal asset generation and exposes its status', function () {
     expect($payload['project_id'])->toBe($project->id)
         ->and($payload['type'])->toBe('text_to_image')
         ->and($payload['status'])->toBe('pending')
+        ->and($payload['activity_id'])->not->toBeNull()
         ->and(Generation::find($payload['generation_id'])->scene_id)->toBeNull()
-        ->and(Generation::find($payload['generation_id'])->parameters['agent_conversation_id'])->toBe('conversation-123');
+        ->and(Generation::find($payload['generation_id'])->parameters['agent_conversation_id'])->toBe('conversation-123')
+        ->and(AgentActivity::find($payload['activity_id'])->status)->toBe('running');
 
     $status = (new GetGenerationStatus($user))->handle(new Request([
         'generation_id' => $payload['generation_id'],

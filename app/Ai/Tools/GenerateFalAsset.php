@@ -5,6 +5,7 @@ namespace App\Ai\Tools;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Jobs\RunGeneration;
+use App\Models\AgentActivity;
 use App\Models\Asset;
 use App\Models\Generation;
 use App\Models\Project;
@@ -57,8 +58,14 @@ class GenerateFalAsset implements Tool
             $parameters['model_key'] = $model;
         }
 
+        $activity = $this->createActivity($project, $type, $request);
+
         if ($this->conversationId !== null) {
             $parameters['agent_conversation_id'] = $this->conversationId;
+        }
+
+        if ($activity !== null) {
+            $parameters['agent_activity_id'] = $activity->id;
         }
 
         $generation = Generation::create([
@@ -77,12 +84,17 @@ class GenerateFalAsset implements Tool
 
         RunGeneration::dispatch($generation);
 
+        $activity?->update([
+            'payload' => array_merge($activity->payload ?? [], ['generation_id' => $generation->id]),
+        ]);
+
         return json_encode([
             'generation_id' => $generation->id,
+            'activity_id' => $activity?->id,
             'project_id' => $project->id,
             'type' => $generation->type->value,
             'status' => $generation->status->value,
-            'message' => 'Generation queued. Use get_generation_status with this generation_id to retrieve the output asset when complete.',
+            'message' => 'Generation queued. Progress is now visible in the chat activity panel; use get_generation_status with this generation_id to retrieve the output asset when complete.',
         ], JSON_THROW_ON_ERROR);
     }
 
@@ -99,6 +111,29 @@ class GenerateFalAsset implements Tool
             'scene_id' => $schema->string(),
             'step_index' => $schema->integer(),
         ];
+    }
+
+    protected function createActivity(Project $project, GenerationType $type, Request $request): ?AgentActivity
+    {
+        if ($this->conversationId === null) {
+            return null;
+        }
+
+        return AgentActivity::create([
+            'conversation_id' => $this->conversationId,
+            'user_id' => $this->user?->id,
+            'type' => 'fal_generation',
+            'name' => 'generate_fal_asset',
+            'status' => 'running',
+            'payload' => [
+                'project_id' => $project->id,
+                'generation_type' => $type->value,
+                'prompt' => $request['prompt'] ?? '',
+                'model' => $request['model_id'] ?? $request['model_key'] ?? null,
+                'message' => 'Queued fal.ai '.$type->value.' generation.',
+            ],
+            'started_at' => now(),
+        ]);
     }
 
     protected function project(int $projectId): Project

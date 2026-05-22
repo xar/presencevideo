@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Enums\RenderStatus;
+use App\Models\AgentActivity;
 use App\Models\Asset;
+use App\Models\Project;
 use App\Models\Render;
 use App\Services\FFmpegService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -115,6 +117,8 @@ class RenderProject implements ShouldQueue
                 'completed_at' => now(),
             ]);
 
+            $this->updateAgentActivity('completed');
+
             foreach ($sceneVideos as $tempVideo) {
                 @unlink($tempVideo);
             }
@@ -133,16 +137,41 @@ class RenderProject implements ShouldQueue
                 'completed_at' => now(),
             ]);
 
+            $this->updateAgentActivity('failed');
+
             Asset::cleanupTempFiles();
 
             throw $e;
         }
     }
 
+    protected function updateAgentActivity(string $status): void
+    {
+        $activity = AgentActivity::query()
+            ->where('type', 'render')
+            ->where('payload->render_id', $this->render->id)
+            ->first();
+
+        if ($activity === null) {
+            return;
+        }
+
+        $activity->update([
+            'status' => $status,
+            'payload' => array_merge($activity->payload ?? [], [
+                'status' => $status,
+                'output_url' => $this->render->output_url,
+                'error_message' => $this->render->error_message,
+                'message' => $status === 'completed' ? 'Video render completed.' : 'Video render failed.',
+            ]),
+            'finished_at' => now(),
+        ]);
+    }
+
     /**
      * Validate that all asset files referenced by the project exist on disk.
      */
-    protected function validateAssetFiles(\App\Models\Project $project): void
+    protected function validateAssetFiles(Project $project): void
     {
         $assetIds = collect();
 

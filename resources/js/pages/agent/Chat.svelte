@@ -1,6 +1,6 @@
 <script lang="ts">
     import { tick } from 'svelte';
-    import { Link, router } from '@inertiajs/svelte';
+    import { Link, router, usePoll } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
     import AppLayout from '@/layouts/AppLayout.svelte';
@@ -20,10 +20,14 @@
 
     let {
         conversation,
-        messages
+        messages,
+        activities = [],
+        pendingMessage = null
     }: {
         conversation: Conversation | null;
         messages: ChatMessage[];
+        activities?: ToolActivity[];
+        pendingMessage?: string | null;
     } = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -42,15 +46,30 @@
     let shouldReserveLatestMessageSpace = $state(false);
     let error = $state<string | null>(null);
     let activeConversationId = $state<string | null | undefined>(undefined);
+    let serverMessagesSignature = $state('');
     let messagesContainer: HTMLDivElement | null = $state(null);
+    let pendingMessageAddedForConversation = $state<string | null>(null);
+
+    usePoll(2000, { only: ['messages', 'activities', 'conversation', 'conversations', 'agentConversations'] }, { keepAlive: true });
 
     $effect(() => {
+        const nextSignature = messages.map((item) => `${item.id}:${item.role}:${item.content}`).join('|');
+
         if (activeConversationId !== conversation?.id) {
             activeConversationId = conversation?.id;
-            localMessages = messages;
+            serverMessagesSignature = nextSignature;
+            pendingMessageAddedForConversation = null;
+            localMessages = withPendingMessage(messages);
             streamedResponse = '';
             streamedToolActivities = [];
             shouldReserveLatestMessageSpace = false;
+
+            return;
+        }
+
+        if (serverMessagesSignature !== nextSignature && !isStreaming) {
+            serverMessagesSignature = nextSignature;
+            localMessages = withPendingMessage(messages);
         }
     });
 
@@ -80,63 +99,20 @@
 
         await scrollLatestUserMessageToTop();
 
-        try {
-            const response = await fetch(agent.chat.stream().url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'text/event-stream',
-                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
-                },
-                body: JSON.stringify({
-                    message: prompt,
-                    conversation_id: conversation?.id ?? null
-                })
-            });
-
-            if (!response.ok || !response.body) {
-                throw new Error('The agent could not respond. Please try again.');
-            }
-
-            await readStream(response.body);
-
-            if (streamedResponse || streamedToolActivities.length > 0) {
-                localMessages = [
-                    ...localMessages,
-                    {
-                        id: `assistant-${Date.now()}`,
-                        role: 'assistant',
-                        content: streamedResponse,
-                        tool_calls: streamedToolActivities.map((activity) => ({
-                            tool_id: activity.id,
-                            tool_name: activity.name,
-                            arguments: activity.arguments,
-                            timestamp: activity.timestamp
-                        })),
-                        tool_results: streamedToolActivities
-                            .filter((activity) => activity.status !== 'running')
-                            .map((activity) => ({
-                                tool_id: activity.id,
-                                tool_name: activity.name,
-                                result: activity.result,
-                                successful: activity.successful,
-                                error: activity.error,
-                                timestamp: activity.timestamp
-                            })),
-                        created_at: new Date().toISOString()
-                    }
-                ];
-                streamedResponse = '';
-                streamedToolActivities = [];
-            }
-
-            await scrollLatestUserMessageToTop('instant');
-            await refreshConversation();
-        } catch (streamError) {
-            error = streamError instanceof Error ? streamError.message : 'The agent could not respond. Please try again.';
-        } finally {
-            isStreaming = false;
-        }
+        router.post(agent.chat.store().url, {
+            message: prompt,
+            conversation_id: conversation?.id ?? null
+        }, {
+            preserveScroll: true,
+            onError: () => {
+                error = 'The agent could not start. Please try again.';
+            },
+            onFinish: () => {
+                isStreaming = false;
+                shouldReserveLatestMessageSpace = false;
+                void scrollLatestUserMessageToTop('instant');
+            },
+        });
     }
 
     async function scrollLatestUserMessageToTop(behavior: ScrollBehavior = 'smooth') {
@@ -223,6 +199,38 @@
         }
     }
 
+    function withPendingMessage(serverMessages: ChatMessage[]) {
+        if (!pendingMessage || !conversation?.id || pendingMessageAddedForConversation === conversation.id) {
+            return serverMessages;
+        }
+
+        const alreadyStored = serverMessages.some((item) => item.role === 'user' && item.content === pendingMessage);
+
+        pendingMessageAddedForConversation = conversation.id;
+
+        return alreadyStored
+            ? serverMessages
+            : [
+                ...serverMessages,
+                {
+                    id: `pending-user-${Date.now()}`,
+                    role: 'user',
+                    content: pendingMessage,
+                    created_at: new Date().toISOString()
+                }
+            ];
+    }
+
+    function hasPendingAssistantResponse() {
+        if (isStreaming || streamedResponse || streamedToolActivities.length > 0) {
+            return false;
+        }
+
+        const latestMessage = localMessages.at(-1);
+
+        return latestMessage?.role === 'user' || activities.length > 0;
+    }
+
     function upsertToolActivity(activity: ToolActivity) {
         const existing = streamedToolActivities.find((item) => item.id === activity.id);
 
@@ -294,6 +302,8 @@
                         {/each}
                         {#if streamedResponse || isStreaming || streamedToolActivities.length > 0}
                             <StreamingAssistantMessage content={streamedResponse} activities={streamedToolActivities} />
+                        {:else if hasPendingAssistantResponse()}
+                            <StreamingAssistantMessage activities={activities} />
                         {/if}
                     </div>
                 {/if}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Agent;
 use App\Ai\Agents\GenericAgent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Agent\SendMessageRequest;
+use App\Models\AgentActivity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,17 +37,50 @@ class ChatController extends Controller
             'conversations' => $conversations,
             'conversation' => $conversation?->only(['id', 'title', 'created_at', 'updated_at']),
             'messages' => $messages,
+            'activities' => $this->activities($request, $conversation),
+            'pendingMessage' => session('pending_agent_message'),
         ]);
+    }
+
+    protected function activities(Request $request, ?Conversation $conversation): array
+    {
+        if ($conversation === null) {
+            return [];
+        }
+
+        return AgentActivity::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $request->user()->id)
+            ->latest('updated_at')
+            ->limit(20)
+            ->get(['id', 'name', 'status', 'payload', 'created_at', 'updated_at'])
+            ->map(fn ($activity) => [
+                'id' => (string) $activity->id,
+                'name' => $activity->name,
+                'status' => $activity->status,
+                'result' => $activity->payload,
+                'successful' => $activity->status !== 'failed',
+                'error' => $activity->payload['error_message'] ?? null,
+                'timestamp' => $activity->created_at?->timestamp,
+            ])
+            ->values()
+            ->all();
     }
 
     public function store(SendMessageRequest $request): RedirectResponse
     {
         $message = $request->validated('message');
-        $response = $this->agentForRequest($request)->prompt($message);
+        $conversationId = $request->validated('conversation_id') ?? $this->createConversation($request, $message);
 
-        $this->updateConversationTitle($request, $response->conversationId, $message);
+        $this->authorizeConversation($request, $conversationId);
 
-        return to_route('agent.chat.show', $response->conversationId);
+        $agent = (new GenericAgent)->continue($conversationId, as: $request->user());
+        $agent->queue($message);
+
+        $this->updateConversationTitle($request, $conversationId, $message);
+
+        return to_route('agent.chat.show', $conversationId)
+            ->with('pending_agent_message', $message);
     }
 
     public function stream(SendMessageRequest $request): StreamedResponse
@@ -105,6 +139,27 @@ class ChatController extends Controller
         return $conversationId === null
             ? (new GenericAgent)->forUser($user)
             : (new GenericAgent)->continue($conversationId, as: $user);
+    }
+
+    protected function authorizeConversation(SendMessageRequest $request, string $conversationId): void
+    {
+        $belongsToUser = $request->user()
+            ->conversations()
+            ->whereKey($conversationId)
+            ->exists();
+
+        abort_unless($belongsToUser, 404);
+    }
+
+    protected function createConversation(SendMessageRequest $request, string $message): string
+    {
+        $conversation = Conversation::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $request->user()->id,
+            'title' => Str::limit($message, 60),
+        ]);
+
+        return $conversation->id;
     }
 
     protected function updateConversationTitle(SendMessageRequest $request, ?string $conversationId, string $message): void

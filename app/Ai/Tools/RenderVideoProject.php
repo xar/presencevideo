@@ -4,6 +4,7 @@ namespace App\Ai\Tools;
 
 use App\Enums\RenderStatus;
 use App\Jobs\RenderProject;
+use App\Models\AgentActivity;
 use App\Models\Project;
 use App\Models\Render;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -42,14 +43,38 @@ class RenderVideoProject implements Tool
             'progress' => 0,
         ]);
 
+        $activity = $this->createActivity($project, $render);
+
         RenderProject::dispatch($render);
 
         return json_encode([
             'render_id' => $render->id,
+            'activity_id' => $activity?->id,
             'project_id' => $project->id,
             'status' => $render->status->value,
             'message' => 'Render queued.',
         ], JSON_THROW_ON_ERROR);
+    }
+
+    protected function createActivity(Project $project, Render $render): ?AgentActivity
+    {
+        if ($this->conversationId === null) {
+            return null;
+        }
+
+        return AgentActivity::create([
+            'conversation_id' => $this->conversationId,
+            'user_id' => $this->user?->id ?? $project->user_id,
+            'type' => 'render',
+            'name' => 'render_video_project',
+            'status' => 'running',
+            'payload' => [
+                'project_id' => $project->id,
+                'render_id' => $render->id,
+                'message' => 'Video render queued.',
+            ],
+            'started_at' => now(),
+        ]);
     }
 
     public function schema(JsonSchema $schema): array

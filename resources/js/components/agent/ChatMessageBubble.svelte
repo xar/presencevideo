@@ -1,4 +1,5 @@
 <script lang="ts">
+    import MarkdownMessage from './MarkdownMessage.svelte';
     import ToolActivityList from './ToolActivityList.svelte';
     import type { ChatMessage, ToolActivity } from './types';
 
@@ -21,7 +22,11 @@
 >
     <div class="max-w-[82%] rounded-3xl px-5 py-3 shadow-sm {isUser ? 'bg-primary text-primary-foreground' : 'border border-border/60 bg-card text-card-foreground'}">
         {#if message.content}
-            <p class="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+            {#if isUser}
+                <p class="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+            {:else}
+                <MarkdownMessage content={message.content} />
+            {/if}
         {/if}
 
         {#if !isUser}
