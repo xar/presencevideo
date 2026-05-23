@@ -76,7 +76,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Searching Documentation (IMPORTANT)
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
+- Always use `laravel_boost_search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
 - Pass a `packages` array to scope results when you know which packages are relevant.
 - Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
 - Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
@@ -137,7 +137,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - Inertia creates fully client-side rendered SPAs without modern SPA complexity, leveraging existing server-side patterns.
 - Components live in `resources/js/pages` (unless specified in `vite.config.js`). Use `Inertia::render()` for server-side routing instead of Blade views.
-- ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
+- ALWAYS use `laravel_boost_search-docs` tool for version-specific Inertia documentation and updated code examples.
 - IMPORTANT: Activate `inertia-svelte-development` when working with Inertia Svelte client-side patterns.
 
 # Inertia v2
@@ -180,7 +180,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 # Laravel 12
 
-- CRITICAL: ALWAYS use `search-docs` tool for version-specific Laravel documentation and updated code examples.
+- CRITICAL: ALWAYS use `laravel_boost_search-docs` tool for version-specific Laravel documentation and updated code examples.
 - Since Laravel 11, Laravel has a new streamlined file structure which this project uses.
 
 ## Laravel 12 Structure

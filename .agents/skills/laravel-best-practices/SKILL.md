@@ -8,7 +8,7 @@ metadata:
 
 # Laravel Best Practices
 
-Best practices for Laravel, prioritized by impact. Each rule teaches what to do and why. For exact API syntax, verify with `search-docs`.
+Best practices for Laravel, prioritized by impact. Each rule teaches what to do and why. For exact API syntax, verify with `laravel_boost_search-docs`.
 
 ## Consistency First
 
@@ -187,4 +187,4 @@ Always use a sub-agent to read rule files and explore this skill's content.
 
 1. Identify the file type and select relevant sections (e.g., migration → §16, controller → §1, §3, §5, §6, §10)
 2. Check sibling files for existing patterns — follow those first per Consistency First
-3. Verify API syntax with `search-docs` for the installed Laravel version
+3. Verify API syntax with `laravel_boost_search-docs` for the installed Laravel version

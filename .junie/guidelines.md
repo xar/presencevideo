@@ -93,7 +93,7 @@ This project has domain-specific skills available. You MUST activate the relevan
 
 ## Searching Documentation (Critically Important)
 
-- Boost comes with a powerful `search-docs` tool you should use before trying other approaches when working with Laravel or Laravel ecosystem packages. This tool automatically passes a list of installed packages and their versions to the remote Boost API, so it returns only version-specific documentation for the user's circumstance. You should pass an array of packages to filter on if you know you need docs for particular packages.
+- Boost comes with a powerful `laravel_boost_search-docs` tool you should use before trying other approaches when working with Laravel or Laravel ecosystem packages. This tool automatically passes a list of installed packages and their versions to the remote Boost API, so it returns only version-specific documentation for the user's circumstance. You should pass an array of packages to filter on if you know you need docs for particular packages.
 - Search the documentation before making code changes to ensure we are taking the correct approach.
 - Use multiple, broad, simple, topic-based queries at once. For example: `['rate limiting', 'routing rate limiting', 'routing']`. The most relevant results will be returned first.
 - Do not add package names to queries; package information is already shared. For example, use `test resource table`, not `filament 4 test resource table`.
@@ -163,7 +163,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 - Inertia creates fully client-side rendered SPAs without modern SPA complexity, leveraging existing server-side patterns.
 - Components live in `resources/js/pages` (unless specified in `vite.config.js`). Use `Inertia::render()` for server-side routing instead of Blade views.
-- ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
+- ALWAYS use `laravel_boost_search-docs` tool for version-specific Inertia documentation and updated code examples.
 - IMPORTANT: Activate `inertia-svelte-development` when working with Inertia Svelte client-side patterns.
 
 === inertia-laravel/v2 rules ===
@@ -233,7 +233,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 # Laravel 12
 
-- CRITICAL: ALWAYS use `search-docs` tool for version-specific Laravel documentation and updated code examples.
+- CRITICAL: ALWAYS use `laravel_boost_search-docs` tool for version-specific Laravel documentation and updated code examples.
 - Since Laravel 11, Laravel has a new streamlined file structure which this project uses.
 
 ## Laravel 12 Structure
@@ -280,7 +280,7 @@ Wayfinder generates TypeScript functions for Laravel routes. Import from `@/acti
 - This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
 - Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
-- CRITICAL: ALWAYS use `search-docs` tool for version-specific Pest documentation and updated code examples.
+- CRITICAL: ALWAYS use `laravel_boost_search-docs` tool for version-specific Pest documentation and updated code examples.
 - IMPORTANT: Activate `pest-testing` every time you're working with a Pest or testing-related task.
 
 === inertia-svelte/core rules ===
@@ -294,7 +294,7 @@ Wayfinder generates TypeScript functions for Laravel routes. Import from `@/acti
 # Tailwind CSS
 
 - Always use existing Tailwind conventions; check project patterns before adding new ones.
-- IMPORTANT: Always use `search-docs` tool for version-specific Tailwind CSS documentation and updated code examples. Never rely on training data.
+- IMPORTANT: Always use `laravel_boost_search-docs` tool for version-specific Tailwind CSS documentation and updated code examples. Never rely on training data.
 - IMPORTANT: Activate `tailwindcss-development` every time you're working with a Tailwind CSS or styling-related task.
 
 === laravel/fortify rules ===
@@ -302,7 +302,7 @@ Wayfinder generates TypeScript functions for Laravel routes. Import from `@/acti
 # Laravel Fortify
 
 - Fortify is a headless authentication backend that provides authentication routes and controllers for Laravel applications.
-- IMPORTANT: Always use the `search-docs` tool for detailed Laravel Fortify patterns and documentation.
+- IMPORTANT: Always use the `laravel_boost_search-docs` tool for detailed Laravel Fortify patterns and documentation.
 - IMPORTANT: Activate `developing-with-fortify` skill when working with Fortify authentication features.
 
 </laravel-boost-guidelines>

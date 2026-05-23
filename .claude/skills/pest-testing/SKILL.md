@@ -10,7 +10,7 @@ metadata:
 
 ## Documentation
 
-Use `search-docs` for detailed Pest 4 patterns and documentation.
+Use `laravel_boost_search-docs` for detailed Pest 4 patterns and documentation.
 
 ## Basic Usage
 

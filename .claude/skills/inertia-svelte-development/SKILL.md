@@ -10,7 +10,7 @@ metadata:
 
 ## Documentation
 
-Use `search-docs` for detailed Inertia v2 Svelte patterns and documentation.
+Use `laravel_boost_search-docs` for detailed Inertia v2 Svelte patterns and documentation.
 
 ## Basic Usage
 
@@ -140,7 +140,7 @@ The `<Form>` component supports automatic resetting:
 - `resetOnSuccess` - Reset form data when the request succeeds
 - `setDefaultsOnSuccess` - Update default values on success
 
-Use the `search-docs` tool with a query of `form component resetting` for detailed guidance.
+Use the `laravel_boost_search-docs` tool with a query of `form component resetting` for detailed guidance.
 
 <!-- Form With Reset Props -->
 ```svelte
@@ -168,7 +168,7 @@ import { Form } from '@inertiajs/svelte'
 </Form>
 ```
 
-Forms can also be built using the `useForm` hook for more programmatic control. Use the `search-docs` tool with a query of `useForm helper` for guidance.
+Forms can also be built using the `useForm` hook for more programmatic control. Use the `laravel_boost_search-docs` tool with a query of `useForm helper` for guidance.
 
 ### `useForm` Hook
 

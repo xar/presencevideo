@@ -10,7 +10,7 @@ metadata:
 
 ## Documentation
 
-Use `search-docs` for detailed Wayfinder patterns and documentation.
+Use `laravel_boost_search-docs` for detailed Wayfinder patterns and documentation.
 
 ## Quick Reference
 

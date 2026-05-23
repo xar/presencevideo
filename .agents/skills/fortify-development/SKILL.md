@@ -12,7 +12,7 @@ Fortify is a headless authentication backend that provides authentication routes
 
 ## Documentation
 
-Use `search-docs` for detailed Laravel Fortify patterns and documentation.
+Use `laravel_boost_search-docs` for detailed Laravel Fortify patterns and documentation.
 
 ## Usage
 
@@ -34,7 +34,7 @@ Enable in `config/fortify.php` features array:
 - `Features::twoFactorAuthentication()` - 2FA with QR codes and recovery codes
 - `Features::passkeys()` - Passwordless authentication with WebAuthn passkeys
 
-> Use `search-docs` for feature configuration options and customization patterns.
+> Use `laravel_boost_search-docs` for feature configuration options and customization patterns.
 
 ## Setup Workflows
 
@@ -49,7 +49,7 @@ Enable in `config/fortify.php` features array:
 - [ ] Test QR code and recovery codes
 ```
 
-> Use `search-docs` for TOTP implementation and recovery code handling patterns.
+> Use `laravel_boost_search-docs` for TOTP implementation and recovery code handling patterns.
 
 ### Passkeys Setup
 
@@ -61,7 +61,7 @@ Enable in `config/fortify.php` features array:
 - [ ] Build UI with @laravel/passkeys for registration, login, confirmation, and deletion
 ```
 
-> Use `search-docs` for passkey configuration options. For `@laravel/passkeys` frontend usage, refer to the package's README on npm.
+> Use `laravel_boost_search-docs` for passkey configuration options. For `@laravel/passkeys` frontend usage, refer to the package's README on npm.
 
 ### Email Verification Setup
 
@@ -73,7 +73,7 @@ Enable in `config/fortify.php` features array:
 - [ ] Test verification email flow
 ```
 
-> Use `search-docs` for MustVerifyEmail implementation patterns.
+> Use `laravel_boost_search-docs` for MustVerifyEmail implementation patterns.
 
 ### Password Reset Setup
 
@@ -85,7 +85,7 @@ Enable in `config/fortify.php` features array:
 - [ ] Test reset email and link flow
 ```
 
-> Use `search-docs` for custom password reset flow patterns.
+> Use `laravel_boost_search-docs` for custom password reset flow patterns.
 
 ### SPA Authentication Setup
 
@@ -97,7 +97,7 @@ Enable in `config/fortify.php` features array:
 - [ ] Test XHR authentication flows
 ```
 
-> Use `search-docs` for integration and SPA authentication patterns.
+> Use `laravel_boost_search-docs` for integration and SPA authentication patterns.
 
 #### Two-Factor Authentication in SPA Mode
 
