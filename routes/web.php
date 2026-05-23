@@ -18,6 +18,8 @@ Route::middleware(['auth', 'verified'])->prefix('agent')->name('agent.chat.')->g
     Route::get('/conversations/latest', [ChatController::class, 'latest'])->name('latest');
     Route::get('/conversations/{conversation}', [ChatController::class, 'index'])->name('show');
     Route::post('/messages', [ChatController::class, 'store'])->name('store');
+    Route::post('/messages/prepare', [ChatController::class, 'prepare'])->name('prepare');
+    Route::post('/messages/broadcast', [ChatController::class, 'broadcast'])->name('broadcast');
     Route::post('/messages/stream', [ChatController::class, 'stream'])->name('stream');
 });
 

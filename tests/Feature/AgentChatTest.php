@@ -44,6 +44,54 @@ it('shows the agent chat page with previous conversations', function () {
             ->where('messages.0.tool_results.0.result.project_id', 123));
 });
 
+it('shows user messages before assistant messages when timestamps match', function () {
+    $user = User::factory()->create();
+    $conversation = Conversation::create([
+        'id' => (string) Str::uuid(),
+        'user_id' => $user->id,
+        'title' => 'Ordering test',
+    ]);
+    $timestamp = now();
+
+    ConversationMessage::create([
+        'id' => (string) Str::uuid(),
+        'conversation_id' => $conversation->id,
+        'user_id' => $user->id,
+        'agent' => GenericAgent::class,
+        'role' => 'assistant',
+        'content' => 'Answer',
+        'attachments' => [],
+        'tool_calls' => [],
+        'tool_results' => [],
+        'usage' => [],
+        'meta' => [],
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    ConversationMessage::create([
+        'id' => (string) Str::uuid(),
+        'conversation_id' => $conversation->id,
+        'user_id' => $user->id,
+        'agent' => GenericAgent::class,
+        'role' => 'user',
+        'content' => 'Question',
+        'attachments' => [],
+        'tool_calls' => [],
+        'tool_results' => [],
+        'usage' => [],
+        'meta' => [],
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('agent.chat.show', $conversation))
+        ->assertInertia(fn ($page) => $page
+            ->where('messages.0.content', 'Question')
+            ->where('messages.1.content', 'Answer'));
+});
+
 it('starts a new remembered conversation with the generic agent in the background', function () {
     GenericAgent::fake(['Hello from the agent.']);
 
@@ -63,6 +111,33 @@ it('starts a new remembered conversation with the generic agent in the backgroun
     expect($conversation)->not->toBeNull()
         ->and($conversation->title)->toBe('Help me plan a video')
         ->and($conversation->messages()->exists())->toBeFalse();
+});
+
+it('starts a broadcasted conversation with the generic agent', function () {
+    GenericAgent::fake(['Broadcasted hello.']);
+
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)
+        ->postJson(route('agent.chat.prepare'), [
+            'message' => 'Broadcast this please',
+        ])
+        ->assertSuccessful()
+        ->assertJsonStructure(['conversation_id', 'channel']);
+
+    $conversationId = $response->json('conversation_id');
+
+    $this->actingAs($user)
+        ->postJson(route('agent.chat.broadcast'), [
+            'message' => 'Broadcast this please',
+            'conversation_id' => $conversationId,
+        ])
+        ->assertSuccessful();
+
+    GenericAgent::assertQueued('Broadcast this please');
+
+    expect($user->conversations()->whereKey($conversationId)->exists())->toBeTrue()
+        ->and($response->json('channel'))->toBe("agent.chat.{$user->id}.{$conversationId}");
 });
 
 it('streams a new remembered conversation with the generic agent', function () {

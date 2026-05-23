@@ -1,6 +1,6 @@
 <script lang="ts">
     import { tick } from 'svelte';
-    import { Link, router, usePoll } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
     import AppLayout from '@/layouts/AppLayout.svelte';
@@ -22,12 +22,14 @@
         conversation,
         messages,
         activities = [],
-        pendingMessage = null
+        pendingMessage = null,
+        broadcastChannel = null
     }: {
         conversation: Conversation | null;
         messages: ChatMessage[];
         activities?: ToolActivity[];
         pendingMessage?: string | null;
+        broadcastChannel?: string | null;
     } = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -49,8 +51,14 @@
     let serverMessagesSignature = $state('');
     let messagesContainer: HTMLDivElement | null = $state(null);
     let pendingMessageAddedForConversation = $state<string | null>(null);
+    let activeChannel: string | null = null;
+    let seenStreamEventIds = $state<Set<string>>(new Set());
 
-    usePoll(2000, { only: ['messages', 'activities', 'conversation', 'conversations', 'agentConversations'] }, { keepAlive: true });
+    $effect(() => {
+        if (broadcastChannel && activeChannel !== broadcastChannel) {
+            void subscribeToBroadcast(broadcastChannel);
+        }
+    });
 
     $effect(() => {
         const nextSignature = messages.map((item) => `${item.id}:${item.role}:${item.content}`).join('|');
@@ -62,6 +70,7 @@
             localMessages = withPendingMessage(messages);
             streamedResponse = '';
             streamedToolActivities = [];
+            seenStreamEventIds = new Set();
             shouldReserveLatestMessageSpace = false;
 
             return;
@@ -85,6 +94,7 @@
         streamedResponse = '';
         streamedConversationId = null;
         streamedToolActivities = [];
+        seenStreamEventIds = new Set();
         isStreaming = true;
         shouldReserveLatestMessageSpace = true;
         localMessages = [
@@ -99,20 +109,24 @@
 
         await scrollLatestUserMessageToTop();
 
-        router.post(agent.chat.store().url, {
-            message: prompt,
-            conversation_id: conversation?.id ?? null
-        }, {
-            preserveScroll: true,
-            onError: () => {
-                error = 'The agent could not start. Please try again.';
-            },
-            onFinish: () => {
-                isStreaming = false;
-                shouldReserveLatestMessageSpace = false;
-                void scrollLatestUserMessageToTop('instant');
-            },
-        });
+        try {
+            const prepared = await postJson(agent.chat.prepare().url, {
+                message: prompt,
+                conversation_id: conversation?.id ?? null
+            });
+
+            streamedConversationId = prepared.conversation_id ?? null;
+            await subscribeToBroadcast(prepared.channel);
+
+            await postJson(agent.chat.broadcast().url, {
+                message: prompt,
+                conversation_id: prepared.conversation_id
+            });
+        } catch {
+            error = 'The agent could not start. Please try again.';
+            isStreaming = false;
+            shouldReserveLatestMessageSpace = false;
+        }
     }
 
     async function scrollLatestUserMessageToTop(behavior: ScrollBehavior = 'smooth') {
@@ -131,72 +145,103 @@
         });
     }
 
-    async function readStream(body: ReadableStream<Uint8Array>) {
-        const reader = body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+    async function postJson(url: string, body: Record<string, unknown>) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
+            body: JSON.stringify(body)
+        });
 
-        while (true) {
-            const { value, done } = await reader.read();
+        if (!response.ok) {
+            throw new Error('Request failed.');
+        }
 
-            if (done) {
-                break;
-            }
+        return await response.json();
+    }
 
-            buffer += decoder.decode(value, { stream: true });
-            const events = buffer.split('\n\n');
-            buffer = events.pop() ?? '';
+    function subscribeToBroadcast(channel: string): Promise<void> {
+        if (activeChannel === channel) {
+            return Promise.resolve();
+        }
 
-            for (const event of events) {
-                handleStreamEvent(event);
-            }
+        if (activeChannel) {
+            window.Echo.leave(activeChannel);
+        }
+
+        activeChannel = channel;
+        const subscription = window.Echo.private(channel);
+
+        ['text_delta', 'tool_call', 'tool_result', 'stream_end', 'stream_failed', 'error'].forEach((eventName) => {
+            subscription.listen(`.${eventName}`, (data: Record<string, any>) => handleBroadcastEvent(data, eventName));
+        });
+
+        subscription.listenToAll((eventName: string, data: Record<string, any>) => {
+            handleBroadcastEvent(data, eventName.replace(/^\./, ''));
+        });
+
+        return new Promise((resolve) => {
+            subscription.subscribed(() => resolve());
+            setTimeout(resolve, 1500);
+        });
+    }
+
+    function handleBroadcastEvent(data: Record<string, any>, eventName?: string) {
+        const type = data.type ?? eventName;
+        const eventId = typeof data.id === 'string' ? data.id : null;
+
+        if (eventId && seenStreamEventIds.has(eventId)) {
+            return;
+        }
+
+        if (eventId) {
+            seenStreamEventIds = new Set([...seenStreamEventIds, eventId]);
+        }
+
+        if (type === 'text_delta') {
+            streamedResponse += data.delta ?? '';
+        }
+
+        if (type === 'tool_call') {
+            upsertToolActivity({
+                id: data.tool_id ?? data.id,
+                name: data.tool_name ?? 'Action',
+                arguments: data.arguments,
+                status: 'running',
+                timestamp: data.timestamp
+            });
+        }
+
+        if (type === 'tool_result') {
+            upsertToolActivity({
+                id: data.tool_id ?? data.id,
+                name: data.tool_name ?? 'Action',
+                result: data.result,
+                successful: data.successful,
+                error: data.error,
+                status: data.successful === false ? 'failed' : 'completed',
+                timestamp: data.timestamp
+            });
+        }
+
+        if (type === 'stream_failed' || type === 'error') {
+            error = data.message ?? 'The agent stream failed.';
+            finishStreaming();
+        }
+
+        if (type === 'stream_end') {
+            finishStreaming();
         }
     }
 
-    function handleStreamEvent(event: string) {
-        for (const line of event.split('\n')) {
-            if (!line.startsWith('data: ')) {
-                continue;
-            }
-
-            const payload = line.slice(6);
-
-            if (payload === '[DONE]') {
-                continue;
-            }
-
-            const data = JSON.parse(payload);
-
-            if (data.type === 'text_delta') {
-                streamedResponse += data.delta ?? '';
-            }
-
-            if (data.type === 'tool_call') {
-                upsertToolActivity({
-                    id: data.tool_id ?? data.id,
-                    name: data.tool_name ?? 'Action',
-                    arguments: data.arguments,
-                    status: 'running',
-                    timestamp: data.timestamp
-                });
-            }
-
-            if (data.type === 'tool_result') {
-                upsertToolActivity({
-                    id: data.tool_id ?? data.id,
-                    name: data.tool_name ?? 'Action',
-                    result: data.result,
-                    successful: data.successful,
-                    error: data.error,
-                    status: data.successful === false ? 'failed' : 'completed',
-                    timestamp: data.timestamp
-                });
-            }
-
-            if (data.type === 'conversation') {
-                streamedConversationId = data.conversation_id ?? null;
-            }
-        }
+    function finishStreaming() {
+        isStreaming = false;
+        shouldReserveLatestMessageSpace = false;
+        void refreshConversation();
+        void scrollLatestUserMessageToTop('instant');
     }
 
     function withPendingMessage(serverMessages: ChatMessage[]) {
@@ -241,7 +286,7 @@
 
     async function refreshConversation() {
         if (conversation?.id) {
-            router.reload({ only: ['agentConversations'] });
+            router.reload({ only: ['messages', 'activities', 'conversation', 'conversations', 'agentConversations'] });
 
             return;
         }

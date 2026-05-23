@@ -1,3 +1,4 @@
+import type Echo from 'laravel-echo';
 import type { Auth } from '@/types/auth';
 
 // Extend ImportMeta interface for Vite...
@@ -13,6 +14,12 @@ declare module 'vite/client' {
             pattern: string,
             options?: { eager?: boolean },
         ) => Record<string, T>;
+    }
+}
+
+declare global {
+    interface Window {
+        Echo: Echo<'reverb'>;
     }
 }
 

@@ -6,6 +6,7 @@ use App\Ai\Agents\GenericAgent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Agent\SendMessageRequest;
 use App\Models\AgentActivity;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,12 +31,17 @@ class ChatController extends Controller
 
         $messages = $conversation?->messages()
             ->orderBy('created_at')
+            ->orderByRaw("case when role = 'user' then 0 else 1 end")
+            ->orderBy('id')
             ->get(['id', 'role', 'content', 'tool_calls', 'tool_results', 'created_at'])
             ->values() ?? collect();
 
         return Inertia::render('agent/Chat', [
             'conversations' => $conversations,
             'conversation' => $conversation?->only(['id', 'title', 'created_at', 'updated_at']),
+            'broadcastChannel' => $conversation === null
+                ? null
+                : $this->broadcastChannelName($request->user()->id, $conversation->id),
             'messages' => $messages,
             'activities' => $this->activities($request, $conversation),
             'pendingMessage' => session('pending_agent_message'),
@@ -81,6 +87,54 @@ class ChatController extends Controller
 
         return to_route('agent.chat.show', $conversationId)
             ->with('pending_agent_message', $message);
+    }
+
+    public function prepare(SendMessageRequest $request): JsonResponse
+    {
+        $message = $request->validated('message');
+        $conversationId = $request->validated('conversation_id') ?? $this->createConversation($request, $message);
+
+        $this->authorizeConversation($request, $conversationId);
+
+        return response()->json([
+            'conversation_id' => $conversationId,
+            'channel' => $this->broadcastChannelName($request->user()->id, $conversationId),
+        ]);
+    }
+
+    public function broadcast(SendMessageRequest $request): JsonResponse
+    {
+        $message = $request->validated('message');
+        $conversationId = $request->validated('conversation_id');
+
+        abort_unless(is_string($conversationId), 422);
+
+        $this->authorizeConversation($request, $conversationId);
+
+        $userId = $request->user()->id;
+        $channel = $this->broadcastChannelName($userId, $conversationId);
+
+        (new GenericAgent)
+            ->continue($conversationId, as: $request->user())
+            ->broadcastOnQueue(
+                $message,
+                new PrivateChannel($channel),
+            )
+            ->then(static function ($response) use ($userId, $message): void {
+                if ($response->conversationId === null) {
+                    return;
+                }
+
+                Conversation::query()
+                    ->whereKey($response->conversationId)
+                    ->where('user_id', $userId)
+                    ->update(['title' => Str::limit($message, 60)]);
+            });
+
+        return response()->json([
+            'conversation_id' => $conversationId,
+            'channel' => $channel,
+        ]);
     }
 
     public function stream(SendMessageRequest $request): StreamedResponse
@@ -162,15 +216,25 @@ class ChatController extends Controller
         return $conversation->id;
     }
 
+    protected function broadcastChannelName(int $userId, string $conversationId): string
+    {
+        return "agent.chat.{$userId}.{$conversationId}";
+    }
+
     protected function updateConversationTitle(SendMessageRequest $request, ?string $conversationId, string $message): void
+    {
+        $this->updateConversationTitleForUser($request->user()->id, $conversationId, $message);
+    }
+
+    protected function updateConversationTitleForUser(int $userId, ?string $conversationId, string $message): void
     {
         if ($conversationId === null) {
             return;
         }
 
-        $request->user()
-            ->conversations()
+        Conversation::query()
             ->whereKey($conversationId)
+            ->where('user_id', $userId)
             ->update(['title' => Str::limit($message, 60)]);
     }
 }
