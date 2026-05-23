@@ -16,6 +16,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/framework (LARAVEL) - v12
 - laravel/octane (OCTANE) - v2
 - laravel/prompts (PROMPTS) - v0
+- laravel/reverb (REVERB) - v1
 - laravel/wayfinder (WAYFINDER) - v0
 - laravel/boost (BOOST) - v2
 - laravel/mcp (MCP) - v0
@@ -245,5 +246,45 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 # Inertia + Svelte
 
 - IMPORTANT: Activate `inertia-svelte-development` when working with Inertia Svelte client-side patterns.
+
+=== project/agent-chat rules ===
+
+# Agent Chat + Video Composition Current State
+
+## Architecture
+
+- The agent chat is intentionally background/resumable. Do not rely on a single browser streaming request for long-running video work.
+- `POST /agent/messages` (`agent.chat.store`) creates or continues a Laravel AI conversation, queues `GenericAgent`, flashes `pending_agent_message`, and redirects to `agent.chat.show`.
+- `resources/js/pages/agent/Chat.svelte` is a polling viewer. It uses Inertia `usePoll(2000, { only: ['messages', 'activities', 'conversation', 'conversations', 'agentConversations'] }, { keepAlive: true })` so the page stays updated even while async jobs run.
+- The older `/agent/messages/stream` endpoint still exists, but the primary UI flow should use queued `agent.chat.store` unless explicitly working on live streaming.
+
+## Chat.svelte Nuances
+
+- `localMessages` is the client-side display list. It is refreshed from server `messages` whenever the polled message signature changes and the client is not currently submitting.
+- New chats may redirect before the queued AI SDK job has persisted the user message. The controller flashes `pending_agent_message`; `Chat.svelte` appends it locally via `withPendingMessage()` so the page is not blank.
+- While waiting for the assistant, `Chat.svelte` shows `<StreamingAssistantMessage />` as a "Thinking…" placeholder if the latest local message is from the user or any background `activities` exist.
+- Do not remove the pending-message logic unless user messages are synchronously persisted before redirect.
+- If adding new props that should update during background work, include them in the `usePoll(... only: [...])` list.
+
+## Agent Activities / Queued Tool State
+
+- Long-running tool state is persisted in `agent_activities` via `App\Models\AgentActivity` and exposed to `Chat.svelte` as the `activities` prop from `ChatController@index`.
+- Async tools should create an `AgentActivity` immediately with `status = running`, then update it to `completed` or `failed` from the async job. This is how queued tools communicate progress before the final assistant message is stored.
+- `generate_fal_asset` creates a running `fal_generation` activity and stores `agent_conversation_id` plus `agent_activity_id` in `Generation.parameters`.
+- `RunGeneration` updates the activity on success/failure and dispatches `ContinueAgentConversation` so the agent can resume the same conversation after Fal finishes.
+- `render_video_project` creates a running render activity; `RenderProject` updates it when the render completes or fails.
+- When adding new async agent tools, follow the same pattern: create `AgentActivity` synchronously, persist IDs in job/model metadata, update the activity from the job, then re-enter the conversation if the agent should continue autonomously.
+
+## Video Composition Agent Tools
+
+- `GenericAgent` exposes tools for project inspection/composition, asset listing, Fal model listing, Fal generation, generation status, rendering, and render status.
+- Composition JSON should use UUID-like IDs. `ComposeVideoProject` normalizes scene/layer/clip/entry IDs to UUIDs; `GenerateFalAsset` ignores invalid invented `scene_id` values like `scene_2` to avoid Postgres UUID errors.
+- Fal generation is asynchronous. The UI should show progress through `activities`, and the agent should continue after `RunGeneration` dispatches `ContinueAgentConversation`.
+
+## Verification
+
+- Backend chat/tool changes: run `php artisan test --compact tests/Feature/AgentChatTest.php tests/Feature/AgentVideoCompositionToolsTest.php`.
+- Frontend chat changes: run `npm run check`.
+- PHP changes: run `vendor/bin/pint --dirty --format agent`.
 
 </laravel-boost-guidelines>

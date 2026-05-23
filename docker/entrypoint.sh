@@ -3,7 +3,7 @@ set -e
 
 # =============================================================================
 # Laravel Docker Entrypoint
-# Supports multiple container modes: app, queue, scheduler, horizon
+# Supports multiple container modes: app, queue, scheduler, horizon, reverb
 # =============================================================================
 
 # Colors for output
@@ -140,6 +140,18 @@ case "$CONTAINER_MODE" in
         done
         ;;
 
+    reverb)
+        log "Starting Laravel Reverb WebSocket server..."
+
+        REVERB_SERVER_HOST=${REVERB_SERVER_HOST:-0.0.0.0}
+        REVERB_SERVER_PORT=${REVERB_SERVER_PORT:-8080}
+
+        exec php artisan reverb:start \
+            --host="$REVERB_SERVER_HOST" \
+            --port="$REVERB_SERVER_PORT" \
+            --verbose
+        ;;
+
     horizon)
         log "Starting Laravel Horizon..."
         exec php artisan horizon
@@ -154,7 +166,7 @@ case "$CONTAINER_MODE" in
 
     *)
         error "Unknown container mode: $CONTAINER_MODE"
-        error "Available modes: app, queue, scheduler, horizon, worker"
+        error "Available modes: app, queue, scheduler, reverb, horizon, worker"
         exit 1
         ;;
 esac

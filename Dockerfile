@@ -1,6 +1,6 @@
 # =============================================================================
 # Multi-stage Dockerfile for Laravel + Svelte application
-# Supports: app server, queue worker, scheduler
+# Supports: app server, queue worker, scheduler, Reverb WebSocket server
 # Optimized for Coolify deployment with fast builds
 # =============================================================================
 
@@ -66,6 +66,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 ENV APP_ENV=${APP_ENV}
 ENV CONTAINER_MODE=${CONTAINER_MODE}
+ENV REVERB_SERVER_HOST=0.0.0.0
+ENV REVERB_SERVER_PORT=8080
 
 # PHP-FPM/Octane settings
 ENV PHP_OPCACHE_ENABLE=1
@@ -188,6 +190,6 @@ RUN mkdir -p /var/www/html/storage/logs \
     && mkdir -p /var/www/html/storage/framework/views \
     && chown -R www:www /var/www/html/storage
 
-EXPOSE 8000
+EXPOSE 8000 8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
