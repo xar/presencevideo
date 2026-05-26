@@ -1,0 +1,16 @@
+{
+  "siteUrl": "https://example.com",
+  "brand": "Your brand name",
+  "product": "Short description of what your product does",
+  "audience": "Who the content should attract",
+  "competitors": [
+    "https://competitor-a.com",
+    "https://competitor-b.com"
+  ],
+  "contentRoot": "resources/js/pages or content/blog or wherever posts live",
+  "maxActionsPerRun": 1,
+  "publishMode": "draft",
+  "searchConsoleProperty": "sc-domain:example.com",
+  "primaryMarkets": ["US"],
+  "excludedTopics": []
+}

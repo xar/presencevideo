@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\CreatorAgent;
 use App\Ai\Agents\GenericAgent;
 use App\Ai\Tools\ComposeVideoProject;
 use App\Ai\Tools\GenerateFalAsset;
@@ -7,6 +8,7 @@ use App\Ai\Tools\GetGenerationStatus;
 use App\Ai\Tools\GetRenderStatus;
 use App\Ai\Tools\ListVideoProjectAssets;
 use App\Ai\Tools\RenderVideoProject;
+use App\Events\AgentActivityUpdated;
 use App\Jobs\ContinueAgentConversation;
 use App\Jobs\RenderProject;
 use App\Jobs\RunGeneration;
@@ -15,18 +17,21 @@ use App\Models\Asset;
 use App\Models\Generation;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Tools\Request;
 
-it('exposes video composition tools on the generic agent', function () {
+it('exposes video composition tools on the creator agent and delegates from the generic agent', function () {
     $user = User::factory()->create();
 
-    $tools = collect((new GenericAgent)->forUser($user)->tools());
+    $genericTools = collect((new GenericAgent)->forUser($user)->tools());
+    $creatorTools = collect((new CreatorAgent)->forUser($user)->tools());
 
-    expect($tools->first(fn ($tool) => $tool instanceof ListVideoProjectAssets))->not->toBeNull()
-        ->and($tools->first(fn ($tool) => $tool instanceof ComposeVideoProject))->not->toBeNull()
-        ->and($tools->first(fn ($tool) => $tool instanceof GenerateFalAsset))->not->toBeNull()
-        ->and($tools->first(fn ($tool) => $tool instanceof RenderVideoProject))->not->toBeNull();
+    expect($genericTools->first(fn ($tool) => $tool instanceof CreatorAgent))->not->toBeNull()
+        ->and($creatorTools->first(fn ($tool) => $tool instanceof ListVideoProjectAssets))->not->toBeNull()
+        ->and($creatorTools->first(fn ($tool) => $tool instanceof ComposeVideoProject))->not->toBeNull()
+        ->and($creatorTools->first(fn ($tool) => $tool instanceof GenerateFalAsset))->not->toBeNull()
+        ->and($creatorTools->first(fn ($tool) => $tool instanceof RenderVideoProject))->not->toBeNull();
 });
 
 it('creates a user video project from a composition json tool call', function () {
@@ -102,6 +107,7 @@ it('lists only assets belonging to the current user for video composition', func
 
 it('queues fal asset generation and exposes its status', function () {
     Queue::fake();
+    Event::fake([AgentActivityUpdated::class]);
 
     $user = User::factory()->create();
     $project = Project::factory()->create([
@@ -126,6 +132,7 @@ it('queues fal asset generation and exposes its status', function () {
     $payload = json_decode((string) $result, true, flags: JSON_THROW_ON_ERROR);
 
     Queue::assertPushed(RunGeneration::class);
+    Event::assertDispatched(AgentActivityUpdated::class);
 
     expect($payload['project_id'])->toBe($project->id)
         ->and($payload['type'])->toBe('text_to_image')
@@ -157,17 +164,19 @@ it('continues the agent conversation from an async completion job', function () 
 
 it('queues rendering and exposes render status', function () {
     Queue::fake();
+    Event::fake([AgentActivityUpdated::class]);
 
     $user = User::factory()->create();
     $project = Project::factory()->create(['user_id' => $user->id]);
 
-    $result = (new RenderVideoProject($user))->handle(new Request([
+    $result = (new RenderVideoProject($user, 'conversation-123'))->handle(new Request([
         'project_id' => $project->id,
     ]));
 
     $payload = json_decode((string) $result, true, flags: JSON_THROW_ON_ERROR);
 
     Queue::assertPushed(RenderProject::class);
+    Event::assertDispatched(AgentActivityUpdated::class);
 
     $status = (new GetRenderStatus($user))->handle(new Request([
         'render_id' => $payload['render_id'],

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\GenerationStatus;
+use App\Events\AgentActivityUpdated;
 use App\Models\AgentActivity;
 use App\Models\Generation;
 use App\Services\FalAIService;
@@ -106,10 +107,12 @@ class RunGeneration implements ShouldQueue
                 'status' => $status,
                 'output_asset_id' => $assetId,
                 'error_message' => $this->generation->error_message,
-                'message' => $status === 'completed' ? 'fal.ai generation completed.' : 'fal.ai generation failed.',
+                'message' => $status === 'completed' ? 'fal.ai generation completed. Continuing the agent workflow…' : 'fal.ai generation failed. Returning the failure to the agent…',
             ]),
             'finished_at' => now(),
         ]);
+
+        AgentActivityUpdated::dispatch($activity);
     }
 
     protected function continueAgentConversation(string $status, ?int $assetId = null): void
@@ -131,7 +134,7 @@ class RunGeneration implements ShouldQueue
                 'status' => $status,
                 'output_asset_id' => $assetId,
                 'error_message' => $this->generation->error_message,
-                'instruction' => 'Continue the video creation workflow from this async tool result. If an asset was generated, place it in the project composition or queue the next needed generation.',
+                'instruction' => 'Continue the orchestrated video creation workflow from this async CreatorAgent tool result. Tell the user what just happened, then delegate back to creator_agent with this complete event payload if composition, additional generation, or rendering work is still needed. If the production is complete, summarize the final deliverable.',
             ], JSON_THROW_ON_ERROR),
         );
     }

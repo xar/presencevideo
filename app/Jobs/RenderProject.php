@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\RenderStatus;
+use App\Events\AgentActivityUpdated;
 use App\Models\AgentActivity;
 use App\Models\Asset;
 use App\Models\Project;
@@ -162,10 +163,34 @@ class RenderProject implements ShouldQueue
                 'status' => $status,
                 'output_url' => $this->render->output_url,
                 'error_message' => $this->render->error_message,
-                'message' => $status === 'completed' ? 'Video render completed.' : 'Video render failed.',
+                'message' => $status === 'completed' ? 'Video render completed. Returning the final result to the agent…' : 'Video render failed. Returning the failure to the agent…',
             ]),
             'finished_at' => now(),
         ]);
+
+        AgentActivityUpdated::dispatch($activity);
+        $this->continueAgentConversation($activity, $status);
+    }
+
+    protected function continueAgentConversation(AgentActivity $activity, string $status): void
+    {
+        if ($activity->conversation_id === null || $activity->user_id === null) {
+            return;
+        }
+
+        ContinueAgentConversation::dispatch(
+            (string) $activity->conversation_id,
+            (int) $activity->user_id,
+            json_encode([
+                'event' => 'render_finished',
+                'render_id' => $this->render->id,
+                'project_id' => $this->render->project_id,
+                'status' => $status,
+                'output_url' => $this->render->output_url,
+                'error_message' => $this->render->error_message,
+                'instruction' => 'Continue the orchestrated video creation workflow from this async CreatorAgent render result. Tell the user whether the render completed, include the final output URL if available, and suggest the next edit only if useful.',
+            ], JSON_THROW_ON_ERROR),
+        );
     }
 
     /**

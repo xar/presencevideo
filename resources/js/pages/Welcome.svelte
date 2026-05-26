@@ -20,6 +20,7 @@
     import { toUrl } from '@/lib/utils';
     import { login, register } from '@/routes';
     import editor from '@/routes/editor';
+    import seo from '@/routes/seo';
 
     let {
         canRegister = true,
@@ -391,17 +392,62 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-border/40 bg-background py-8 relative z-10">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-4">
-            <div class="flex items-center gap-2">
-                <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
-                    <Play class="h-3 w-3 text-primary-foreground ml-0.5" />
+    <footer class="border-t border-border/40 bg-background py-12 sm:py-16 relative z-10">
+        <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.3fr_2fr] lg:px-8">
+            <div class="flex flex-col gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/20">
+                        <Play class="h-4 w-4 text-primary-foreground ml-0.5" />
+                    </div>
+                    <span class="font-semibold tracking-tight">usekeyframes.com</span>
                 </div>
-                <span class="font-semibold tracking-tight text-sm">usekeyframes.com</span>
+                <p class="max-w-sm text-sm leading-6 text-muted-foreground">
+                    AI-native video creation with keyframe-level control for product videos, social content, demos, and campaign assets.
+                </p>
+                <p class="text-sm text-muted-foreground">
+                    &copy; {new Date().getFullYear()} usekeyframes.com. All rights reserved.
+                </p>
             </div>
-            <p class="text-sm text-muted-foreground text-center">
-                Built for makers, by a maker. usekeyframes.com &copy; {new Date().getFullYear()} All rights reserved.
-            </p>
+
+            <div class="grid gap-8 sm:grid-cols-3">
+                <div>
+                    <h2 class="text-sm font-semibold tracking-wide text-foreground">Product</h2>
+                    <ul class="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
+                        <li>
+                            <Link class="transition-colors hover:text-foreground" href={toUrl(editor.index())}>Editor</Link>
+                        </li>
+                        <li>
+                            <a class="transition-colors hover:text-foreground" href={toUrl(seo.pages.show('ai-video-editor'))}>AI Video Editor</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h2 class="text-sm font-semibold tracking-wide text-foreground">Resources</h2>
+                    <ul class="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
+                        <li>
+                            <a class="transition-colors hover:text-foreground" href={toUrl(seo.blog.index())}>Blog</a>
+                        </li>
+                        <li>
+                            <a class="transition-colors hover:text-foreground" href={toUrl(seo.blog.show('how-to-make-product-videos-faster'))}>Product video workflow</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h2 class="text-sm font-semibold tracking-wide text-foreground">Account</h2>
+                    <ul class="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
+                        <li>
+                            <Link class="transition-colors hover:text-foreground" href={toUrl(login())}>Sign in</Link>
+                        </li>
+                        {#if canRegister}
+                            <li>
+                                <Link class="transition-colors hover:text-foreground" href={toUrl(register())}>Create account</Link>
+                            </li>
+                        {/if}
+                    </ul>
+                </div>
+            </div>
         </div>
     </footer>
 </div>

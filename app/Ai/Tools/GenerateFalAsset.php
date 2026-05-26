@@ -4,6 +4,7 @@ namespace App\Ai\Tools;
 
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
+use App\Events\AgentActivityUpdated;
 use App\Jobs\RunGeneration;
 use App\Models\AgentActivity;
 use App\Models\Asset;
@@ -88,6 +89,10 @@ class GenerateFalAsset implements Tool
             'payload' => array_merge($activity->payload ?? [], ['generation_id' => $generation->id]),
         ]);
 
+        if ($activity !== null) {
+            AgentActivityUpdated::dispatch($activity);
+        }
+
         return json_encode([
             'generation_id' => $generation->id,
             'activity_id' => $activity?->id,
@@ -119,7 +124,7 @@ class GenerateFalAsset implements Tool
             return null;
         }
 
-        return AgentActivity::create([
+        $activity = AgentActivity::create([
             'conversation_id' => $this->conversationId,
             'user_id' => $this->user?->id,
             'type' => 'fal_generation',
@@ -134,6 +139,10 @@ class GenerateFalAsset implements Tool
             ],
             'started_at' => now(),
         ]);
+
+        AgentActivityUpdated::dispatch($activity);
+
+        return $activity;
     }
 
     protected function project(int $projectId): Project

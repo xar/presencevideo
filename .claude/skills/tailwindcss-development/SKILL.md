@@ -10,7 +10,7 @@ metadata:
 
 ## Documentation
 
-Use `laravel_boost_search-docs` for detailed Tailwind CSS v4 patterns and documentation.
+Use `search-docs` for detailed Tailwind CSS v4 patterns and documentation.
 
 ## Basic Usage
 

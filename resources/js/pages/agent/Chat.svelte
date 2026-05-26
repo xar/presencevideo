@@ -175,7 +175,7 @@
         activeChannel = channel;
         const subscription = window.Echo.private(channel);
 
-        ['text_delta', 'tool_call', 'tool_result', 'stream_end', 'stream_failed', 'error'].forEach((eventName) => {
+        ['text_delta', 'tool_call', 'tool_result', 'activity_updated', 'stream_end', 'stream_failed', 'error'].forEach((eventName) => {
             subscription.listen(`.${eventName}`, (data: Record<string, any>) => handleBroadcastEvent(data, eventName));
         });
 
@@ -224,6 +224,13 @@
                 error: data.error,
                 status: data.successful === false ? 'failed' : 'completed',
                 timestamp: data.timestamp
+            });
+        }
+
+        if (type === 'activity_updated' && data.activity) {
+            upsertToolActivity({
+                ...data.activity,
+                status: data.activity.status ?? 'running'
             });
         }
 

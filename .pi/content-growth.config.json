@@ -1,0 +1,13 @@
+{
+  "siteUrl": "https://usekeyframes.com",
+  "brand": "Usekeyframes",
+  "product": "AI-assisted video editing with keyframe animation, subtitles, and production-ready exports for creators, marketers, and product teams.",
+  "audience": "Creators, marketers, founders, product teams, and small businesses that need to create polished videos faster.",
+  "competitors": [],
+  "contentRoot": "config/seo.php",
+  "maxActionsPerRun": 1,
+  "publishMode": "draft",
+  "searchConsoleProperty": "sc-domain:usekeyframes.com",
+  "primaryMarkets": ["US"],
+  "excludedTopics": []
+}

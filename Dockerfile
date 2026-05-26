@@ -25,7 +25,7 @@ RUN composer install \
 # -----------------------------------------------------------------------------
 # Stage 2: Frontend Build
 # -----------------------------------------------------------------------------
-FROM node:24-alpine AS frontend-build
+FROM node:24-bookworm-slim AS frontend-build
 
 WORKDIR /app
 
@@ -43,8 +43,8 @@ COPY resources ./resources
 COPY public ./public
 COPY vite.config.ts tsconfig.json ./
 
-# Build frontend assets
-RUN npm run build
+# Build frontend and SSR assets
+RUN npm run build:ssr
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Image
@@ -159,8 +159,12 @@ COPY --chown=www:www . /var/www/html
 # Copy composer dependencies from build stage
 COPY --from=composer-deps --chown=www:www /app/vendor /var/www/html/vendor
 
-# Copy built frontend assets from build stage
+# Copy Node.js runtime for Inertia SSR
+COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
+
+# Copy built frontend and SSR assets from build stage
 COPY --from=frontend-build --chown=www:www /app/public/build /var/www/html/public/build
+COPY --from=frontend-build --chown=www:www /app/bootstrap/ssr /var/www/html/bootstrap/ssr
 
 # Run composer optimizations
 RUN composer dump-autoload --optimize --no-dev --classmap-authoritative

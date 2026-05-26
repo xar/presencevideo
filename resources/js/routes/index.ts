@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults, validateParameters } from './../wayfinder'
 /**
 * @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::login
 * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:47
@@ -218,7 +218,110 @@ registerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> =>
 register.form = registerForm
 
 /**
-* @see routes/web.php:8
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+export const telescope = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: telescope.url(args, options),
+    method: 'get',
+})
+
+telescope.definition = {
+    methods: ["get","head"],
+    url: '/telescope/{view?}',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+telescope.url = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { view: args }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            view: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    validateParameters(args, [
+        "view",
+    ])
+
+    const parsedArgs = {
+        view: args?.view,
+    }
+
+    return telescope.definition.url
+            .replace('{view?}', parsedArgs.view?.toString() ?? '')
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+telescope.get = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: telescope.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+telescope.head = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: telescope.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+const telescopeForm = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: telescope.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+telescopeForm.get = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: telescope.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \Laravel\Telescope\Http\Controllers\HomeController::telescope
+* @see vendor/laravel/telescope/src/Http/Controllers/HomeController.php:15
+* @route '/telescope/{view?}'
+*/
+telescopeForm.head = (args?: { view?: string | number } | [view: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: telescope.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+telescope.form = telescopeForm
+
+/**
+* @see routes/web.php:10
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -232,7 +335,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -240,7 +343,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -249,7 +352,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -258,7 +361,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 const homeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -267,7 +370,7 @@ const homeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 homeForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -276,7 +379,7 @@ homeForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:8
+* @see routes/web.php:10
 * @route '/'
 */
 homeForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -3,6 +3,7 @@
 namespace App\Ai\Tools;
 
 use App\Enums\RenderStatus;
+use App\Events\AgentActivityUpdated;
 use App\Jobs\RenderProject;
 use App\Models\AgentActivity;
 use App\Models\Project;
@@ -62,7 +63,7 @@ class RenderVideoProject implements Tool
             return null;
         }
 
-        return AgentActivity::create([
+        $activity = AgentActivity::create([
             'conversation_id' => $this->conversationId,
             'user_id' => $this->user?->id ?? $project->user_id,
             'type' => 'render',
@@ -75,6 +76,10 @@ class RenderVideoProject implements Tool
             ],
             'started_at' => now(),
         ]);
+
+        AgentActivityUpdated::dispatch($activity);
+
+        return $activity;
     }
 
     public function schema(JsonSchema $schema): array
