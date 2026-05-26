@@ -8,6 +8,7 @@ Source of truth: `config/seo.php`.
 ## Draft Programmatic Pages
 - `add-subtitles-to-video` — Add Subtitles to Video With AI-Assisted Editing (draft in `config/seo.php`, not published route data)
 - `product-video-maker` — Product Video Maker for Fast Marketing Launches (draft in `config/seo.php`, not published route data)
+- `marketing-video-maker` — Marketing Video Maker for Campaign-Ready Clips (draft in `config/seo.php`, not published route data)
 
 ## Blog Posts
 - `/blog/how-to-make-product-videos-faster` — How to Make Product Videos Faster

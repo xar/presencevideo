@@ -76,6 +76,37 @@ return [
                 ],
             ],
         ],
+        'marketing-video-maker' => [
+            'title' => 'Marketing Video Maker for Campaign-Ready Clips',
+            'description' => 'Draft use-case page for marketers and small teams that need to turn campaign ideas, product updates, captions, and brand motion into polished videos faster.',
+            'target_keyword' => 'marketing video maker',
+            'intent' => 'Commercial / campaign workflow',
+            'status' => 'draft',
+            'brief' => [
+                'angle' => 'Show how marketers can move from a campaign message to a polished video without losing control over footage, subtitles, text timing, brand motion, and export formats.',
+                'serp_gap' => 'Visible results emphasize templates, avatars, text-to-video generation, or broad ad generators. Differentiate with an editing-first workflow for refining existing campaign assets into reusable, brand-safe clips.',
+                'structure' => [
+                    'Make campaign videos without starting every edit from a blank timeline.',
+                    'Turn launch notes, product clips, and customer proof points into a focused video outline.',
+                    'Use AI assistance to speed up captions, cuts, and repetitive editing decisions.',
+                    'Add keyframed text and motion that keeps the message readable across channels.',
+                    'Export vertical, square, and widescreen versions with a repeatable QA checklist.',
+                ],
+                'internal_links' => [
+                    '/use-cases/ai-video-editor',
+                    '/use-cases/product-video-maker',
+                    '/blog/how-to-make-product-videos-faster',
+                ],
+                'cta' => 'Create campaign-ready marketing videos faster with Usekeyframes.',
+                'sources' => [
+                    'https://www.veed.io/tools/ai-video/ai-marketing-video-generator',
+                    'https://www.adobe.com/express/create/video/marketing',
+                    'https://www.synthesia.io/tools/marketing-video-maker',
+                    'https://www.heygen.com/en-gb/tool/ai-marketing-videos',
+                    'https://adcreate.com/ai-video-ad-generator',
+                ],
+            ],
+        ],
     ],
 
     'blog_posts' => [

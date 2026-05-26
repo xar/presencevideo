@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { Video, Play } from 'lucide-svelte';
+    import { Play } from 'lucide-svelte';
     import { formatClockTime } from '@/lib/editor/formatting';
     import { cn } from '@/lib/utils';
     import type { Scene, Asset } from '@/types';
+    import SceneThumbnail from './SceneThumbnail.svelte';
 
     let {
         scene,
@@ -26,40 +27,6 @@
         onResizeStart?: (e: MouseEvent) => void;
     } = $props();
 
-    let imageLoadFailed = $state(false);
-
-    let previewAsset = $derived.by(() => {
-        const visualLayer = scene.layers.find(
-            (layer) => layer.type === 'image' || layer.type === 'video'
-        );
-
-        if (!visualLayer || !('asset_id' in visualLayer)) return null;
-
-        return assets.find((asset) => asset.id === visualLayer.asset_id) ?? null;
-    });
-
-    // Find the first image/video layer's asset URL for preview
-    let previewUrl = $derived.by(() => {
-        if (scene.thumbnail_url && !imageLoadFailed) return scene.thumbnail_url;
-        if (!previewAsset) return null;
-
-        if (previewAsset.thumbnail_url && !imageLoadFailed) {
-            return previewAsset.thumbnail_url;
-        }
-
-        if (previewAsset.type === 'video') {
-            return imageLoadFailed ? (previewAsset.url ?? null) : null;
-        }
-
-        return previewAsset.url ?? null;
-    });
-
-    $effect(() => {
-        scene.thumbnail_url;
-        previewAsset?.thumbnail_url;
-        previewAsset?.url;
-        imageLoadFailed = false;
-    });
 </script>
 
 <button
@@ -78,20 +45,7 @@
         class="absolute inset-0 rounded-md overflow-hidden"
         style:background-color={scene.background_color ?? '#18181b'}
     >
-        {#if previewUrl}
-            <img
-                src={previewUrl}
-                alt={scene.name ?? `Scene ${index + 1}`}
-                class="h-full w-full object-contain"
-                onerror={() => {
-                    imageLoadFailed = true;
-                }}
-            />
-        {:else if scene.layers.length === 0}
-            <div class="flex h-full items-center justify-center">
-                <Video class="h-6 w-6 text-muted-foreground/30" />
-            </div>
-        {/if}
+        <SceneThumbnail {scene} {assets} {width} alt={scene.name ?? `Scene ${index + 1}`} />
     </div>
 
     {#if isPlaying}

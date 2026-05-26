@@ -62,6 +62,21 @@
         }
     }
 
+    function finiteNumber(value: unknown, fallback: number): number {
+        const number = Number(value);
+
+        return Number.isFinite(number) ? number : fallback;
+    }
+
+    function mediaVolume(...values: unknown[]): number {
+        const volume = values.reduce<number>(
+            (total, value) => total * finiteNumber(value, 1),
+            1,
+        );
+
+        return Math.min(1, Math.max(0, volume));
+    }
+
     // Sync playback state
     function syncPlayback() {
         const allClips = getAllClips();
@@ -71,7 +86,7 @@
             if (!audio) continue;
 
             const shouldPlay = isPlaying && !track.muted && isClipActiveAt(clip, currentTimeMs);
-            const volume = track.muted ? 0 : clip.volume * track.volume;
+            const volume = track.muted ? 0 : mediaVolume(clip.volume, track.volume);
 
             audio.volume = volume;
 

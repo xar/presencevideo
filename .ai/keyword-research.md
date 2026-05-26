@@ -40,3 +40,5 @@ SERP reviewed for `add subtitles to video`: Clideo, Canva, HappyScribe, VEED, Ad
 
 Live API integrations were unavailable in this run, but lightweight web search was available. Search results for `product video maker` surfaced VEED, Invideo, Fotor, Vmake, and Pictory. Common SERP pattern: AI product video generation from prompts, product links, product images, or avatars. Opportunity: a Usekeyframes page can target teams that want to edit real product assets into launch-ready videos with captions, motion, and export QA.
 
+Search results for `marketing video maker` surfaced VEED, Adobe Express, Synthesia, HeyGen, and AdCreate. Common SERP pattern: templates, avatars, text-to-video generation, product URLs, and video ad generators. Opportunity: a Usekeyframes page can target marketers who need controlled editing of existing campaign/product assets with subtitles, keyframed motion, and multi-format export QA.
+

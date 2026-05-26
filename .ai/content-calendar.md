@@ -4,7 +4,7 @@
 Automated content-growth runs will add briefs, draft ideas, and selected actions here.
 
 ## In Progress
-- Draft brief staged in `config/seo.php`: `product-video-maker` — review before promoting to `programmatic_pages`.
+- Draft brief staged in `config/seo.php`: `marketing-video-maker` — review before promoting to `programmatic_pages`.
 
 ## Published
 - 2026-05-25 - How to Make Product Videos Faster - `/blog/how-to-make-product-videos-faster`
@@ -43,5 +43,22 @@ Automated content-growth runs will add briefs, draft ideas, and selected actions
 - **Internal links:** `/use-cases/ai-video-editor`, `/blog/how-to-make-product-videos-faster`
 - **CTA:** Turn product assets into a polished launch video with Usekeyframes.
 - **SERP references:** VEED, Invideo, Fotor, Vmake, and Pictory product video generator pages from web search.
+- **Status:** Draft, ready for review before publishing.
+
+## Draft Brief — marketing-video-maker
+
+- **Target keyword:** marketing video maker
+- **Intent:** Commercial/campaign workflow; users want a faster way to create campaign, promo, ad, product update, and social videos.
+- **Angle:** Position Usekeyframes for marketers who need to move from a campaign message to polished videos while keeping control over footage, subtitles, text timing, brand motion, and export formats.
+- **SERP gap:** Visible results emphasize templates, avatars, text-to-video generation, or broad ad generators. Differentiate with an editing-first workflow for refining existing campaign assets into reusable, brand-safe clips.
+- **Suggested structure:**
+  1. Make campaign videos without starting every edit from a blank timeline
+  2. Turn launch notes, product clips, and proof points into a focused outline
+  3. Use AI assistance for captions, cuts, and repetitive editing decisions
+  4. Add keyframed text and motion that stays readable across channels
+  5. Export vertical, square, and widescreen versions with a repeatable QA checklist
+- **Internal links:** `/use-cases/ai-video-editor`, `/use-cases/product-video-maker`, `/blog/how-to-make-product-videos-faster`
+- **CTA:** Create campaign-ready marketing videos faster with Usekeyframes.
+- **SERP references:** VEED, Adobe Express, Synthesia, HeyGen, and AdCreate marketing video/ad generator pages from web search.
 - **Status:** Draft, ready for review before publishing.
 

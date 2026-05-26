@@ -1,14 +1,13 @@
 # Last PR Summary
 
 ## Data Reviewed
-- Existing SSR SEO content in `config/seo.php`.
-- DataForSEO keyword metrics for five video-editing terms.
-- DataForSEO SERP for `add subtitles to video`.
-- Search Console was attempted but unavailable due tool context error.
+- Existing Blade SSR SEO source of truth in `config/seo.php`.
+- Existing `.ai` growth strategy, keyword research, content calendar, inventory, and growth log.
+- Search Console, DataForSEO, and Parallel Search were attempted but unavailable due missing credentials/API keys.
+- Lightweight web search for marketing video maker SERP patterns: VEED, Adobe Express, Synthesia, HeyGen, and AdCreate.
 
 ## Files Changed
 - `config/seo.php`
-- `.ai/project-summary.md`
 - `.ai/growth-strategy.md`
 - `.ai/keyword-research.md`
 - `.ai/content-calendar.md`
@@ -17,13 +16,13 @@
 - `.ai/last-pr-summary.md`
 
 ## Reviewer Checklist
-- Confirm `draft_programmatic_pages.add-subtitles-to-video` matches brand voice.
-- Decide whether/when to publish the draft as a rendered `/use-cases/add-subtitles-to-video` page.
-- Verify Search Console access before the next run.
+- Confirm `marketing-video-maker` matches brand positioning.
+- Validate keyword metrics and SERP difficulty when DataForSEO is available.
+- Decide whether to promote the draft to `programmatic_pages` or keep it staged.
 
 ## Risks
-- Search Console data was not available, so prioritization used keyword/SERP data only.
-- Draft content is intentionally not wired into live routes.
+- No Search Console or DataForSEO data was available in this run, so the brief relies on prior strategy plus lightweight web search.
+- Draft is not published, but it should still receive editorial review before promotion.
 
 ## Next Action
-Turn the subtitles brief into a publishable use-case page after editorial review and GSC validation.
+Enable GSC/DataForSEO credentials, validate `marketing video maker`, and review the staged draft before publishing.

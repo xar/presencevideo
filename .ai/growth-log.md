@@ -36,3 +36,25 @@ Creates a safe draft for a subtitles/captions cluster page that can support the 
 ### Next Action
 Review the draft, decide whether to render `draft_programmatic_pages` after editorial approval, and rerun GSC analysis when the integration is healthy.
 
+## 2026-05-26 - CI safe content-growth run: marketing video maker brief
+
+### Data Used
+- Existing SSR SEO source of truth: `config/seo.php`.
+- Existing `.ai` strategy, keyword research, content calendar, inventory, and prior growth log.
+- Search Console attempted for `sc-domain:usekeyframes.com`, but credentials were unavailable (`GSC_ACCESS_TOKEN` or service-account credentials missing).
+- DataForSEO keyword metrics and SERP calls attempted, but credentials were unavailable (`DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` missing).
+- Parallel search attempted, but `PARALLEL_API_KEY` was unavailable.
+- Lightweight web search for `marketing video maker online AI video editor for marketers` found VEED, Adobe Express, Synthesia, HeyGen, and AdCreate pages.
+
+### Decision
+Scored `marketing video maker` as the next best draft opportunity because it aligns with the audience of marketers, founders, product teams, and small businesses; extends the product-video cluster; and has a clear SERP differentiation angle around controlled editing of existing campaign assets rather than only template/avatar/text-to-video generation.
+
+### Action
+Added one reviewable draft use-case brief in `config/seo.php` under `draft_programmatic_pages` for `marketing-video-maker`, then synchronized `.ai/content-calendar.md`, `.ai/content-inventory.md`, `.ai/keyword-research.md`, and `.ai/growth-strategy.md`.
+
+### Expected Impact
+Creates a safe draft for a campaign-led marketing video cluster page that can internally link to the AI video editor use case, product video maker draft, and product video workflow blog post once reviewed.
+
+### Next Action
+Before publishing, validate search volume/difficulty and current SERP with DataForSEO, then either promote the draft to `programmatic_pages` or expand it into a full Blade-rendered use-case page with editorial review.
+

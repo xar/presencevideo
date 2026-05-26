@@ -18,4 +18,6 @@ Build the subtitles/captions cluster because it has task-led demand, clear produ
 ## Next Cluster Candidate
 Product video maker / product launch video pages are a strong follow-up cluster for marketers, founders, and product teams. Differentiate from AI-only generator SERPs by emphasizing controlled editing of real product assets, subtitles, keyframed motion, and export QA.
 
+Marketing video maker pages can extend the same cluster toward campaign and social-video intent. Keep the angle editing-first: campaign message, real assets, subtitles, keyframed text, brand motion, and export versions for each channel.
+
 Last updated: 2026-05-26
