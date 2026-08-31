@@ -8,6 +8,7 @@ export type TimelineStore = {
     zoom: number;
     pixelsPerMs: number;
     setCurrentTime: (ms: number) => void;
+    syncToClock: (ms: number) => void;
     play: () => void;
     pause: () => void;
     togglePlayback: () => void;
@@ -33,6 +34,18 @@ function getPixelsPerMs(): number {
 }
 
 function setCurrentTime(ms: number): void {
+    const totalDuration = getTotalDuration();
+    currentTimeMs = Math.max(0, Math.min(ms, totalDuration));
+}
+
+/**
+ * Re-anchor the rAF playback clock to an authoritative external clock (e.g. a
+ * playing audio element's currentTime) to reduce audio/visual drift. Only takes
+ * effect while playing; the running animate() loop picks up the new value on its
+ * next frame.
+ */
+function syncToClock(ms: number): void {
+    if (!isPlaying) return;
     const totalDuration = getTotalDuration();
     currentTimeMs = Math.max(0, Math.min(ms, totalDuration));
 }
@@ -152,6 +165,7 @@ export function createTimelineStore(): TimelineStore {
             return getPixelsPerMs();
         },
         setCurrentTime,
+        syncToClock,
         play,
         pause,
         togglePlayback,

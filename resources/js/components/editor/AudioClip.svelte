@@ -2,8 +2,9 @@
     import { onDestroy } from 'svelte';
     import { Music } from 'lucide-svelte';
     import AudioWaveform from '@/components/editor/AudioWaveform.svelte';
-    import { projectStore } from '@/lib/editor';
+    import { projectStore, timelineStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
+    import { collectSnapPoints, applySnap } from '@/lib/editor/snapping';
     import { cn } from '@/lib/utils';
     import type { AudioClip as AudioClipType } from '@/types';
 
@@ -30,6 +31,14 @@
     let resizeStartX = $state(0);
     let resizeStartMs = $state(0);
     let resizeDurationMs = $state(0);
+    let snapPoints: number[] = [];
+
+    function captureSnapPoints() {
+        snapPoints = collectSnapPoints(projectStore.project, {
+            excludeAudioClipId: clip.id,
+            playheadMs: timelineStore.currentTimeMs,
+        });
+    }
 
     function getAssetName(): string {
         const assets = projectStore.project?.assets ?? [];
@@ -52,6 +61,7 @@
         isDragging = true;
         dragStartX = e.clientX;
         dragStartMs = clip.start_ms;
+        captureSnapPoints();
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
@@ -62,7 +72,19 @@
 
         const deltaX = e.clientX - dragStartX;
         const deltaMs = deltaX / pixelsPerMs;
-        const newStartMs = Math.max(0, dragStartMs + deltaMs);
+        let newStartMs = Math.max(0, dragStartMs + deltaMs);
+
+        if (!e.altKey) {
+            const startSnap = applySnap(newStartMs, snapPoints, pixelsPerMs);
+            if (startSnap.snapped) {
+                newStartMs = startSnap.ms;
+            } else {
+                const endSnap = applySnap(newStartMs + clip.duration_ms, snapPoints, pixelsPerMs);
+                if (endSnap.snapped) {
+                    newStartMs = Math.max(0, endSnap.ms - clip.duration_ms);
+                }
+            }
+        }
 
         onUpdate?.({ start_ms: Math.round(newStartMs) });
     }
@@ -85,6 +107,7 @@
         resizeStartX = e.clientX;
         resizeStartMs = clip.start_ms;
         resizeDurationMs = clip.duration_ms;
+        captureSnapPoints();
 
         window.addEventListener('mousemove', handleTrimLeftMove);
         window.addEventListener('mouseup', handleTrimLeftUp);
@@ -95,7 +118,15 @@
 
         const deltaX = e.clientX - resizeStartX;
         const deltaMs = deltaX / pixelsPerMs;
-        const newStart = Math.max(0, resizeStartMs + deltaMs);
+        let newStart = Math.max(0, resizeStartMs + deltaMs);
+
+        if (!e.altKey) {
+            const snap = applySnap(newStart, snapPoints, pixelsPerMs);
+            if (snap.snapped) {
+                newStart = snap.ms;
+            }
+        }
+
         const newDuration = resizeDurationMs - (newStart - resizeStartMs);
 
         if (newDuration >= 100) {
@@ -122,7 +153,9 @@
         historyStore.beginBatch();
         isResizingRight = true;
         resizeStartX = e.clientX;
+        resizeStartMs = clip.start_ms;
         resizeDurationMs = clip.duration_ms;
+        captureSnapPoints();
 
         window.addEventListener('mousemove', handleTrimRightMove);
         window.addEventListener('mouseup', handleTrimRightUp);
@@ -133,7 +166,16 @@
 
         const deltaX = e.clientX - resizeStartX;
         const deltaMs = deltaX / pixelsPerMs;
-        const newDuration = Math.max(100, resizeDurationMs + deltaMs);
+        let newEndMs = resizeStartMs + resizeDurationMs + deltaMs;
+
+        if (!e.altKey) {
+            const snap = applySnap(newEndMs, snapPoints, pixelsPerMs);
+            if (snap.snapped) {
+                newEndMs = snap.ms;
+            }
+        }
+
+        const newDuration = Math.max(100, newEndMs - resizeStartMs);
 
         onUpdate?.({ duration_ms: Math.round(newDuration) });
     }

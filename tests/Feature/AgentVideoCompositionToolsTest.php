@@ -34,6 +34,25 @@ it('exposes video composition tools on the creator agent and delegates from the 
         ->and($creatorTools->first(fn ($tool) => $tool instanceof RenderVideoProject))->not->toBeNull();
 });
 
+it('documents model quality presets and video templates in agent instructions', function () {
+    $genericInstructions = (string) (new GenericAgent)->instructions();
+    $creatorInstructions = (string) (new CreatorAgent)->instructions();
+
+    expect($genericInstructions)
+        ->toContain('Default quality preset: medium')
+        ->toContain('low (Low / draft)')
+        ->toContain('high (High / premium)')
+        ->toContain('Video template system:')
+        ->toContain('ugc_ad (UGC Ad)')
+        ->toContain('short_drama (Short Drama)')
+        ->toContain('education (Education)')
+        ->toContain('locked_model_plan')
+        ->and($creatorInstructions)
+        ->toContain('Respect GenericAgent\'s locked_model_plan')
+        ->toContain('Do not upgrade, downgrade, substitute, or browse for different models')
+        ->toContain('Avoid premium/pro/top-tier models');
+});
+
 it('creates a user video project from a composition json tool call', function () {
     $user = User::factory()->create();
 

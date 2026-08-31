@@ -76,9 +76,40 @@
         selectionStore.selectScene(displayedScene.id);
     }
 
+    // Keep at least this many canvas pixels of an element visible so it can
+    // always be grabbed again after a drag
+    const MIN_VISIBLE_PX = 40;
+
+    function clampToCanvas(value: number, size: number, canvasSize: number): number {
+        const minVisible = Math.min(MIN_VISIBLE_PX, size);
+        return Math.max(minVisible - size, Math.min(value, canvasSize - minVisible));
+    }
+
+    function clampPositionUpdates<T extends { x: number; y: number; width: number; height: number }>(
+        current: T,
+        updates: Partial<T>,
+    ): Partial<T> {
+        if (!project || (updates.x === undefined && updates.y === undefined)) {
+            return updates;
+        }
+
+        const width = updates.width ?? current.width;
+        const height = updates.height ?? current.height;
+        const clamped = { ...updates };
+
+        if (clamped.x !== undefined) {
+            clamped.x = clampToCanvas(clamped.x, width, project.resolution_width);
+        }
+        if (clamped.y !== undefined) {
+            clamped.y = clampToCanvas(clamped.y, height, project.resolution_height);
+        }
+
+        return clamped;
+    }
+
     function handleLayerUpdate(layer: Layer, updates: Partial<Layer>) {
         if (displayedScene) {
-            projectStore.updateLayer(displayedScene.id, layer.id, updates);
+            projectStore.updateLayer(displayedScene.id, layer.id, clampPositionUpdates(layer, updates));
         }
     }
 
@@ -87,8 +118,8 @@
         selectionStore.selectVideoClip(trackId, clip.id);
     }
 
-    function handleVideoClipUpdate(trackId: string, clipId: string, updates: Partial<VideoClip>) {
-        projectStore.updateVideoClip(trackId, clipId, updates);
+    function handleVideoClipUpdate(trackId: string, clip: VideoClip, updates: Partial<VideoClip>) {
+        projectStore.updateVideoClip(trackId, clip.id, clampPositionUpdates(clip, updates));
     }
 
     let sortedLayers = $derived(
@@ -203,7 +234,7 @@
                     scale={canvasScale}
                     isSelected={selectionStore.selection.videoClipId === clip.id}
                     onclick={(e) => handleVideoClipClick(trackId, clip, e)}
-                    onUpdate={(updates) => handleVideoClipUpdate(trackId, clip.id, updates)}
+                    onUpdate={(updates) => handleVideoClipUpdate(trackId, clip, updates)}
                 />
             {/each}
 

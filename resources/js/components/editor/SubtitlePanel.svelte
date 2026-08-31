@@ -17,12 +17,17 @@
     import { Separator } from '@/components/ui/separator';
     import { Slider } from '@/components/ui/slider';
     import { projectStore, generationTracker } from '@/lib/editor';
+    import {
+        CAPTION_PRESETS,
+        applyCaptionPreset,
+    } from '@/lib/editor/caption-presets';
     import { formatTimelineTime, parseOptionalTimelineTime } from '@/lib/editor/formatting';
     import { appFetch } from '@/lib/http';
     import type {
         Asset,
         SubtitleTrack,
         SubtitleEntry,
+        SubtitleWord,
         SubtitleStyle,
         GenerationStatus,
     } from '@/types';
@@ -33,6 +38,9 @@
     let isGenerating = $state(false);
     let expandedTrackId = $state<string | null>(null);
     let showAssetPicker = $state(false);
+    let errorMessage = $state<string | null>(null);
+
+    const presetList = Object.values(CAPTION_PRESETS);
 
     // Get audio/video assets for transcription
     let mediaAssets = $derived(
@@ -41,15 +49,39 @@
         ),
     );
 
+    type TranscriptionChunk = {
+        text: string;
+        timestamp: [number, number];
+        words?: SubtitleWord[];
+    };
+
     function convertChunksToEntries(
-        chunks: { text: string; timestamp: [number, number] }[],
+        chunks: TranscriptionChunk[],
     ): SubtitleEntry[] {
-        return chunks.map((chunk) => ({
-            id: uuid(),
-            start_ms: Math.round(chunk.timestamp[0] * 1000),
-            end_ms: Math.round(chunk.timestamp[1] * 1000),
-            text: chunk.text.trim(),
-        }));
+        return chunks.map((chunk) => {
+            const words = chunk.words?.map((word) => ({
+                text: word.text,
+                start_ms: word.start_ms,
+                end_ms: word.end_ms,
+            }));
+
+            return {
+                id: uuid(),
+                start_ms: Math.round(chunk.timestamp[0] * 1000),
+                end_ms: Math.round(chunk.timestamp[1] * 1000),
+                text: chunk.text.trim(),
+                ...(words && words.length > 0 ? { words } : {}),
+            };
+        });
+    }
+
+    function applyPreset(trackId: string, presetId: string) {
+        const track = subtitleTracks.find((t) => t.id === trackId);
+        if (track) {
+            projectStore.updateSubtitleTrack(trackId, {
+                style: applyCaptionPreset(track.style, presetId),
+            });
+        }
     }
 
     async function generateSubtitles(asset: Asset) {
@@ -57,6 +89,7 @@
 
         showAssetPicker = false;
         isGenerating = true;
+        errorMessage = null;
 
         try {
             const response = await appFetch(
@@ -85,14 +118,14 @@
                 pollTranscription(data.generation.id, asset.name);
             } else {
                 const error = await response.json();
-                alert(
+                errorMessage =
                     'Transcription failed: ' +
-                        (error.error || 'Unknown error'),
-                );
+                    (error.error || 'Unknown error');
                 isGenerating = false;
             }
         } catch (err) {
             console.error('Transcription failed:', err);
+            errorMessage = 'Transcription failed. Please try again.';
             isGenerating = false;
         }
     }
@@ -106,7 +139,7 @@
 
             if (pollCount > MAX_POLLS) {
                 isGenerating = false;
-                alert('Transcription timed out. Please try again.');
+                errorMessage = 'Transcription timed out. Please try again.';
                 return;
             }
 
@@ -134,22 +167,21 @@
                         });
                         expandedTrackId = track.id;
                     } else {
-                        alert(
-                            'No speech detected in this asset. Try a different audio/video file.',
-                        );
+                        errorMessage =
+                            'No speech detected in this asset. Try a different audio/video file.';
                     }
                 } else if (status === 'failed') {
                     isGenerating = false;
                     generationTracker.remove(generationId);
-                    alert(
+                    errorMessage =
                         'Transcription failed: ' +
-                            (data.generation.error_message || 'Unknown error'),
-                    );
+                        (data.generation.error_message || 'Unknown error');
                 } else {
                     setTimeout(checkStatus, 2000);
                 }
             } catch (err) {
                 console.error('Poll failed:', err);
+                errorMessage = 'Transcription failed. Please try again.';
                 isGenerating = false;
             }
         };
@@ -218,6 +250,10 @@
                 <p class="text-xs text-muted-foreground text-center">
                     Upload an audio or video asset first
                 </p>
+            {/if}
+
+            {#if errorMessage}
+                <p class="text-xs text-destructive">{errorMessage}</p>
             {/if}
         {:else}
             <!-- Asset Picker -->
@@ -312,6 +348,50 @@
 
                 {#if isExpanded}
                     <div class="border-t p-2 space-y-3">
+                        <!-- Preset Picker -->
+                        <div class="space-y-2">
+                            <Label class="text-[10px] font-medium uppercase text-muted-foreground">Preset</Label>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                {#each presetList as preset (preset.id)}
+                                    {@const active = track.style.preset === preset.id}
+                                    <button
+                                        type="button"
+                                        class="flex flex-col items-center justify-center gap-1 rounded-md border p-1.5 transition-colors hover:bg-accent {active ? 'border-primary ring-1 ring-primary' : ''}"
+                                        onclick={() => applyPreset(track.id, preset.id)}
+                                        title={preset.label}
+                                    >
+                                        <span
+                                            class="flex h-7 w-full items-center justify-center rounded font-bold leading-none"
+                                            style:font-family={preset.style.font_family ?? 'Arial, sans-serif'}
+                                            style:font-size="16px"
+                                            style:color={preset.style.font_color}
+                                            style:background-color={preset.style.background_color === 'transparent'
+                                                ? '#0a0a0a'
+                                                : preset.style.background_color}
+                                            style:text-transform={preset.style.text_transform === 'uppercase'
+                                                ? 'uppercase'
+                                                : 'none'}
+                                            style:-webkit-text-stroke={(preset.style.stroke_width ?? 0) > 0
+                                                ? `1px ${preset.style.stroke_color ?? '#000000'}`
+                                                : undefined}
+                                            style:paint-order={(preset.style.stroke_width ?? 0) > 0
+                                                ? 'stroke fill'
+                                                : undefined}
+                                        >
+                                            {#if preset.style.highlight_color}
+                                                <span>A</span><span style:color={preset.style.highlight_color}>a</span>
+                                            {:else}
+                                                Aa
+                                            {/if}
+                                        </span>
+                                        <span class="text-[9px] text-muted-foreground truncate max-w-full">{preset.label}</span>
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+
+                        <Separator />
+
                         <!-- Style Controls -->
                         <div class="space-y-2">
                             <Label class="text-[10px] font-medium uppercase text-muted-foreground">Style</Label>

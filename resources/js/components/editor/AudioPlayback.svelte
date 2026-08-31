@@ -80,6 +80,7 @@
     // Sync playback state
     function syncPlayback() {
         const allClips = getAllClips();
+        let anchored = false;
 
         for (const { track, clip } of allClips) {
             const audio = audioElements.get(clip.id);
@@ -103,6 +104,18 @@
 
                 if (audio.paused) {
                     audio.play().catch(() => {});
+                }
+
+                // Re-anchor the timeline clock to the first actively playing
+                // audio element to reduce drift. Only nudge for small, plausible
+                // deviations (40-200ms); larger gaps are handled by seeking audio.
+                if (!anchored && isPlaying && !audio.paused) {
+                    const impliedMs = clip.start_ms + (audio.currentTime * 1000 - trimStart);
+                    const driftMs = impliedMs - currentTimeMs;
+                    if (Number.isFinite(impliedMs) && Math.abs(driftMs) > 40 && Math.abs(driftMs) < 200) {
+                        timelineStore.syncToClock(impliedMs);
+                        anchored = true;
+                    }
                 }
             } else {
                 if (!audio.paused) {

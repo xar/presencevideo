@@ -124,11 +124,18 @@ export type VideoClip = {
 };
 
 // Subtitle Types
+export type SubtitleWord = {
+    text: string;
+    start_ms: number;
+    end_ms: number;
+};
+
 export type SubtitleEntry = {
     id: string;
     start_ms: number;
     end_ms: number;
     text: string;
+    words?: SubtitleWord[];
 };
 
 export type SubtitleStyle = {
@@ -136,6 +143,12 @@ export type SubtitleStyle = {
     font_color: string;
     background_color: string;
     position: 'top' | 'bottom';
+    preset?: string;
+    font_family?: string;
+    stroke_color?: string;
+    stroke_width?: number;
+    highlight_color?: string;
+    text_transform?: 'none' | 'uppercase';
 };
 
 export type SubtitleTrack = {

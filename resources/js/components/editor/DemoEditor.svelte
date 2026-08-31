@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
     import { ArrowRight, Sparkles, Lock } from 'lucide-svelte';
     import { onMount } from 'svelte';
     import Button from '@/components/ui/button/Button.svelte';
@@ -188,19 +187,19 @@
                 {#if canRegister}
                     <Button size="lg" class="rounded-full h-12 px-8 shadow-lg shadow-primary/20 group" asChild>
                         {#snippet children(props)}
-                            <Link href={toUrl(register())} {...props}>
+                            <a href={toUrl(register())} {...props}>
                                 <Sparkles class="h-4 w-4 mr-2" />
                                 Start Creating Free
                                 <ArrowRight class="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
-                            </Link>
+                            </a>
                         {/snippet}
                     </Button>
                 {/if}
                 <Button variant="outline" size="lg" class="rounded-full h-12 px-8 bg-background/80 backdrop-blur-md" asChild>
                     {#snippet children(props)}
-                        <Link href={toUrl(login())} {...props}>
+                        <a href={toUrl(login())} {...props}>
                             Sign In
-                        </Link>
+                        </a>
                     {/snippet}
                 </Button>
             </div>

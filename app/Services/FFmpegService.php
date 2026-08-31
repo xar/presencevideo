@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Asset;
 use App\Models\Project;
+use App\Services\Subtitles\AssSubtitleBuilder;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
@@ -592,80 +593,37 @@ class FFmpegService
     }
 
     /**
-     * Burn subtitle tracks onto the video using drawtext filters.
+     * Burn subtitle tracks onto the video using a generated ASS subtitle file.
+     *
+     * ASS is used (over drawtext) so we get proper text wrapping, outlines,
+     * background boxes, and word-level karaoke highlighting. The style
+     * font_size maps 1:1 to pixels via PlayResX/PlayResY set to the project
+     * resolution.
      *
      * @param  array<array<string, mixed>>  $subtitleTracks
      */
     public function burnSubtitles(string $inputPath, array $subtitleTracks, Project $project): string
     {
-        $filterParts = [];
-        $videoWidth = $project->resolution_width;
+        $assContent = (new AssSubtitleBuilder)->build(
+            $subtitleTracks,
+            $project->resolution_width,
+            $project->resolution_height,
+        );
 
-        foreach ($subtitleTracks as $track) {
-            $enabled = $track['enabled'] ?? true;
-            if (! $enabled) {
-                continue;
-            }
-
-            $style = $track['style'] ?? [];
-            $fontSize = $style['font_size'] ?? 48;
-            $fontColor = $style['font_color'] ?? 'white';
-            $bgColor = $style['background_color'] ?? '#00000080';
-            $position = $style['position'] ?? 'bottom';
-
-            // Convert hex colors to FFmpeg format
-            $fontColor = $this->hexToFfmpegColor($fontColor);
-            $bgColor = $this->hexToFfmpegColor($bgColor);
-
-            $yExpr = $position === 'top' ? '20' : '(h-text_h-20)';
-
-            // Limit text width to 90% of video width to match preview's max-w-[90%]
-            $maxTextWidth = (int) round($videoWidth * 0.9);
-
-            $entries = $track['entries'] ?? [];
-
-            foreach ($entries as $entry) {
-                $text = $entry['text'] ?? '';
-                if (empty($text)) {
-                    continue;
-                }
-
-                $startSec = ($entry['start_ms'] ?? 0) / 1000;
-                $endSec = ($entry['end_ms'] ?? 0) / 1000;
-
-                // Approximate max chars per line based on video width and font size
-                // Average char width is roughly 0.6 * fontSize for most fonts
-                $avgCharWidth = $fontSize * 0.6;
-                $maxCharsPerLine = max(10, (int) floor($maxTextWidth / $avgCharWidth));
-                $wrappedText = wordwrap($text, $maxCharsPerLine, "\n", true);
-
-                // Escape text for FFmpeg drawtext filter
-                $escapedText = $this->escapeDrawtext($wrappedText);
-
-                // Use x centered, box for background, and line_spacing for readability
-                $filterParts[] = sprintf(
-                    "drawtext=text='%s':fontsize=%d:fontcolor=%s:x=(w-text_w)/2:y=%s:box=1:boxcolor=%s:boxborderw=5:line_spacing=4:enable='between(t\\,%f\\,%f)'",
-                    $escapedText,
-                    $fontSize,
-                    $fontColor,
-                    $yExpr,
-                    $bgColor,
-                    $startSec,
-                    $endSec
-                );
-            }
-        }
-
-        if (empty($filterParts)) {
+        // No renderable subtitles: leave the input untouched.
+        if (! str_contains($assContent, 'Dialogue:')) {
             return $inputPath;
         }
+
+        $assPath = $this->getTempPath('subtitles_'.Str::uuid().'.ass');
+        file_put_contents($assPath, $assContent);
 
         $outputPath = $this->getTempPath('subtitled_'.Str::uuid().'.mp4');
 
         $command = [
             'ffmpeg', '-y',
             '-i', $inputPath,
-            '-vf', implode(',', $filterParts),
+            '-vf', "ass='".$this->escapeAssFilterPath($assPath)."'",
             '-c:v', 'libx264',
             '-profile:v', 'high',
             '-level', '4.0',
@@ -678,6 +636,9 @@ class FFmpegService
 
         $result = Process::timeout(600)->run($command);
 
+        // Always remove the temporary subtitle file.
+        @unlink($assPath);
+
         if (! $result->successful()) {
             throw new \RuntimeException('Subtitle burn failed: '.$result->errorOutput());
         }
@@ -686,6 +647,21 @@ class FFmpegService
         @unlink($inputPath);
 
         return $outputPath;
+    }
+
+    /**
+     * Escape a file path for use inside an ffmpeg filtergraph value.
+     *
+     * Backslashes, colons (option separators), and single quotes (value
+     * delimiters) must be escaped.
+     */
+    protected function escapeAssFilterPath(string $path): string
+    {
+        return str_replace(
+            ['\\', ':', "'"],
+            ['\\\\', '\\:', "\\'"],
+            $path
+        );
     }
 
     /**

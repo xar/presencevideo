@@ -4,11 +4,10 @@ use App\Http\Controllers\Agent\ChatController;
 use App\Http\Controllers\Seo\BlogController;
 use App\Http\Controllers\Seo\ProgrammaticPageController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
+    return view('welcome', [
         'canRegister' => Features::enabled(Features::registration()),
     ]);
 })->name('home');

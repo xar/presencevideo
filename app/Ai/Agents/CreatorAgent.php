@@ -10,6 +10,7 @@ use App\Ai\Tools\GetVideoProject;
 use App\Ai\Tools\ListFalModels;
 use App\Ai\Tools\ListVideoProjectAssets;
 use App\Ai\Tools\RenderVideoProject;
+use App\Ai\VideoTemplateInstructions;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
@@ -52,7 +53,7 @@ class CreatorAgent implements Agent, CanActAsTool, Conversational, HasTools
      */
     public function instructions(): Stringable|string
     {
-        return <<<'INSTRUCTIONS'
+        $instructions = <<<'INSTRUCTIONS'
 You are CreatorAgent, a specialist video composition and generation operator.
 
 Mission:
@@ -68,7 +69,10 @@ Composition standards:
 - Use z_index intentionally, include readable contrast, and keep layer dimensions inside the canvas.
 
 fal.ai generation workflow:
-- Use list_fal_models when the brief does not already specify the best model, or when choosing between image, video, music, speech, SFX, or transcription models.
+- Use list_fal_models only when the brief does not provide a locked model plan, or when choosing between image, video, music, speech, SFX, or transcription models within an unlocked preset.
+- Respect GenericAgent's locked_model_plan. Do not change model_id values after they are passed through.
+- Respect the orchestrator's quality preset before picking model_id: low for cheapest/fastest drafts, medium for balanced default production drafts, high only for final/premium work where cost is justified.
+- Avoid premium/pro/top-tier models unless the brief explicitly chooses high or the user asks for best quality. If the preset is missing, stay medium or lower and prefer balanced models such as fal-ai/flux/dev for images and fal-ai/minimax-video/image-to-video.
 - Use generate_fal_asset for missing media. Choose model_id deliberately and pass parameters_json only with valid, model-relevant parameters.
 - Fal generations are asynchronous. After queueing a generation, return the generation_id and wait for async completion. When re-entered with a completion message, inspect status/output_asset_id, update the composition, queue the next required generation, or render if ready.
 - Only pass scene_id values copied from get_video_project / compose_video_project results. If the scene ID is not a valid project scene UUID, omit scene_id.
@@ -80,7 +84,11 @@ Render workflow:
 Response style:
 - Keep responses concise and action-oriented.
 - After each tool action, report saved IDs: project_id, generation_id, asset_id, render_id, and next step.
+
+{{LOCKED_MODEL_PLAN_INSTRUCTIONS}}
 INSTRUCTIONS;
+
+        return str_replace('{{LOCKED_MODEL_PLAN_INSTRUCTIONS}}', VideoTemplateInstructions::forCreatorAgent(), $instructions);
     }
 
     /**

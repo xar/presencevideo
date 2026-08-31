@@ -48,11 +48,21 @@ class UpdateProjectRequest extends FormRequest
             'subtitle_tracks.*.style.font_color' => ['sometimes', 'string', 'max:20'],
             'subtitle_tracks.*.style.background_color' => ['sometimes', 'string', 'max:20'],
             'subtitle_tracks.*.style.position' => ['sometimes', 'string', 'in:top,bottom'],
+            'subtitle_tracks.*.style.preset' => ['sometimes', 'string', 'max:50'],
+            'subtitle_tracks.*.style.font_family' => ['sometimes', 'string', 'max:100'],
+            'subtitle_tracks.*.style.stroke_color' => ['sometimes', 'string', 'max:20'],
+            'subtitle_tracks.*.style.stroke_width' => ['sometimes', 'numeric', 'min:0', 'max:50'],
+            'subtitle_tracks.*.style.highlight_color' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'subtitle_tracks.*.style.text_transform' => ['sometimes', 'string', 'in:none,uppercase'],
             'subtitle_tracks.*.entries' => ['sometimes', 'array'],
             'subtitle_tracks.*.entries.*.id' => ['required_with:subtitle_tracks.*.entries', 'string', 'uuid'],
             'subtitle_tracks.*.entries.*.start_ms' => ['required_with:subtitle_tracks.*.entries', 'integer', 'min:0'],
             'subtitle_tracks.*.entries.*.end_ms' => ['required_with:subtitle_tracks.*.entries', 'integer', 'min:0'],
             'subtitle_tracks.*.entries.*.text' => ['required_with:subtitle_tracks.*.entries', 'string', 'max:500'],
+            'subtitle_tracks.*.entries.*.words' => ['sometimes', 'array'],
+            'subtitle_tracks.*.entries.*.words.*.text' => ['required_with:subtitle_tracks.*.entries.*.words', 'string', 'max:200'],
+            'subtitle_tracks.*.entries.*.words.*.start_ms' => ['required_with:subtitle_tracks.*.entries.*.words', 'integer', 'min:0'],
+            'subtitle_tracks.*.entries.*.words.*.end_ms' => ['required_with:subtitle_tracks.*.entries.*.words', 'integer', 'min:0'],
         ];
     }
 

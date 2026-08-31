@@ -1,3 +1,4 @@
+import { v4 as uuid } from 'uuid';
 import type {
     Selection,
     Tool,
@@ -6,7 +7,9 @@ import type {
     VideoClip,
     Scene,
 } from '@/types';
+import { historyStore } from './history.svelte';
 import { projectStore } from './project.svelte';
+import { timelineStore } from './timeline.svelte';
 import { getAudioClipById, getLayerById, getSceneById, getVideoClipById } from './selectors';
 
 export type SelectionStore = {
@@ -23,6 +26,9 @@ export type SelectionStore = {
     getSelectedAudioClip: () => { trackId: string; clip: AudioClip } | null;
     getSelectedVideoClip: () => { trackId: string; clip: VideoClip } | null;
     deleteSelected: () => void;
+    duplicateSelected: () => void;
+    splitSelectedAtPlayhead: () => void;
+    nudgeSelected: (dx: number, dy: number) => boolean;
     validateSelection: () => void;
 };
 
@@ -220,6 +226,192 @@ function deleteSelected(): void {
     }
 }
 
+function duplicateSelected(): void {
+    const p = projectStore.project;
+    if (!p) return;
+
+    if (selection.type === 'scene' && selection.sceneId) {
+        const scene = getSceneById(p, selection.sceneId);
+        if (!scene) return;
+
+        const index = p.scenes.findIndex((s) => s.id === scene.id);
+        const clone = structuredClone($state.snapshot(scene)) as Scene;
+        const { id: _id, ...rest } = clone;
+
+        historyStore.beginBatch();
+        const newScene = projectStore.addScene({
+            ...rest,
+            name: `${scene.name} copy`,
+            layers: clone.layers.map((layer) => ({ ...layer, id: uuid() })),
+        });
+        projectStore.reorderScenes(
+            projectStore.project!.scenes.length - 1,
+            index + 1,
+        );
+        historyStore.endBatch();
+
+        selectScene(newScene.id);
+    } else if (
+        selection.type === 'layer' &&
+        selection.sceneId &&
+        selection.layerId
+    ) {
+        const layer = getSelectedLayer();
+        if (!layer) return;
+
+        const clone = structuredClone($state.snapshot(layer)) as Layer;
+        const { id: _id, z_index: _z, ...rest } = clone;
+
+        const newLayer = projectStore.addLayer(selection.sceneId, {
+            ...rest,
+            x: clone.x + 20,
+            y: clone.y + 20,
+        } as Partial<Layer>);
+
+        selectLayer(selection.sceneId, newLayer.id);
+    } else if (
+        selection.type === 'audio_clip' &&
+        selection.audioTrackId &&
+        selection.audioClipId
+    ) {
+        const selected = getSelectedAudioClip();
+        if (!selected) return;
+
+        const clone = structuredClone($state.snapshot(selected.clip)) as AudioClip;
+        const { id: _id, ...rest } = clone;
+
+        const newClip = projectStore.addAudioClip(selected.trackId, {
+            ...rest,
+            start_ms: clone.start_ms + clone.duration_ms,
+        });
+
+        selectAudioClip(selected.trackId, newClip.id);
+    } else if (
+        selection.type === 'video_clip' &&
+        selection.videoTrackId &&
+        selection.videoClipId
+    ) {
+        const selected = getSelectedVideoClip();
+        if (!selected) return;
+
+        const clone = structuredClone($state.snapshot(selected.clip)) as VideoClip;
+        const { id: _id, ...rest } = clone;
+
+        const newClip = projectStore.addVideoClip(selected.trackId, {
+            ...rest,
+            start_ms: clone.start_ms + clone.duration_ms,
+        });
+
+        selectVideoClip(selected.trackId, newClip.id);
+    }
+}
+
+/**
+ * Split the selected video/audio clip at the current playhead position into two
+ * clips as a single undo step, then select the right-hand clip. No-ops when the
+ * selection is not a clip or the playhead is not strictly inside it.
+ */
+function splitSelectedAtPlayhead(): void {
+    const atMs = timelineStore.currentTimeMs;
+
+    if (
+        selection.type === 'video_clip' &&
+        selection.videoTrackId &&
+        selection.videoClipId
+    ) {
+        const selected = getSelectedVideoClip();
+        if (!selected) return;
+
+        const { trackId, clip } = selected;
+        if (atMs <= clip.start_ms || atMs >= clip.start_ms + clip.duration_ms) {
+            return;
+        }
+
+        historyStore.beginBatch();
+        const newClip = projectStore.splitVideoClip(trackId, clip.id, atMs);
+        historyStore.endBatch();
+
+        if (newClip) {
+            selectVideoClip(trackId, newClip.id);
+        }
+    } else if (
+        selection.type === 'audio_clip' &&
+        selection.audioTrackId &&
+        selection.audioClipId
+    ) {
+        const selected = getSelectedAudioClip();
+        if (!selected) return;
+
+        const { trackId, clip } = selected;
+        if (atMs <= clip.start_ms || atMs >= clip.start_ms + clip.duration_ms) {
+            return;
+        }
+
+        historyStore.beginBatch();
+        const newClip = projectStore.splitAudioClip(trackId, clip.id, atMs);
+        historyStore.endBatch();
+
+        if (newClip) {
+            selectAudioClip(trackId, newClip.id);
+        }
+    }
+}
+
+/**
+ * Move the selected element by dx/dy pixels (layers, video clips) or shift
+ * the selected audio clip on the timeline (100ms per dx unit).
+ * Returns false when nothing movable is selected so callers can fall back
+ * to another action (e.g. timeline seeking).
+ */
+function nudgeSelected(dx: number, dy: number): boolean {
+    if (
+        selection.type === 'layer' &&
+        selection.sceneId &&
+        selection.layerId
+    ) {
+        const layer = getSelectedLayer();
+        if (!layer) return false;
+
+        projectStore.updateLayer(selection.sceneId, selection.layerId, {
+            x: layer.x + dx,
+            y: layer.y + dy,
+        });
+        return true;
+    }
+
+    if (
+        selection.type === 'video_clip' &&
+        selection.videoTrackId &&
+        selection.videoClipId
+    ) {
+        const selected = getSelectedVideoClip();
+        if (!selected) return false;
+
+        projectStore.updateVideoClip(selection.videoTrackId, selection.videoClipId, {
+            x: selected.clip.x + dx,
+            y: selected.clip.y + dy,
+        });
+        return true;
+    }
+
+    if (
+        selection.type === 'audio_clip' &&
+        selection.audioTrackId &&
+        selection.audioClipId &&
+        dx !== 0
+    ) {
+        const selected = getSelectedAudioClip();
+        if (!selected) return false;
+
+        projectStore.updateAudioClip(selection.audioTrackId, selection.audioClipId, {
+            start_ms: Math.max(0, selected.clip.start_ms + dx * 100),
+        });
+        return true;
+    }
+
+    return false;
+}
+
 export function createSelectionStore(): SelectionStore {
     return {
         get selection() {
@@ -239,6 +431,9 @@ export function createSelectionStore(): SelectionStore {
         getSelectedAudioClip,
         getSelectedVideoClip,
         deleteSelected,
+        duplicateSelected,
+        splitSelectedAtPlayhead,
+        nudgeSelected,
         validateSelection,
     };
 }

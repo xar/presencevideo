@@ -1,6 +1,5 @@
 <script lang="ts">
     import { ImageIcon, Video } from 'lucide-svelte';
-    import { createVideoFrameBlobs } from '@/lib/editor/mediabunny';
     import type { Asset, Scene } from '@/types';
 
     const THUMBNAIL_TILE_WIDTH = 80;
@@ -77,9 +76,10 @@
             return (trimStartMs + usableDurationMs * progress) / 1000;
         });
 
-        void createVideoFrameBlobs(assetUrl, timestamps, 180)
+        // Lazy-load mediabunny so the heavy media library stays out of the initial bundle
+        void import('@/lib/editor/mediabunny')
+            .then(({ createVideoFrameBlobs }) => createVideoFrameBlobs(assetUrl, timestamps, 180))
             .then((blobs) => {
-                console.log(blobs, cancelled, assetUrl)
                 if (cancelled) return;
 
                 const urls = blobs.filter((blob): blob is Blob => Boolean(blob)).map((blob) => URL.createObjectURL(blob));

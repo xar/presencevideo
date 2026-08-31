@@ -52,6 +52,16 @@ export type ProjectStore = {
         updates: Partial<VideoClip>,
     ) => void;
     deleteVideoClip: (trackId: string, clipId: string) => void;
+    splitVideoClip: (
+        trackId: string,
+        clipId: string,
+        atMs: number,
+    ) => VideoClip | null;
+    splitAudioClip: (
+        trackId: string,
+        clipId: string,
+        atMs: number,
+    ) => AudioClip | null;
     addSubtitleTrack: (track?: Partial<SubtitleTrack>) => SubtitleTrack;
     updateSubtitleTrack: (
         trackId: string,
@@ -411,6 +421,100 @@ function deleteVideoClip(trackId: string, clipId: string): void {
     });
 }
 
+/**
+ * Split a video clip at an absolute timeline position (ms). The left clip keeps
+ * the original id; the right clip receives a new id and, for media clips, an
+ * adjusted trim_start_ms so its content stays continuous. Text clips split
+ * without trim adjustment. Returns the new right-hand clip, or null if atMs is
+ * not strictly inside the clip.
+ */
+function splitVideoClip(
+    trackId: string,
+    clipId: string,
+    atMs: number,
+): VideoClip | null {
+    if (!project) return null;
+
+    const track = project.video_tracks.find((t) => t.id === trackId);
+    if (!track) return null;
+
+    const clip = track.clips.find((c) => c.id === clipId);
+    if (!clip) return null;
+
+    const end = clip.start_ms + clip.duration_ms;
+    if (atMs <= clip.start_ms || atMs >= end) return null;
+
+    const leftDuration = atMs - clip.start_ms;
+    const rightDuration = end - atMs;
+
+    const snapshot = structuredClone($state.snapshot(clip)) as VideoClip;
+    const rightClip: VideoClip = {
+        ...snapshot,
+        id: uuid(),
+        start_ms: atMs,
+        duration_ms: rightDuration,
+    };
+
+    if (clip.type !== 'text') {
+        rightClip.trim_start_ms = (clip.trim_start_ms ?? 0) + leftDuration;
+    }
+
+    updateVideoTrack(trackId, {
+        clips: track.clips.flatMap((c) =>
+            c.id === clipId
+                ? [{ ...c, duration_ms: leftDuration }, rightClip]
+                : [c],
+        ),
+    });
+
+    return rightClip;
+}
+
+/**
+ * Split an audio clip at an absolute timeline position (ms). The left clip keeps
+ * the original id; the right clip receives a new id and an adjusted
+ * trim_start_ms so its content stays continuous. Returns the new right-hand
+ * clip, or null if atMs is not strictly inside the clip.
+ */
+function splitAudioClip(
+    trackId: string,
+    clipId: string,
+    atMs: number,
+): AudioClip | null {
+    if (!project) return null;
+
+    const track = project.audio_tracks.find((t) => t.id === trackId);
+    if (!track) return null;
+
+    const clip = track.clips.find((c) => c.id === clipId);
+    if (!clip) return null;
+
+    const end = clip.start_ms + clip.duration_ms;
+    if (atMs <= clip.start_ms || atMs >= end) return null;
+
+    const leftDuration = atMs - clip.start_ms;
+    const rightDuration = end - atMs;
+
+    const snapshot = structuredClone($state.snapshot(clip)) as AudioClip;
+    const rightClip: AudioClip = {
+        ...snapshot,
+        id: uuid(),
+        start_ms: atMs,
+        duration_ms: rightDuration,
+        trim_start_ms: (clip.trim_start_ms ?? 0) + leftDuration,
+    };
+
+    updateAudioTrack(trackId, {
+        clips: track.clips.flatMap((c) =>
+            c.id === clipId
+                ? [{ ...c, duration_ms: leftDuration }, rightClip]
+                : [c],
+        ),
+    });
+
+    return rightClip;
+}
+
 function addSubtitleTrack(trackData?: Partial<SubtitleTrack>): SubtitleTrack {
     if (!project) throw new Error('No project loaded');
 
@@ -613,6 +717,8 @@ export function createProjectStore(): ProjectStore {
         addVideoClip,
         updateVideoClip,
         deleteVideoClip,
+        splitVideoClip,
+        splitAudioClip,
         addSubtitleTrack,
         updateSubtitleTrack,
         deleteSubtitleTrack,

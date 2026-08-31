@@ -7,6 +7,8 @@ test('blog index renders server side meta tags', function () {
         ->assertSee('<title>Blog | usekeyframes.com</title>', false)
         ->assertSee('<meta name="description" content="Guides and resources for creating better videos faster with AI-assisted editing workflows.">', false)
         ->assertSee('<link rel="canonical" href="'.route('seo.blog.index').'">', false)
+        ->assertSee('usekeyframes.com')
+        ->assertSee('Get Started')
         ->assertSee('Video editing guides and growth resources');
 });
 

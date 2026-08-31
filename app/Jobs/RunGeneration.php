@@ -51,6 +51,7 @@ class RunGeneration implements ShouldQueue
                         [
                             'transcription_text' => $result->transcriptionText,
                             'transcription_chunks' => $result->transcriptionChunks,
+                            'transcription_words' => $result->transcriptionWords ?? [],
                         ]
                     );
                 }

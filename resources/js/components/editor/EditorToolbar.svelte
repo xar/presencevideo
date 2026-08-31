@@ -8,11 +8,13 @@
         MousePointer2,
         Type,
         Hand,
+        Scissors,
         ChevronLeft,
         X,
         Code,
         FileDown,
         FileUp,
+        Keyboard,
         SquareTerminal,
     } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
@@ -33,8 +35,10 @@
 
     let {
         jsonEditorOpen = $bindable(false),
+        shortcutsOpen = $bindable(false),
     }: {
         jsonEditorOpen?: boolean;
+        shortcutsOpen?: boolean;
     } = $props();
 
     let showSavedMessage = $state(false);
@@ -208,6 +212,22 @@
                 </TooltipTrigger>
                 <TooltipContent>Pan Tool (H)</TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+                <TooltipTrigger>
+                    {#snippet child({ props })}
+                        <Button
+                            {...props}
+                            variant="ghost"
+                            size="icon"
+                            onclick={() => selectionStore.splitSelectedAtPlayhead()}
+                        >
+                            <Scissors class="h-4 w-4" />
+                        </Button>
+                    {/snippet}
+                </TooltipTrigger>
+                <TooltipContent>Split Clip at Playhead (S)</TooltipContent>
+            </Tooltip>
         </div>
 
         <Separator orientation="vertical" class="h-6" />
@@ -332,6 +352,17 @@
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            <Tooltip>
+                <TooltipTrigger>
+                    {#snippet child({ props })}
+                        <Button {...props} variant="ghost" size="icon" onclick={() => (shortcutsOpen = true)}>
+                            <Keyboard class="h-4 w-4" />
+                        </Button>
+                    {/snippet}
+                </TooltipTrigger>
+                <TooltipContent>Keyboard Shortcuts (?)</TooltipContent>
+            </Tooltip>
         </div>
     </TooltipProvider>
 </div>

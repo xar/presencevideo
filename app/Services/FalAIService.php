@@ -304,8 +304,15 @@ class FalAIService
 
         $audioUrl = $this->getPublicUrl($inputAsset);
 
+        // Request word-level chunks so we can build karaoke captions and
+        // regroup words into readable caption segments server-side. Wizper
+        // (Whisper v3 Large) accepts the Whisper input schema including
+        // chunk_level. See https://fal.ai/models/fal-ai/wizper
         $input = array_merge(
-            ['audio_url' => $audioUrl],
+            [
+                'audio_url' => $audioUrl,
+                'chunk_level' => 'word',
+            ],
             $generation->parameters
         );
 
@@ -328,17 +335,164 @@ class FalAIService
     protected function processTranscriptionResult(array $result): GenerationResult
     {
         $text = $result['text'] ?? '';
-        $chunks = $result['chunks'] ?? [];
+        $rawChunks = $result['chunks'] ?? [];
 
-        if (empty($text) && empty($chunks)) {
+        if (empty($text) && empty($rawChunks)) {
             return GenerationResult::failed('No transcription generated');
         }
+
+        [$chunks, $words] = $this->buildCaptionData($rawChunks);
 
         return GenerationResult::transcription(
             $text,
             $chunks,
+            $words,
             $result['request_id'] ?? null,
         );
+    }
+
+    /**
+     * Build caption segment chunks (each with optional attached word timings)
+     * and a flat list of words from raw fal transcription chunks.
+     *
+     * When the API returns word-level chunks (chunk_level=word) each chunk is a
+     * single token, which we regroup into readable caption segments by breaking
+     * at pauses longer than 0.6s or when a segment would exceed ~42 characters.
+     * When it returns segment-level chunks, they pass through unchanged with no
+     * word timings.
+     *
+     * @param  array<int, array{text?: string, timestamp?: array{0?: int|float|null, 1?: int|float|null}}>  $rawChunks
+     * @return array{0: array<int, array{text: string, timestamp: array{0: float, 1: float}, words?: array<int, array{text: string, start_ms: int, end_ms: int}>}>, 1: array<int, array{text: string, start_ms: int, end_ms: int}>}
+     */
+    protected function buildCaptionData(array $rawChunks): array
+    {
+        $isWordLevel = true;
+        foreach ($rawChunks as $chunk) {
+            $chunkText = trim((string) ($chunk['text'] ?? ''));
+            if ($chunkText !== '' && preg_match('/\s/', $chunkText) === 1) {
+                $isWordLevel = false;
+                break;
+            }
+        }
+
+        if (! $isWordLevel) {
+            $chunks = [];
+            foreach ($rawChunks as $chunk) {
+                $chunkText = trim((string) ($chunk['text'] ?? ''));
+                if ($chunkText === '') {
+                    continue;
+                }
+                $timestamp = $chunk['timestamp'] ?? [0, 0];
+                $chunks[] = [
+                    'text' => $chunkText,
+                    'timestamp' => [
+                        (float) ($timestamp[0] ?? 0),
+                        (float) ($timestamp[1] ?? 0),
+                    ],
+                ];
+            }
+
+            return [$chunks, []];
+        }
+
+        // Word-level: build a flat word list first.
+        $words = [];
+        $lastEndMs = 0;
+        foreach ($rawChunks as $chunk) {
+            $wordText = trim((string) ($chunk['text'] ?? ''));
+            if ($wordText === '') {
+                continue;
+            }
+            $timestamp = $chunk['timestamp'] ?? null;
+            $startSec = isset($timestamp[0]) && $timestamp[0] !== null ? (float) $timestamp[0] : null;
+            $endSec = isset($timestamp[1]) && $timestamp[1] !== null ? (float) $timestamp[1] : null;
+
+            $startMs = $startSec !== null ? (int) round($startSec * 1000) : $lastEndMs;
+            $endMs = $endSec !== null ? (int) round($endSec * 1000) : $startMs;
+            if ($endMs < $startMs) {
+                $endMs = $startMs;
+            }
+            $lastEndMs = $endMs;
+
+            $words[] = [
+                'text' => $wordText,
+                'start_ms' => $startMs,
+                'end_ms' => $endMs,
+            ];
+        }
+
+        $chunks = $this->groupWordsIntoSegments($words);
+
+        return [$chunks, $words];
+    }
+
+    /**
+     * Group word timings into readable caption segments, breaking at pauses
+     * longer than 0.6s or when a segment would exceed ~42 characters.
+     *
+     * @param  array<int, array{text: string, start_ms: int, end_ms: int}>  $words
+     * @return array<int, array{text: string, timestamp: array{0: float, 1: float}, words: array<int, array{text: string, start_ms: int, end_ms: int}>}>
+     */
+    protected function groupWordsIntoSegments(array $words): array
+    {
+        $gapThresholdMs = 600;
+        $maxChars = 42;
+
+        $segments = [];
+        $currentWords = [];
+        $currentText = '';
+        $currentEndMs = 0;
+
+        foreach ($words as $word) {
+            if ($currentWords === []) {
+                $currentWords = [$word];
+                $currentText = $word['text'];
+                $currentEndMs = $word['end_ms'];
+
+                continue;
+            }
+
+            $gap = $word['start_ms'] - $currentEndMs;
+            $candidateLength = mb_strlen($currentText) + 1 + mb_strlen($word['text']);
+
+            if ($gap > $gapThresholdMs || $candidateLength > $maxChars) {
+                $segments[] = $this->buildSegment($currentWords, $currentText);
+                $currentWords = [$word];
+                $currentText = $word['text'];
+                $currentEndMs = $word['end_ms'];
+
+                continue;
+            }
+
+            $currentWords[] = $word;
+            $currentText .= ' '.$word['text'];
+            $currentEndMs = $word['end_ms'];
+        }
+
+        if ($currentWords !== []) {
+            $segments[] = $this->buildSegment($currentWords, $currentText);
+        }
+
+        return $segments;
+    }
+
+    /**
+     * @param  array<int, array{text: string, start_ms: int, end_ms: int}>  $words
+     * @return array{text: string, timestamp: array{0: float, 1: float}, words: array<int, array{text: string, start_ms: int, end_ms: int}>}
+     */
+    protected function buildSegment(array $words, string $text): array
+    {
+        $first = $words[array_key_first($words)];
+        $last = $words[array_key_last($words)];
+
+        return [
+            'text' => $text,
+            'timestamp' => [
+                $first['start_ms'] / 1000,
+                $last['end_ms'] / 1000,
+            ],
+            'words' => array_values($words),
+        ];
     }
 
     /**
@@ -705,8 +859,10 @@ class GenerationResult
         public array $alternatives = [],
         public ?string $error = null,
         public ?string $transcriptionText = null,
-        /** @var array<array{text: string, timestamp: array{0: float, 1: float}}>|null */
+        /** @var array<array{text: string, timestamp: array{0: float, 1: float}, words?: array<array{text: string, start_ms: int, end_ms: int}>}>|null */
         public ?array $transcriptionChunks = null,
+        /** @var array<array{text: string, start_ms: int, end_ms: int}>|null */
+        public ?array $transcriptionWords = null,
     ) {}
 
     /**
@@ -723,15 +879,17 @@ class GenerationResult
     }
 
     /**
-     * @param  array<array{text: string, timestamp: array{0: float, 1: float}}>  $chunks
+     * @param  array<array{text: string, timestamp: array{0: float, 1: float}, words?: array<array{text: string, start_ms: int, end_ms: int}>}>  $chunks
+     * @param  array<array{text: string, start_ms: int, end_ms: int}>  $words
      */
-    public static function transcription(string $text, array $chunks, ?string $requestId = null): self
+    public static function transcription(string $text, array $chunks, array $words = [], ?string $requestId = null): self
     {
         return new self(
             success: true,
             requestId: $requestId,
             transcriptionText: $text,
             transcriptionChunks: $chunks,
+            transcriptionWords: $words,
         );
     }
 }

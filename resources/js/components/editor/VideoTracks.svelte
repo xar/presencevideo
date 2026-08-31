@@ -4,6 +4,7 @@
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import type { VideoTrack as VideoTrackType, VideoClip as VideoClipType, Asset } from '@/types';
     import VideoClip from './VideoClip.svelte';
+    import TimelinePlayhead from './TimelinePlayhead.svelte';
 
     let videoTracks = $derived(projectStore.project?.video_tracks ?? []);
     let totalDuration = $derived(timelineStore.getTotalDuration());
@@ -53,6 +54,37 @@
         if (e.dataTransfer) {
             e.dataTransfer.dropEffect = 'copy';
         }
+    }
+
+    let isScrubbing = $state(false);
+
+    function seekFromMouse(e: MouseEvent) {
+        if (!totalDuration) return;
+
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, totalDuration * pixelsPerMs));
+        timelineStore.setCurrentTime(x / pixelsPerMs);
+    }
+
+    // Scrub only for gestures starting on empty track space — clip drags and
+    // trims passing over the track must not seek
+    function handleTimelineMouseDown(e: MouseEvent) {
+        if (e.target !== e.currentTarget) return;
+
+        isScrubbing = true;
+        seekFromMouse(e);
+        window.addEventListener('mouseup', endScrub);
+    }
+
+    function handleTimelineMouseMove(e: MouseEvent) {
+        if (isScrubbing && e.buttons === 1) {
+            seekFromMouse(e);
+        }
+    }
+
+    function endScrub() {
+        isScrubbing = false;
+        window.removeEventListener('mouseup', endScrub);
     }
 
     function handleDrop(trackId: string, e: DragEvent) {
@@ -139,9 +171,13 @@
                 tabindex="0"
             >
                 <div
-                    class="absolute inset-0"
+                    class="absolute inset-0 cursor-pointer"
                     style:width="{totalDuration * pixelsPerMs}px"
+                    onmousedown={handleTimelineMouseDown}
+                    onmousemove={handleTimelineMouseMove}
+                    role="presentation"
                 >
+                    <TimelinePlayhead />
                     {#each track.clips as clip (clip.id)}
                         <VideoClip
                             {clip}
