@@ -46,6 +46,24 @@ class SceneBuilder
         ]);
     }
 
+    /**
+     * Add a shape layer: `rectangle`, `ellipse` or `line` (a thin bar).
+     */
+    public function shape(string $shape = 'rectangle', string $fillColor = '#ffffff'): LayerBuilder
+    {
+        return $this->addLayer([
+            'id' => (string) Str::uuid(),
+            'type' => 'shape',
+            'shape' => $shape,
+            'fill_color' => $fillColor,
+            'x' => 0,
+            'y' => 0,
+            'width' => (int) round($this->project->resolution_width * 0.4),
+            'height' => $shape === 'line' ? 8 : (int) round($this->project->resolution_height * 0.25),
+            'z_index' => count($this->scene['layers'] ?? []),
+        ]);
+    }
+
     public function image(Asset|int $asset): LayerBuilder
     {
         return $this->assetLayer('image', $asset);

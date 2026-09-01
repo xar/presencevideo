@@ -1,3 +1,12 @@
+import { historyStore  } from './history.svelte';
+import type {TransactionHandle} from './history.svelte';
+import {
+    createPointerGesture
+    
+    
+} from './usePointerGesture.svelte';
+import type {GesturePoint, PointerGesture} from './usePointerGesture.svelte';
+
 type Position = {
     x: number;
     y: number;
@@ -5,12 +14,33 @@ type Position = {
     height: number;
 };
 
+export type SnapRequest = {
+    /** The unsnapped rect the raw pointer delta produced, in project px. */
+    rect: Position;
+    mode: 'move' | 'resize';
+    /** Resize handle name ('top-left', 'right', …), null while moving. */
+    handle: string | null;
+    /** Shift is held, so the gesture is aspect-locked. */
+    aspectLocked: boolean;
+    /** Alt/Option is held — the user is explicitly asking for no snapping. */
+    disabled: boolean;
+};
+
 type DragResizeOptions = {
     getPosition: () => Position;
     onUpdate: (updates: Partial<Position>) => void;
     scale?: () => number;
-    minWidth?: number;
-    minHeight?: number;
+    minWidth?: number | (() => number);
+    minHeight?: number | (() => number);
+    /**
+     * Optional alignment pass. Receives the raw rect and returns the rect to
+     * actually commit; implementations also publish their guide lines.
+     */
+    snap?: (request: SnapRequest) => Position;
+    /** Called once when a drag/resize actually begins. */
+    onGestureStart?: () => void;
+    /** Called exactly once when the gesture ends or is cancelled (clear guides, etc.). */
+    onGestureEnd?: () => void;
 };
 
 type DragResizeState = {
@@ -21,166 +51,180 @@ type DragResizeState = {
     cleanup: () => void;
 };
 
-export function useDragResize(options: DragResizeOptions): DragResizeState {
-    const minW = options.minWidth ?? 20;
-    const minH = options.minHeight ?? 20;
+type GestureState = {
+    handle: string | null;
+    originX: number;
+    originY: number;
+    pos: Position;
+    tx: TransactionHandle;
+};
 
+/**
+ * Move/resize for a rectangle on the scene canvas. Built on the shared
+ * pointer-gesture core and owns its own undo transaction, so callers only
+ * describe geometry.
+ */
+export function useDragResize(options: DragResizeOptions): DragResizeState {
+    const resolve = (value: number | (() => number) | undefined, fallback: number) =>
+        typeof value === 'function' ? value() : (value ?? fallback);
+
+    let pendingHandle: string | null = null;
+    let activeHandle = $state<string | null>(null);
     let isDragging = $state(false);
-    let isResizing = $state<string | null>(null);
-    let dragStart = { x: 0, y: 0, posX: 0, posY: 0, posW: 0, posH: 0 };
+
+    const gesture: PointerGesture = createPointerGesture<GestureState>({
+        onStart(e) {
+            const handle = pendingHandle;
+            if (handle !== null) e.preventDefault();
+
+            isDragging = handle === null;
+            activeHandle = handle;
+            options.onGestureStart?.();
+
+            return {
+                handle,
+                originX: e.clientX,
+                originY: e.clientY,
+                pos: { ...options.getPosition() },
+                tx: historyStore.beginTransaction(),
+            };
+        },
+        onMove(point, state) {
+            if (state.handle === null) {
+                applyMove(point, state);
+            } else {
+                applyResize(point, state, state.handle);
+            }
+        },
+        onEnd(_point, state) {
+            isDragging = false;
+            activeHandle = null;
+            try {
+                options.onGestureEnd?.();
+            } finally {
+                state.tx.end();
+            }
+        },
+    });
 
     function getScale(): number {
         return options.scale?.() ?? 1;
     }
 
-    function handleMouseDown(e: MouseEvent) {
-        if (e.button !== 0 || isResizing) return;
-        e.stopPropagation();
+    function runSnap(rect: Position, mode: 'move' | 'resize', handle: string | null, point: GesturePoint): Position {
+        if (!options.snap) return rect;
 
-        const pos = options.getPosition();
-        isDragging = true;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            posX: pos.x,
-            posY: pos.y,
-            posW: pos.width,
-            posH: pos.height,
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        return options.snap({
+            rect,
+            mode,
+            handle,
+            aspectLocked: point.shiftKey,
+            disabled: point.altKey,
+        });
     }
 
-    function handleMouseMove(e: MouseEvent) {
+    function applyMove(point: GesturePoint, state: GestureState) {
         const s = getScale();
+        const deltaX = (point.clientX - state.originX) / s;
+        const deltaY = (point.clientY - state.originY) / s;
 
-        if (isDragging) {
-            const deltaX = (e.clientX - dragStart.x) / s;
-            const deltaY = (e.clientY - dragStart.y) / s;
+        const snapped = runSnap(
+            {
+                x: state.pos.x + deltaX,
+                y: state.pos.y + deltaY,
+                width: state.pos.width,
+                height: state.pos.height,
+            },
+            'move',
+            null,
+            point,
+        );
 
-            options.onUpdate({
-                x: Math.round(dragStart.posX + deltaX),
-                y: Math.round(dragStart.posY + deltaY),
-            });
-        } else if (isResizing) {
-            const deltaX = (e.clientX - dragStart.x) / s;
-            const deltaY = (e.clientY - dragStart.y) / s;
+        options.onUpdate({ x: Math.round(snapped.x), y: Math.round(snapped.y) });
+    }
 
-            let newX = dragStart.posX;
-            let newY = dragStart.posY;
-            let newW = dragStart.posW;
-            let newH = dragStart.posH;
+    function applyResize(point: GesturePoint, state: GestureState, handle: string) {
+        const s = getScale();
+        const deltaX = (point.clientX - state.originX) / s;
+        const deltaY = (point.clientY - state.originY) / s;
+        const { x: posX, y: posY, width: posW, height: posH } = state.pos;
+        const minW = resolve(options.minWidth, 20);
+        const minH = resolve(options.minHeight, 20);
 
-            if (isResizing.includes('left')) {
-                newX = dragStart.posX + deltaX;
-                newW = dragStart.posW - deltaX;
-            }
-            if (isResizing.includes('right')) {
-                newW = dragStart.posW + deltaX;
-            }
-            if (isResizing.includes('top')) {
-                newY = dragStart.posY + deltaY;
-                newH = dragStart.posH - deltaY;
-            }
-            if (isResizing.includes('bottom')) {
-                newH = dragStart.posH + deltaY;
-            }
+        let newX = posX;
+        let newY = posY;
+        let newW = posW;
+        let newH = posH;
 
-            if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
-                const aspectRatio = dragStart.posW / dragStart.posH;
-                const handle = isResizing;
-                const isHorizontalHandle =
-                    handle === 'left' || handle === 'right';
-                const isVerticalHandle =
-                    handle === 'top' || handle === 'bottom';
-
-                if (
-                    isHorizontalHandle ||
-                    Math.abs(newW - dragStart.posW) >=
-                        Math.abs(newH - dragStart.posH)
-                ) {
-                    newH = newW / aspectRatio;
-                } else if (
-                    isVerticalHandle ||
-                    Math.abs(newH - dragStart.posH) >
-                        Math.abs(newW - dragStart.posW)
-                ) {
-                    newW = newH * aspectRatio;
-                }
-
-                if (handle.includes('left')) {
-                    newX = dragStart.posX + dragStart.posW - newW;
-                }
-
-                if (handle.includes('top')) {
-                    newY = dragStart.posY + dragStart.posH - newH;
-                }
-            }
-
-            if (newW < minW) {
-                if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
-                    newH = minW / (dragStart.posW / dragStart.posH);
-                }
-                if (isResizing.includes('left')) {
-                    newX = dragStart.posX + dragStart.posW - minW;
-                }
-                if (isResizing.includes('top') && e.shiftKey) {
-                    newY = dragStart.posY + dragStart.posH - newH;
-                }
-                newW = minW;
-            }
-            if (newH < minH) {
-                if (e.shiftKey && dragStart.posW > 0 && dragStart.posH > 0) {
-                    newW = minH * (dragStart.posW / dragStart.posH);
-                }
-                if (isResizing.includes('top')) {
-                    newY = dragStart.posY + dragStart.posH - minH;
-                }
-                if (isResizing.includes('left') && e.shiftKey) {
-                    newX = dragStart.posX + dragStart.posW - newW;
-                }
-                newH = minH;
-            }
-
-            options.onUpdate({
-                x: Math.round(newX),
-                y: Math.round(newY),
-                width: Math.round(newW),
-                height: Math.round(newH),
-            });
+        if (handle.includes('left')) {
+            newX = posX + deltaX;
+            newW = posW - deltaX;
         }
-    }
+        if (handle.includes('right')) {
+            newW = posW + deltaX;
+        }
+        if (handle.includes('top')) {
+            newY = posY + deltaY;
+            newH = posH - deltaY;
+        }
+        if (handle.includes('bottom')) {
+            newH = posH + deltaY;
+        }
 
-    function handleMouseUp() {
-        isDragging = false;
-        isResizing = null;
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-    }
+        const aspectLocked = point.shiftKey && posW > 0 && posH > 0;
 
-    function handleResizeStart(corner: string, e: MouseEvent) {
-        e.stopPropagation();
-        e.preventDefault();
+        if (aspectLocked) {
+            const aspectRatio = posW / posH;
+            const isHorizontalHandle = handle === 'left' || handle === 'right';
+            const isVerticalHandle = handle === 'top' || handle === 'bottom';
 
-        const pos = options.getPosition();
-        isResizing = corner;
-        dragStart = {
-            x: e.clientX,
-            y: e.clientY,
-            posX: pos.x,
-            posY: pos.y,
-            posW: pos.width,
-            posH: pos.height,
-        };
+            if (isHorizontalHandle || Math.abs(newW - posW) >= Math.abs(newH - posH)) {
+                newH = newW / aspectRatio;
+            } else if (isVerticalHandle || Math.abs(newH - posH) > Math.abs(newW - posW)) {
+                newW = newH * aspectRatio;
+            }
 
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-    }
+            if (handle.includes('left')) {
+                newX = posX + posW - newW;
+            }
+            if (handle.includes('top')) {
+                newY = posY + posH - newH;
+            }
+        }
 
-    function cleanup() {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        if (newW < minW) {
+            if (aspectLocked) {
+                newH = minW / (posW / posH);
+            }
+            if (handle.includes('left')) {
+                newX = posX + posW - minW;
+            }
+            if (handle.includes('top') && aspectLocked) {
+                newY = posY + posH - newH;
+            }
+            newW = minW;
+        }
+        if (newH < minH) {
+            if (aspectLocked) {
+                newW = minH * (posW / posH);
+            }
+            if (handle.includes('top')) {
+                newY = posY + posH - minH;
+            }
+            if (handle.includes('left') && aspectLocked) {
+                newX = posX + posW - newW;
+            }
+            newH = minH;
+        }
+
+        const snapped = runSnap({ x: newX, y: newY, width: newW, height: newH }, 'resize', handle, point);
+
+        options.onUpdate({
+            x: Math.round(snapped.x),
+            y: Math.round(snapped.y),
+            width: Math.round(snapped.width),
+            height: Math.round(snapped.height),
+        });
     }
 
     return {
@@ -188,10 +232,16 @@ export function useDragResize(options: DragResizeOptions): DragResizeState {
             return isDragging;
         },
         get isResizing() {
-            return isResizing;
+            return activeHandle;
         },
-        handleMouseDown,
-        handleResizeStart,
-        cleanup,
+        handleMouseDown(e) {
+            pendingHandle = null;
+            gesture.start(e);
+        },
+        handleResizeStart(corner, e) {
+            pendingHandle = corner;
+            gesture.start(e);
+        },
+        cleanup: gesture.cancel,
     };
 }

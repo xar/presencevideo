@@ -18,6 +18,27 @@ export type Project = {
     assets?: Asset[];
 };
 
+// Transition Types
+/** Every value maps 1:1 to an ffmpeg `xfade` transition name. */
+export type TransitionType =
+    | 'fade'
+    | 'fadeblack'
+    | 'fadewhite'
+    | 'slideleft'
+    | 'slideright'
+    | 'slideup'
+    | 'slidedown'
+    | 'wipeleft'
+    | 'wiperight'
+    | 'circleopen'
+    | 'circleclose'
+    | 'dissolve';
+
+export type SceneTransition = {
+    type: TransitionType;
+    duration_ms: number;
+};
+
 // Scene Types
 export type Scene = {
     id: string;
@@ -26,10 +47,12 @@ export type Scene = {
     layers: Layer[];
     background_color?: string;
     thumbnail_url?: string;
+    /** Transition into the NEXT scene; ignored on the last scene. */
+    transition?: SceneTransition | null;
 };
 
 // Layer Types
-export type LayerType = 'video' | 'image' | 'text';
+export type LayerType = 'video' | 'image' | 'text' | 'shape';
 
 export type BaseLayer = {
     id: string;
@@ -43,17 +66,36 @@ export type BaseLayer = {
     z_index: number;
 };
 
+/**
+ * Colour adjustments stored on ffmpeg's own `eq` scales so the render and the
+ * inspector agree: brightness -1..1 (0 neutral), contrast 0..2 (1 neutral),
+ * saturation 0..2 (1 neutral).
+ */
+export type LayerAdjustments = {
+    brightness?: number;
+    contrast?: number;
+    saturation?: number;
+};
+
 export type VideoLayer = BaseLayer & {
     type: 'video';
     asset_id: number;
     start_time_ms?: number;
     trim_start_ms?: number;
     trim_end_ms?: number;
+    /** Constant playback speed multiplier, 0.25–4 (default 1). */
+    speed?: number;
+    /** Playback volume of the clip's own audio, 0–1 (default 1). */
+    volume?: number;
+    /** Silences the clip's own audio in both the preview and the render. */
+    muted?: boolean;
+    adjustments?: LayerAdjustments;
 };
 
 export type ImageLayer = BaseLayer & {
     type: 'image';
     asset_id: number;
+    adjustments?: LayerAdjustments;
 };
 
 export type TextLayer = BaseLayer & {
@@ -70,7 +112,22 @@ export type TextLayer = BaseLayer & {
     stroke_width?: number;
 };
 
-export type Layer = VideoLayer | ImageLayer | TextLayer;
+/** `line` is just a thin bar; users make it thin and rotate it. No arrow heads. */
+export type ShapeKind = 'rectangle' | 'ellipse' | 'line';
+
+export type ShapeLayer = BaseLayer & {
+    type: 'shape';
+    shape: ShapeKind;
+    /** Hex fill, or '' / 'transparent' for no fill (outline only). */
+    fill_color: string;
+    border_color?: string;
+    /** Border thickness in project pixels; 0 (or missing) means no border. */
+    border_width?: number;
+    /** Corner rounding in project pixels; rectangles only. */
+    corner_radius?: number;
+};
+
+export type Layer = VideoLayer | ImageLayer | TextLayer | ShapeLayer;
 
 // Audio Types
 export type AudioTrack = {
@@ -100,28 +157,21 @@ export type VideoTrack = {
     clips: VideoClip[];
 };
 
-export type VideoClip = {
-    id: string;
-    type?: 'video' | 'text';
-    asset_id?: number;
+/** Clip types are exactly the layer types; kept as an alias for readability. */
+export type VideoClipType = LayerType;
+
+export type ClipTiming = {
+    /** Absolute position on the project timeline. */
     start_ms: number;
     duration_ms: number;
-    trim_start_ms?: number;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    z_index: number;
-    opacity?: number;
-    text?: string;
-    font_size?: number;
-    font_color?: string;
-    font_weight?: 'normal' | 'bold';
-    text_align?: 'left' | 'center' | 'right';
-    background_color?: string;
-    stroke_color?: string;
-    stroke_width?: number;
 };
+
+/**
+ * An overlay clip is a layer placed on the global timeline instead of inside a
+ * scene: same rendering, same inspector, plus timing. `z_index` orders clips
+ * within their track.
+ */
+export type VideoClip = Layer & ClipTiming;
 
 // Subtitle Types
 export type SubtitleWord = {
@@ -189,6 +239,7 @@ export type Asset = {
 export type GenerationType =
     | 'text_to_image'
     | 'image_to_video'
+    | 'text_to_video'
     | 'text_to_music'
     | 'text_to_speech'
     | 'text_to_sfx'
@@ -251,7 +302,7 @@ export type Render = {
 export type Tool = 'select' | 'pan';
 
 export type Selection = {
-    type: 'scene' | 'layer' | 'audio_clip' | 'video_clip' | null;
+    type: 'scene' | 'layer' | 'audio_clip' | 'video_clip' | 'audio_track' | 'video_track' | null;
     sceneId: string | null;
     layerId: string | null;
     audioTrackId: string | null;

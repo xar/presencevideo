@@ -83,6 +83,45 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, layer: Layer, images:
         }
     }
 
+    if (layer.type === 'shape') {
+        const hasFill = !!layer.fill_color && layer.fill_color !== 'transparent' && layer.fill_color !== 'none';
+        const borderWidth = Math.max(0, layer.border_width ?? 0);
+        const radius = layer.shape === 'ellipse' ? 0 : Math.max(0, layer.corner_radius ?? 0);
+
+        ctx.beginPath();
+        if (layer.shape === 'ellipse') {
+            ctx.ellipse(
+                layer.x + layer.width / 2,
+                layer.y + layer.height / 2,
+                Math.max(0, layer.width / 2 - borderWidth / 2),
+                Math.max(0, layer.height / 2 - borderWidth / 2),
+                0,
+                0,
+                Math.PI * 2,
+            );
+        } else {
+            const inset = borderWidth / 2;
+            ctx.roundRect(
+                layer.x + inset,
+                layer.y + inset,
+                Math.max(0, layer.width - borderWidth),
+                Math.max(0, layer.height - borderWidth),
+                radius,
+            );
+        }
+
+        if (hasFill) {
+            ctx.fillStyle = layer.fill_color;
+            ctx.fill();
+        }
+
+        if (borderWidth > 0) {
+            ctx.lineWidth = borderWidth;
+            ctx.strokeStyle = layer.border_color ?? '#000000';
+            ctx.stroke();
+        }
+    }
+
     if (layer.type === 'text') {
         ctx.fillStyle = layer.font_color ?? '#ffffff';
         ctx.font = `${layer.font_weight ?? 'normal'} ${layer.font_size ?? 48}px ${layer.font_family ?? 'sans-serif'}`;

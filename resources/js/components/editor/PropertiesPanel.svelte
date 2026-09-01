@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Trash2, Scissors, Music, Maximize2 } from 'lucide-svelte';
+    import { Trash2, Music } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
@@ -14,27 +14,38 @@
         parseSeconds,
         parseTimelineTime,
     } from '@/lib/editor/formatting';
-    import type { TextLayer, ImageLayer, VideoLayer, Layer, AudioClip, Asset, VideoClip } from '@/types';
+    import type { AudioClip, Asset, ClipTiming, Layer } from '@/types';
+    import ElementInspector from './ElementInspector.svelte';
+    import TransitionPicker from './TransitionPicker.svelte';
 
     let selection = $derived(selectionStore.selection);
     let selectedScene = $derived(selectionStore.getSelectedScene());
     let selectedLayer = $derived(selectionStore.getSelectedLayer());
     let selectedAudioClip = $derived(selectionStore.getSelectedAudioClip());
     let selectedVideoClip = $derived(selectionStore.getSelectedVideoClip());
+    let selectedVideoTrack = $derived(selectionStore.getSelectedVideoTrack());
+    let selectedAudioTrack = $derived(selectionStore.getSelectedAudioTrack());
 
-    // Get asset for video/image layers
-    function getAsset(assetId: number): Asset | undefined {
-        return projectStore.project?.assets?.find(a => a.id === assetId);
+    /** The scene the selected scene transitions into, if any. */
+    let nextScene = $derived.by(() => {
+        const scenes = projectStore.project?.scenes ?? [];
+        const index = scenes.findIndex((scene) => scene.id === selectedScene?.id);
+
+        return index >= 0 ? scenes[index + 1] : undefined;
+    });
+
+    function getAsset(assetId: number | undefined): Asset | undefined {
+        if (!assetId) return undefined;
+        return projectStore.project?.assets?.find((a) => a.id === assetId);
     }
 
-    let selectedAsset = $derived.by(() => {
-        if (!selectedLayer) return undefined;
-        if (selectedLayer.type === 'video' || selectedLayer.type === 'image') {
-            const layer = selectedLayer as VideoLayer | ImageLayer;
-            return getAsset(layer.asset_id);
-        }
+    function elementAsset(element: Layer | null | undefined): Asset | undefined {
+        if (!element) return undefined;
+        if (element.type === 'video' || element.type === 'image') return getAsset(element.asset_id);
         return undefined;
-    });
+    }
+
+    // ---- Scene -------------------------------------------------------------
 
     function updateSceneDuration(e: Event) {
         const input = e.target as HTMLInputElement;
@@ -58,43 +69,73 @@
         }
     }
 
-    function updateLayerPosition(field: 'x' | 'y', e: Event) {
-        const input = e.target as HTMLInputElement;
-        const value = parseInt(input.value) || 0;
-        if (selectedScene && selectedLayer) {
-            projectStore.updateLayer(selectedScene.id, selectedLayer.id, { [field]: value });
+    function deleteScene() {
+        if (!selectedScene) return;
+
+        const scenes = projectStore.project?.scenes ?? [];
+        const currentIndex = scenes.findIndex((s) => s.id === selectedScene!.id);
+        projectStore.deleteScene(selectedScene.id);
+
+        const newScenes = projectStore.project?.scenes ?? [];
+        if (newScenes.length > 0) {
+            const newIndex = Math.min(currentIndex, newScenes.length - 1);
+            selectionStore.selectScene(newScenes[newIndex].id);
+        } else {
+            selectionStore.clearSelection();
         }
     }
 
-    function updateLayerSize(field: 'width' | 'height', e: Event) {
-        const input = e.target as HTMLInputElement;
-        const value = Math.max(1, parseInt(input.value) || 1);
+    // ---- Layer (scene element) ----------------------------------------------
+
+    function updateLayer(updates: Partial<Layer>) {
         if (selectedScene && selectedLayer) {
-            projectStore.updateLayer(selectedScene.id, selectedLayer.id, { [field]: value });
+            projectStore.updateLayer(selectedScene.id, selectedLayer.id, updates);
         }
     }
 
-    function fitSelectedLayerToCanvas() {
+    function deleteLayer() {
+        if (selectedScene && selectedLayer) {
+            projectStore.deleteLayer(selectedScene.id, selectedLayer.id);
+            selectionStore.selectScene(selectedScene.id);
+        }
+    }
+
+    function fitLayerToCanvas() {
         const project = projectStore.project;
-        if (!project || !selectedScene || !selectedLayer || !selectedAsset) return;
+        const asset = elementAsset(selectedLayer);
+        if (!project || !selectedScene || !selectedLayer || !asset) return;
 
-        const fit = getCanvasFitDimensions(project, selectedAsset);
-        projectStore.updateLayer(selectedScene.id, selectedLayer.id, fit);
+        projectStore.updateLayer(selectedScene.id, selectedLayer.id, getCanvasFitDimensions(project, asset));
     }
 
-    function updateTextLayer(field: keyof TextLayer, value: string | number) {
-        if (selectedScene && selectedLayer && selectedLayer.type === 'text') {
-            projectStore.updateLayer(selectedScene.id, selectedLayer.id, { [field]: value });
-        }
+    function fitSceneToVideo(contentEndMs: number) {
+        if (!selectedScene) return;
+        projectStore.updateScene(selectedScene.id, { duration_ms: Math.max(100, contentEndMs) });
     }
 
-    function updateVideoLayer(field: keyof VideoLayer, value: number) {
-        if (selectedScene && selectedLayer && selectedLayer.type === 'video') {
-            projectStore.updateLayer(selectedScene.id, selectedLayer.id, { [field]: value });
-        }
+    // ---- Overlay clip (timeline element) ----------------------------------
+
+    function updateVideoClip(updates: Partial<Layer> | Partial<ClipTiming>) {
+        if (!selectedVideoClip) return;
+        projectStore.updateVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id, updates);
     }
 
-    // Audio clip helpers
+    function deleteVideoClip() {
+        if (!selectedVideoClip) return;
+        projectStore.deleteVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id);
+        selectionStore.clearSelection();
+    }
+
+    function fitClipToCanvas() {
+        const project = projectStore.project;
+        const asset = elementAsset(selectedVideoClip?.clip);
+        if (!project || !asset) return;
+
+        updateVideoClip(getCanvasFitDimensions(project, asset));
+    }
+
+    // ---- Audio clip ---------------------------------------------------------
+
     let audioClipAsset = $derived.by(() => {
         if (!selectedAudioClip) return undefined;
         return getAsset(selectedAudioClip.clip.asset_id);
@@ -105,279 +146,53 @@
         projectStore.updateAudioClip(selectedAudioClip.trackId, selectedAudioClip.clip.id, { [field]: value });
     }
 
+    /**
+     * Fades are stored in ms. Each fade is clamped to the clip duration minus
+     * the opposing fade so the two ramps can never overlap.
+     */
+    function updateAudioFade(field: 'fade_in_ms' | 'fade_out_ms', value: string) {
+        if (!selectedAudioClip) return;
+
+        const clip = selectedAudioClip.clip;
+        const other = field === 'fade_in_ms' ? (clip.fade_out_ms ?? 0) : (clip.fade_in_ms ?? 0);
+        const maxMs = Math.max(0, clip.duration_ms - other);
+        const ms = Math.min(maxMs, parseSeconds(value));
+
+        updateAudioClip(field, ms);
+    }
+
     function deleteAudioClip() {
         if (!selectedAudioClip) return;
         projectStore.deleteAudioClip(selectedAudioClip.trackId, selectedAudioClip.clip.id);
         selectionStore.clearSelection();
     }
-
-    function updateVideoClip(field: keyof VideoClip, value: string | number) {
-        if (!selectedVideoClip) return;
-        projectStore.updateVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id, { [field]: value });
-    }
-
-    function deleteVideoClip() {
-        if (!selectedVideoClip) return;
-        projectStore.deleteVideoClip(selectedVideoClip.trackId, selectedVideoClip.clip.id);
-        selectionStore.clearSelection();
-    }
-
-    function deleteLayer() {
-        if (selectedScene && selectedLayer) {
-            projectStore.deleteLayer(selectedScene.id, selectedLayer.id);
-            selectionStore.selectScene(selectedScene.id);
-        }
-    }
-
-    function deleteScene() {
-        if (selectedScene) {
-            const scenes = projectStore.project?.scenes ?? [];
-            const currentIndex = scenes.findIndex(s => s.id === selectedScene!.id);
-            projectStore.deleteScene(selectedScene.id);
-
-            // Select another scene
-            const newScenes = projectStore.project?.scenes ?? [];
-            if (newScenes.length > 0) {
-                const newIndex = Math.min(currentIndex, newScenes.length - 1);
-                selectionStore.selectScene(newScenes[newIndex].id);
-            } else {
-                selectionStore.clearSelection();
-            }
-        }
-    }
 </script>
 
 <div class="flex-1 overflow-y-auto p-4 space-y-4">
-    {#if selection.type === 'layer' && selectedLayer}
-        <div>
-            <h3 class="text-sm font-semibold mb-3">Layer Properties</h3>
-
-            <div class="space-y-3">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label class="text-xs">X</Label>
-                        <Input
-                            type="number"
-                            value={selectedLayer.x}
-                            onchange={(e) => updateLayerPosition('x', e)}
-                            class="h-8"
-                        />
-                    </div>
-                    <div>
-                        <Label class="text-xs">Y</Label>
-                        <Input
-                            type="number"
-                            value={selectedLayer.y}
-                            onchange={(e) => updateLayerPosition('y', e)}
-                            class="h-8"
-                        />
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label class="text-xs">Width</Label>
-                        <Input
-                            type="number"
-                            value={selectedLayer.width}
-                            onchange={(e) => updateLayerSize('width', e)}
-                            class="h-8"
-                        />
-                    </div>
-                    <div>
-                        <Label class="text-xs">Height</Label>
-                        <Input
-                            type="number"
-                            value={selectedLayer.height}
-                            onchange={(e) => updateLayerSize('height', e)}
-                            class="h-8"
-                        />
-                    </div>
-                </div>
-
-                {#if selectedAsset}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="w-full"
-                        onclick={fitSelectedLayerToCanvas}
-                    >
-                        <Maximize2 class="h-3 w-3 mr-2" />
-                        Fit to canvas
-                    </Button>
-                {/if}
-
-                {#if selectedLayer.type === 'video'}
-                    {@const videoLayer = selectedLayer as VideoLayer}
-                    {@const videoDuration = selectedAsset?.duration_ms ?? 0}
-                    {@const trimStart = videoLayer.trim_start_ms ?? 0}
-                    {@const trimEnd = videoLayer.trim_end_ms ?? videoDuration}
-                    {@const effectiveDuration = trimEnd - trimStart}
-
-                    <Separator />
-
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-2">
-                            <Scissors class="h-4 w-4 text-muted-foreground" />
-                            <Label class="text-xs font-medium">Trim Video</Label>
-                        </div>
-
-                        {#if videoDuration > 0}
-                            {@const trimStartPercent = (trimStart / videoDuration) * 100}
-                            {@const trimEndPercent = ((videoDuration - trimEnd) / videoDuration) * 100}
-                            <div class="space-y-2">
-                                <div class="flex justify-between text-xs text-muted-foreground">
-                                    <span>Duration: {formatTimelineTime(effectiveDuration)}</span>
-                                    <span>/ {formatTimelineTime(videoDuration)}</span>
-                                </div>
-
-                                <!-- Visual trim bar -->
-                                <div class="relative h-8 bg-muted rounded overflow-hidden">
-                                    <!-- Full video bar -->
-                                    <div class="absolute inset-0 bg-muted-foreground/20"></div>
-                                    <!-- Selected region -->
-                                    <div
-                                        class="absolute top-0 bottom-0 bg-primary/30 border-x-2 border-primary"
-                                        style:left="{trimStartPercent}%"
-                                        style:right="{trimEndPercent}%"
-                                    ></div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <Label class="text-xs">Start</Label>
-                                        <Input
-                                            type="text"
-                                            value={formatTimelineTime(trimStart)}
-                                            onchange={(e) => {
-                                                const ms = parseTimelineTime((e.target as HTMLInputElement).value);
-                                                if (ms < trimEnd) {
-                                                    updateVideoLayer('trim_start_ms', ms);
-                                                }
-                                            }}
-                                            class="h-8 font-mono text-xs"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label class="text-xs">End</Label>
-                                        <Input
-                                            type="text"
-                                            value={formatTimelineTime(trimEnd)}
-                                            onchange={(e) => {
-                                                const ms = Math.min(parseTimelineTime((e.target as HTMLInputElement).value), videoDuration);
-                                                if (ms > trimStart) {
-                                                    updateVideoLayer('trim_end_ms', ms);
-                                                }
-                                            }}
-                                            class="h-8 font-mono text-xs"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div class="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        class="flex-1 text-xs"
-                                        onclick={() => {
-                                            updateVideoLayer('trim_start_ms', 0);
-                                            updateVideoLayer('trim_end_ms', videoDuration);
-                                        }}
-                                    >
-                                        Reset Trim
-                                    </Button>
-                                </div>
-                            </div>
-                        {:else}
-                            <p class="text-xs text-muted-foreground">
-                                Video duration not available
-                            </p>
-                        {/if}
-                    </div>
-                {/if}
-
-                {#if selectedLayer.type === 'text'}
-                    {@const textLayer = selectedLayer as TextLayer}
-                    <Separator />
-
-                    <div>
-                        <Label class="text-xs">Text</Label>
-                        <textarea
-                            value={textLayer.text}
-                            oninput={(e) => updateTextLayer('text', (e.target as HTMLTextAreaElement).value)}
-                            rows="3"
-                            class="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                        ></textarea>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">Font Size</Label>
-                            <Input
-                                type="number"
-                                value={textLayer.font_size}
-                                onchange={(e) => updateTextLayer('font_size', parseInt((e.target as HTMLInputElement).value) || 48)}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Color</Label>
-                            <div class="flex gap-1">
-                                <input
-                                    type="color"
-                                    value={textLayer.font_color}
-                                    oninput={(e) => updateTextLayer('font_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 w-8 rounded border cursor-pointer"
-                                />
-                                <Input
-                                    value={textLayer.font_color}
-                                    oninput={(e) => updateTextLayer('font_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 flex-1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">Stroke Width</Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                max="20"
-                                value={textLayer.stroke_width ?? 0}
-                                onchange={(e) => updateTextLayer('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Stroke Color</Label>
-                            <div class="flex gap-1">
-                                <input
-                                    type="color"
-                                    value={textLayer.stroke_color ?? '#000000'}
-                                    oninput={(e) => updateTextLayer('stroke_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 w-8 rounded border cursor-pointer"
-                                />
-                                <Input
-                                    value={textLayer.stroke_color ?? '#000000'}
-                                    oninput={(e) => updateTextLayer('stroke_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 flex-1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                {/if}
-
-                <Separator />
-
-                <Button variant="destructive" size="sm" class="w-full" onclick={deleteLayer}>
-                    <Trash2 class="mr-2 h-4 w-4" />
-                    Delete Layer
-                </Button>
-            </div>
-        </div>
+    {#if selection.type === 'layer' && selectedLayer && selectedScene}
+        <ElementInspector
+            element={selectedLayer}
+            placement="layer"
+            asset={elementAsset(selectedLayer)}
+            onUpdate={updateLayer}
+            onDelete={deleteLayer}
+            onReorder={(move) => projectStore.reorderLayer(selectedScene!.id, selectedLayer!.id, move)}
+            onFitToCanvas={fitLayerToCanvas}
+            sceneDurationMs={selectedScene.duration_ms}
+            onFitSceneToVideo={fitSceneToVideo}
+        />
+    {:else if selection.type === 'video_clip' && selectedVideoClip}
+        <ElementInspector
+            element={selectedVideoClip.clip}
+            placement="clip"
+            asset={elementAsset(selectedVideoClip.clip)}
+            onUpdate={updateVideoClip}
+            onDelete={deleteVideoClip}
+            onFitToCanvas={fitClipToCanvas}
+            timing={selectedVideoClip.clip}
+            onTimingChange={updateVideoClip}
+            audioControls={false}
+        />
     {:else if selection.type === 'scene' && selectedScene}
         <div>
             <h3 class="text-sm font-semibold mb-3">Scene Properties</h3>
@@ -422,6 +237,13 @@
                     </div>
                 </div>
 
+                {#if nextScene}
+                    <div>
+                        <Label class="text-xs">Transition to next scene</Label>
+                        <TransitionPicker scene={selectedScene} nextScene={nextScene} variant="inline" />
+                    </div>
+                {/if}
+
                 <Separator />
 
                 <div class="text-xs text-muted-foreground">
@@ -436,172 +258,89 @@
                 </Button>
             </div>
         </div>
-    {:else if selection.type === 'video_clip' && selectedVideoClip}
+    {:else if selection.type === 'video_track' && selectedVideoTrack}
+        {@const track = selectedVideoTrack}
         <div>
-            <h3 class="text-sm font-semibold mb-3">
-                {selectedVideoClip.clip.type === 'text' ? 'Text Overlay' : 'Video Clip'} Properties
-            </h3>
+            <h3 class="text-sm font-semibold mb-3">Video Track Properties</h3>
 
             <div class="space-y-3">
-                {#if selectedVideoClip.clip.type === 'text'}
-                    <div>
-                        <Label class="text-xs">Text</Label>
-                        <textarea
-                            value={selectedVideoClip.clip.text ?? ''}
-                            oninput={(e) => updateVideoClip('text', (e.target as HTMLTextAreaElement).value)}
-                            rows="3"
-                            class="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                        ></textarea>
-                    </div>
-                {/if}
-
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label class="text-xs">Start</Label>
-                        <Input
-                            type="text"
-                            value={formatTimelineTime(selectedVideoClip.clip.start_ms)}
-                            onchange={(e) => updateVideoClip('start_ms', parseTimelineTime((e.target as HTMLInputElement).value))}
-                            class="h-8 font-mono text-xs"
-                        />
-                    </div>
-                    <div>
-                        <Label class="text-xs">Duration</Label>
-                        <Input
-                            type="text"
-                            value={formatTimelineTime(selectedVideoClip.clip.duration_ms)}
-                            onchange={(e) => updateVideoClip('duration_ms', Math.max(100, parseTimelineTime((e.target as HTMLInputElement).value)))}
-                            class="h-8 font-mono text-xs"
-                        />
-                    </div>
+                <div>
+                    <Label class="text-xs">Name</Label>
+                    <Input
+                        value={track.name}
+                        oninput={(e) => projectStore.updateVideoTrack(track.id, { name: (e.target as HTMLInputElement).value })}
+                        class="h-8"
+                    />
                 </div>
 
-                {#if selectedVideoClip.clip.type === 'text'}
-                    <Separator />
+                <Button
+                    variant={(track.visible ?? true) ? 'outline' : 'default'}
+                    size="sm"
+                    class="w-full text-xs"
+                    onclick={() => projectStore.updateVideoTrack(track.id, { visible: !(track.visible ?? true) })}
+                >
+                    {(track.visible ?? true) ? 'Hide track' : 'Show track'}
+                </Button>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">X</Label>
-                            <Input
-                                type="number"
-                                value={selectedVideoClip.clip.x}
-                                onchange={(e) => updateVideoClip('x', parseInt((e.target as HTMLInputElement).value) || 0)}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Y</Label>
-                            <Input
-                                type="number"
-                                value={selectedVideoClip.clip.y}
-                                onchange={(e) => updateVideoClip('y', parseInt((e.target as HTMLInputElement).value) || 0)}
-                                class="h-8"
-                            />
-                        </div>
-                    </div>
+                <Separator />
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">Width</Label>
-                            <Input
-                                type="number"
-                                value={selectedVideoClip.clip.width}
-                                onchange={(e) => updateVideoClip('width', Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Height</Label>
-                            <Input
-                                type="number"
-                                value={selectedVideoClip.clip.height}
-                                onchange={(e) => updateVideoClip('height', Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
-                                class="h-8"
-                            />
-                        </div>
-                    </div>
+                <p class="text-xs text-muted-foreground">Clips: {track.clips.length}</p>
 
-                    <Separator />
+                <Separator />
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">Font Size</Label>
-                            <Input
-                                type="number"
-                                value={selectedVideoClip.clip.font_size ?? 48}
-                                onchange={(e) => updateVideoClip('font_size', parseInt((e.target as HTMLInputElement).value) || 48)}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Color</Label>
-                            <div class="flex gap-1">
-                                <input
-                                    type="color"
-                                    value={selectedVideoClip.clip.font_color ?? '#ffffff'}
-                                    oninput={(e) => updateVideoClip('font_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 w-8 rounded border cursor-pointer"
-                                />
-                                <Input
-                                    value={selectedVideoClip.clip.font_color ?? '#ffffff'}
-                                    oninput={(e) => updateVideoClip('font_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 flex-1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <Label class="text-xs">Stroke Width</Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                max="20"
-                                value={selectedVideoClip.clip.stroke_width ?? 0}
-                                onchange={(e) => updateVideoClip('stroke_width', parseInt((e.target as HTMLInputElement).value) || 0)}
-                                class="h-8"
-                            />
-                        </div>
-                        <div>
-                            <Label class="text-xs">Stroke Color</Label>
-                            <div class="flex gap-1">
-                                <input
-                                    type="color"
-                                    value={selectedVideoClip.clip.stroke_color ?? '#000000'}
-                                    oninput={(e) => updateVideoClip('stroke_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 w-8 rounded border cursor-pointer"
-                                />
-                                <Input
-                                    value={selectedVideoClip.clip.stroke_color ?? '#000000'}
-                                    oninput={(e) => updateVideoClip('stroke_color', (e.target as HTMLInputElement).value)}
-                                    class="h-8 flex-1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <Label class="text-xs">Background Color</Label>
-                        <div class="flex gap-1">
-                            <input
-                                type="color"
-                                value={(selectedVideoClip.clip.background_color ?? '#000000').slice(0, 7)}
-                                oninput={(e) => updateVideoClip('background_color', (e.target as HTMLInputElement).value)}
-                                class="h-8 w-8 rounded border cursor-pointer"
-                            />
-                            <Input
-                                value={selectedVideoClip.clip.background_color ?? '#00000080'}
-                                oninput={(e) => updateVideoClip('background_color', (e.target as HTMLInputElement).value)}
-                                class="h-8 flex-1"
-                            />
-                        </div>
-                    </div>
-                {/if}
-
-                <Button variant="destructive" size="sm" class="w-full" onclick={deleteVideoClip}>
+                <Button variant="destructive" size="sm" class="w-full" onclick={() => selectionStore.deleteSelected()}>
                     <Trash2 class="mr-2 h-4 w-4" />
-                    Delete {selectedVideoClip.clip.type === 'text' ? 'Text Overlay' : 'Video Clip'}
+                    Delete Track
+                </Button>
+            </div>
+        </div>
+    {:else if selection.type === 'audio_track' && selectedAudioTrack}
+        {@const track = selectedAudioTrack}
+        <div>
+            <h3 class="text-sm font-semibold mb-3">Audio Track Properties</h3>
+
+            <div class="space-y-3">
+                <div>
+                    <Label class="text-xs">Name</Label>
+                    <Input
+                        value={track.name}
+                        oninput={(e) => projectStore.updateAudioTrack(track.id, { name: (e.target as HTMLInputElement).value })}
+                        class="h-8"
+                    />
+                </div>
+
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <Label class="text-xs">Track Volume</Label>
+                        <span class="text-xs text-muted-foreground">{Math.round((track.volume ?? 1) * 100)}%</span>
+                    </div>
+                    <Slider
+                        value={[(track.volume ?? 1) * 100]}
+                        min={0}
+                        max={200}
+                        step={1}
+                        onValueChange={(v) => projectStore.updateAudioTrack(track.id, { volume: v[0] / 100 })}
+                    />
+                </div>
+
+                <Button
+                    variant={track.muted ? 'default' : 'outline'}
+                    size="sm"
+                    class="w-full text-xs"
+                    onclick={() => projectStore.updateAudioTrack(track.id, { muted: !track.muted })}
+                >
+                    {track.muted ? 'Unmute track' : 'Mute track'}
+                </Button>
+
+                <Separator />
+
+                <p class="text-xs text-muted-foreground">Clips: {track.clips.length}</p>
+
+                <Separator />
+
+                <Button variant="destructive" size="sm" class="w-full" onclick={() => selectionStore.deleteSelected()}>
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    Delete Track
                 </Button>
             </div>
         </div>
@@ -689,6 +428,34 @@
                         step={1}
                         onValueChange={(v) => updateAudioClip('volume', v[0] / 100)}
                     />
+                </div>
+
+                <Separator />
+
+                <!-- Fades -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label class="text-xs">Fade In (s)</Label>
+                        <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={formatSeconds(selectedAudioClip.clip.fade_in_ms ?? 0)}
+                            onchange={(e) => updateAudioFade('fade_in_ms', (e.target as HTMLInputElement).value)}
+                            class="h-8"
+                        />
+                    </div>
+                    <div>
+                        <Label class="text-xs">Fade Out (s)</Label>
+                        <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={formatSeconds(selectedAudioClip.clip.fade_out_ms ?? 0)}
+                            onchange={(e) => updateAudioFade('fade_out_ms', (e.target as HTMLInputElement).value)}
+                            class="h-8"
+                        />
+                    </div>
                 </div>
 
                 <Separator />

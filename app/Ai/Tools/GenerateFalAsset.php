@@ -31,7 +31,7 @@ class GenerateFalAsset implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Queue a fal.ai generation to create an asset for a video project. Use for text_to_image, image_to_video, text_to_music, text_to_speech, text_to_sfx, and speech_to_text. Returns a generation_id; poll get_generation_status until completed to get output_asset_id.';
+        return 'Queue a fal.ai generation to create an asset for a video project. Use for text_to_image, image_to_video, text_to_video, text_to_music, text_to_speech, text_to_sfx, and speech_to_text. Returns a generation_id; poll get_generation_status until completed to get output_asset_id.';
     }
 
     public function handle(Request $request): Stringable|string

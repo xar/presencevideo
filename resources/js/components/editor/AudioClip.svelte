@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
     import { Music } from 'lucide-svelte';
+    import { onDestroy } from 'svelte';
     import AudioWaveform from '@/components/editor/AudioWaveform.svelte';
     import { projectStore, timelineStore } from '@/lib/editor';
-    import { historyStore } from '@/lib/editor/history.svelte';
-    import { collectSnapPoints, applySnap } from '@/lib/editor/snapping';
+    import { collectSnapPoints } from '@/lib/editor/snapping';
+    import { useTimelineGesture } from '@/lib/editor/useTimelineGesture.svelte';
     import { cn } from '@/lib/utils';
     import type { AudioClip as AudioClipType } from '@/types';
 
@@ -22,23 +22,26 @@
         onUpdate?: (updates: Partial<AudioClipType>) => void;
     } = $props();
 
-    let isDragging = $state(false);
-    let dragStartX = $state(0);
-    let dragStartMs = $state(0);
+    const gesture = useTimelineGesture({
+        getSpan: () => clip,
+        pixelsPerMs: () => pixelsPerMs,
+        snapPoints: () =>
+            collectSnapPoints(projectStore.project, {
+                excludeAudioClipId: clip.id,
+                playheadMs: timelineStore.currentTimeMs,
+            }),
+        onUpdate: (updates) => onUpdate?.(updates),
+    });
 
-    let isResizingLeft = $state(false);
-    let isResizingRight = $state(false);
-    let resizeStartX = $state(0);
-    let resizeStartMs = $state(0);
-    let resizeDurationMs = $state(0);
-    let snapPoints: number[] = [];
+    onDestroy(gesture.cleanup);
 
-    function captureSnapPoints() {
-        snapPoints = collectSnapPoints(projectStore.project, {
-            excludeAudioClipId: clip.id,
-            playheadMs: timelineStore.currentTimeMs,
-        });
-    }
+    let clipWidth = $derived(clip.duration_ms * pixelsPerMs);
+    let fadeInWidth = $derived(
+        Math.min(clipWidth, (clip.fade_in_ms ?? 0) * pixelsPerMs),
+    );
+    let fadeOutWidth = $derived(
+        Math.min(clipWidth - fadeInWidth, (clip.fade_out_ms ?? 0) * pixelsPerMs),
+    );
 
     function getAssetName(): string {
         const assets = projectStore.project?.assets ?? [];
@@ -51,150 +54,6 @@
         const asset = assets.find((a) => a.id === clip.asset_id);
         return asset?.url ?? null;
     }
-
-
-    function handleMouseDown(e: MouseEvent) {
-        if (e.button !== 0) return;
-        e.stopPropagation();
-
-        historyStore.beginBatch();
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartMs = clip.start_ms;
-        captureSnapPoints();
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    function handleMouseMove(e: MouseEvent) {
-        if (!isDragging) return;
-
-        const deltaX = e.clientX - dragStartX;
-        const deltaMs = deltaX / pixelsPerMs;
-        let newStartMs = Math.max(0, dragStartMs + deltaMs);
-
-        if (!e.altKey) {
-            const startSnap = applySnap(newStartMs, snapPoints, pixelsPerMs);
-            if (startSnap.snapped) {
-                newStartMs = startSnap.ms;
-            } else {
-                const endSnap = applySnap(newStartMs + clip.duration_ms, snapPoints, pixelsPerMs);
-                if (endSnap.snapped) {
-                    newStartMs = Math.max(0, endSnap.ms - clip.duration_ms);
-                }
-            }
-        }
-
-        onUpdate?.({ start_ms: Math.round(newStartMs) });
-    }
-
-    function handleMouseUp() {
-        isDragging = false;
-        historyStore.endBatch();
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-    }
-
-    // Left trim handle — adjusts start_ms and duration_ms together
-    function handleTrimLeftDown(e: MouseEvent) {
-        if (e.button !== 0) return;
-        e.stopPropagation();
-        e.preventDefault();
-
-        historyStore.beginBatch();
-        isResizingLeft = true;
-        resizeStartX = e.clientX;
-        resizeStartMs = clip.start_ms;
-        resizeDurationMs = clip.duration_ms;
-        captureSnapPoints();
-
-        window.addEventListener('mousemove', handleTrimLeftMove);
-        window.addEventListener('mouseup', handleTrimLeftUp);
-    }
-
-    function handleTrimLeftMove(e: MouseEvent) {
-        if (!isResizingLeft) return;
-
-        const deltaX = e.clientX - resizeStartX;
-        const deltaMs = deltaX / pixelsPerMs;
-        let newStart = Math.max(0, resizeStartMs + deltaMs);
-
-        if (!e.altKey) {
-            const snap = applySnap(newStart, snapPoints, pixelsPerMs);
-            if (snap.snapped) {
-                newStart = snap.ms;
-            }
-        }
-
-        const newDuration = resizeDurationMs - (newStart - resizeStartMs);
-
-        if (newDuration >= 100) {
-            onUpdate?.({
-                start_ms: Math.round(newStart),
-                duration_ms: Math.round(newDuration),
-            });
-        }
-    }
-
-    function handleTrimLeftUp() {
-        isResizingLeft = false;
-        historyStore.endBatch();
-        window.removeEventListener('mousemove', handleTrimLeftMove);
-        window.removeEventListener('mouseup', handleTrimLeftUp);
-    }
-
-    // Right trim handle — adjusts duration_ms
-    function handleTrimRightDown(e: MouseEvent) {
-        if (e.button !== 0) return;
-        e.stopPropagation();
-        e.preventDefault();
-
-        historyStore.beginBatch();
-        isResizingRight = true;
-        resizeStartX = e.clientX;
-        resizeStartMs = clip.start_ms;
-        resizeDurationMs = clip.duration_ms;
-        captureSnapPoints();
-
-        window.addEventListener('mousemove', handleTrimRightMove);
-        window.addEventListener('mouseup', handleTrimRightUp);
-    }
-
-    function handleTrimRightMove(e: MouseEvent) {
-        if (!isResizingRight) return;
-
-        const deltaX = e.clientX - resizeStartX;
-        const deltaMs = deltaX / pixelsPerMs;
-        let newEndMs = resizeStartMs + resizeDurationMs + deltaMs;
-
-        if (!e.altKey) {
-            const snap = applySnap(newEndMs, snapPoints, pixelsPerMs);
-            if (snap.snapped) {
-                newEndMs = snap.ms;
-            }
-        }
-
-        const newDuration = Math.max(100, newEndMs - resizeStartMs);
-
-        onUpdate?.({ duration_ms: Math.round(newDuration) });
-    }
-
-    function handleTrimRightUp() {
-        isResizingRight = false;
-        historyStore.endBatch();
-        window.removeEventListener('mousemove', handleTrimRightMove);
-        window.removeEventListener('mouseup', handleTrimRightUp);
-    }
-
-    onDestroy(() => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-        window.removeEventListener('mousemove', handleTrimLeftMove);
-        window.removeEventListener('mouseup', handleTrimLeftUp);
-        window.removeEventListener('mousemove', handleTrimRightMove);
-        window.removeEventListener('mouseup', handleTrimRightUp);
-    });
 </script>
 
 <div
@@ -206,7 +65,8 @@
     )}
     style:left="{clip.start_ms * pixelsPerMs}px"
     style:width="{clip.duration_ms * pixelsPerMs}px"
-    onmousedown={handleMouseDown}
+    data-clip-id={clip.id}
+    onpointerdown={gesture.startMove}
     onclick={onclick}
     onkeydown={() => {}}
     role="button"
@@ -219,15 +79,31 @@
         <span class="text-xs text-primary-foreground truncate drop-shadow">{getAssetName()}</span>
     </div>
 
+    <!-- Fade ramps (decorative): shaded wedges at the clip edges -->
+    {#if fadeInWidth > 0}
+        <div
+            class="pointer-events-none absolute left-0 top-0 bottom-0 bg-background/60"
+            style:width="{fadeInWidth}px"
+            style:clip-path="polygon(0 0, 100% 0, 0 100%)"
+        ></div>
+    {/if}
+    {#if fadeOutWidth > 0}
+        <div
+            class="pointer-events-none absolute right-0 top-0 bottom-0 bg-background/60"
+            style:width="{fadeOutWidth}px"
+            style:clip-path="polygon(100% 0, 100% 100%, 0 0)"
+        ></div>
+    {/if}
+
     {#if isSelected}
         <div
             class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-white/50 rounded-l"
-            onmousedown={handleTrimLeftDown}
+            onpointerdown={(event) => gesture.startTrim('start', event)}
             role="presentation"
         ></div>
         <div
             class="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-white/50 rounded-r"
-            onmousedown={handleTrimRightDown}
+            onpointerdown={(event) => gesture.startTrim('end', event)}
             role="presentation"
         ></div>
     {/if}

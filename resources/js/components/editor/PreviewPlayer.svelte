@@ -1,14 +1,24 @@
 <script lang="ts">
-    import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut } from 'lucide-svelte';
+    import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, Gauge } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { Slider } from '@/components/ui/slider';
+    import {
+        DropdownMenu,
+        DropdownMenuContent,
+        DropdownMenuItem,
+        DropdownMenuLabel,
+        DropdownMenuTrigger,
+    } from '@/components/ui/dropdown-menu';
     import { timelineStore, projectStore } from '@/lib/editor';
     import { formatTimelineTime } from '@/lib/editor/formatting';
+
+    const PLAYBACK_RATES = [0.25, 0.5, 1, 1.5, 2];
 
     let currentTime = $derived(timelineStore.currentTimeMs);
     let totalDuration = $derived(timelineStore.getTotalDuration());
     let isPlaying = $derived(timelineStore.isPlaying);
     let zoom = $derived(timelineStore.zoom);
+    let playbackRate = $derived(timelineStore.playbackRate);
 
     function zoomIn() {
         timelineStore.setZoom(zoom * 1.5);
@@ -61,6 +71,47 @@
         <Button variant="ghost" size="icon" onclick={skipForward}>
             <SkipForward class="h-4 w-4" />
         </Button>
+
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                {#snippet children(props)}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="sm"
+                        class="gap-1.5 px-2 text-xs font-medium tabular-nums"
+                        title="Preview playback speed"
+                    >
+                        <Gauge class="h-4 w-4" />
+                        {#if playbackRate !== 1}
+                            {playbackRate}×
+                        {/if}
+                    </Button>
+                {/snippet}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={4} class="w-40">
+                <DropdownMenuLabel>Preview speed</DropdownMenuLabel>
+                {#each PLAYBACK_RATES as rate (rate)}
+                    <DropdownMenuItem asChild>
+                        {#snippet children(props)}
+                            <button
+                                type="button"
+                                class="{props.class} {playbackRate === rate ? 'bg-muted/60' : ''}"
+                                onclick={(e: MouseEvent) => {
+                                    props.onClick?.(e);
+                                    timelineStore.setPlaybackRate(rate);
+                                }}
+                            >
+                                <span class="flex-1 tabular-nums">{rate}×</span>
+                                {#if rate === 1}
+                                    <span class="text-xs text-muted-foreground">Normal</span>
+                                {/if}
+                            </button>
+                        {/snippet}
+                    </DropdownMenuItem>
+                {/each}
+            </DropdownMenuContent>
+        </DropdownMenu>
     </div>
 
     <div class="text-sm font-mono text-muted-foreground w-24">

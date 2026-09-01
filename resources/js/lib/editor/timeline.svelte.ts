@@ -14,10 +14,12 @@ export type TimelineStore = {
     togglePlayback: () => void;
     setPlaybackRate: (rate: number) => void;
     setZoom: (zoom: number) => void;
+    stepFrames: (frames: number) => void;
     seekToScene: (sceneIndex: number) => void;
     getCurrentScene: () => Scene | null;
     getCurrentSceneIndex: () => number;
     getTotalDuration: () => number;
+    onCurrentSceneChange: (callback: (scene: Scene | null) => void) => void;
 };
 
 let currentTimeMs = $state(0);
@@ -33,9 +35,32 @@ function getPixelsPerMs(): number {
     return BASE_PIXELS_PER_MS * zoom;
 }
 
-function setCurrentTime(ms: number): void {
+const sceneChangeCallbacks: Array<(scene: Scene | null) => void> = [];
+
+/**
+ * Register for the moment the playhead crosses into another scene. Selection
+ * follows the playhead through this hook rather than through a component
+ * effect, so the rule lives in one tested place.
+ */
+function onCurrentSceneChange(callback: (scene: Scene | null) => void): void {
+    sceneChangeCallbacks.push(callback);
+}
+
+function assignCurrentTime(ms: number): void {
+    const before = getCurrentSceneIndex();
     const totalDuration = getTotalDuration();
     currentTimeMs = Math.max(0, Math.min(ms, totalDuration));
+
+    if (getCurrentSceneIndex() !== before) {
+        const scene = getCurrentScene();
+        for (const callback of sceneChangeCallbacks) {
+            callback(scene);
+        }
+    }
+}
+
+function setCurrentTime(ms: number): void {
+    assignCurrentTime(ms);
 }
 
 /**
@@ -46,8 +71,7 @@ function setCurrentTime(ms: number): void {
  */
 function syncToClock(ms: number): void {
     if (!isPlaying) return;
-    const totalDuration = getTotalDuration();
-    currentTimeMs = Math.max(0, Math.min(ms, totalDuration));
+    assignCurrentTime(ms);
 }
 
 function getTotalDuration(): number {
@@ -97,12 +121,12 @@ function animate(timestamp: number): void {
         const totalDuration = getTotalDuration();
 
         if (newTime >= totalDuration) {
-            currentTimeMs = totalDuration;
+            assignCurrentTime(totalDuration);
             pause();
             return;
         }
 
-        currentTimeMs = newTime;
+        assignCurrentTime(newTime);
     }
 
     lastFrameTime = timestamp;
@@ -114,7 +138,7 @@ function play(): void {
 
     const totalDuration = getTotalDuration();
     if (currentTimeMs >= totalDuration) {
-        currentTimeMs = 0;
+        assignCurrentTime(0);
     }
 
     isPlaying = true;
@@ -147,6 +171,19 @@ function setZoom(newZoom: number): void {
     zoom = Math.max(0.1, Math.min(10, newZoom));
 }
 
+/**
+ * Step the playhead by whole frames using the project's fps (default 30).
+ * Frame stepping is a paused-only operation, so playback stops first.
+ */
+function stepFrames(frames: number): void {
+    if (isPlaying) {
+        pause();
+    }
+
+    const fps = projectStore.project?.fps || 30;
+    setCurrentTime(currentTimeMs + (frames * 1000) / fps);
+}
+
 export function createTimelineStore(): TimelineStore {
     return {
         get currentTimeMs() {
@@ -171,10 +208,12 @@ export function createTimelineStore(): TimelineStore {
         togglePlayback,
         setPlaybackRate,
         setZoom,
+        stepFrames,
         seekToScene,
         getCurrentScene,
         getCurrentSceneIndex,
         getTotalDuration,
+        onCurrentSceneChange,
     };
 }
 

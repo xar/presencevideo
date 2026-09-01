@@ -7,6 +7,7 @@
     let assets = $derived(projectStore.project?.assets ?? []);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
     let isPlaying = $derived(timelineStore.isPlaying);
+    let playbackRate = $derived(timelineStore.playbackRate);
 
     // Store audio elements outside of reactive state to avoid loops
     const audioElements = new Map<string, HTMLAudioElement>();
@@ -77,6 +78,29 @@
         return Math.min(1, Math.max(0, volume));
     }
 
+    /**
+     * Linear fade envelope for a clip at an absolute timeline position.
+     * Returns a 0..1 multiplier applied on top of the clip and track volume.
+     */
+    function fadeMultiplier(clip: AudioClip, timeMs: number): number {
+        const fadeIn = Math.max(0, finiteNumber(clip.fade_in_ms, 0));
+        const fadeOut = Math.max(0, finiteNumber(clip.fade_out_ms, 0));
+        if (fadeIn === 0 && fadeOut === 0) return 1;
+
+        const elapsed = timeMs - clip.start_ms;
+        const remaining = clip.start_ms + clip.duration_ms - timeMs;
+
+        let multiplier = 1;
+        if (fadeIn > 0) {
+            multiplier = Math.min(multiplier, elapsed / fadeIn);
+        }
+        if (fadeOut > 0) {
+            multiplier = Math.min(multiplier, remaining / fadeOut);
+        }
+
+        return Math.min(1, Math.max(0, multiplier));
+    }
+
     // Sync playback state
     function syncPlayback() {
         const allClips = getAllClips();
@@ -87,9 +111,15 @@
             if (!audio) continue;
 
             const shouldPlay = isPlaying && !track.muted && isClipActiveAt(clip, currentTimeMs);
-            const volume = track.muted ? 0 : mediaVolume(clip.volume, track.volume);
+            const volume = track.muted
+                ? 0
+                : mediaVolume(clip.volume, track.volume, fadeMultiplier(clip, currentTimeMs));
 
             audio.volume = volume;
+
+            if (audio.playbackRate !== playbackRate) {
+                audio.playbackRate = playbackRate;
+            }
 
             if (shouldPlay) {
                 // Calculate position within clip
@@ -109,7 +139,9 @@
                 // Re-anchor the timeline clock to the first actively playing
                 // audio element to reduce drift. Only nudge for small, plausible
                 // deviations (40-200ms); larger gaps are handled by seeking audio.
-                if (!anchored && isPlaying && !audio.paused) {
+                // Skipped at non-1x rates: the implied-position math assumes the
+                // element and clock advance at the same speed as wall time.
+                if (!anchored && isPlaying && playbackRate === 1 && !audio.paused) {
                     const impliedMs = clip.start_ms + (audio.currentTime * 1000 - trimStart);
                     const driftMs = impliedMs - currentTimeMs;
                     if (Number.isFinite(impliedMs) && Math.abs(driftMs) > 40 && Math.abs(driftMs) < 200) {

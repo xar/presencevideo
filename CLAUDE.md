@@ -32,6 +32,9 @@ vendor/bin/pint --dirty
 # Type check Svelte/TypeScript
 npm run check
 
+# Frontend unit tests (Vitest)
+npm test
+
 # Build frontend
 npm run build
 ```
@@ -74,16 +77,21 @@ npm run build
   - `SceneStrip.svelte` - Horizontal scene timeline with drag-to-reorder
   - `SceneCard.svelte` - Scene thumbnail with playback indicator
   - `SceneEditor.svelte` - WYSIWYG canvas for layer editing
-  - `LayerItem.svelte` - Draggable/resizable layer with handles
+  - `CanvasElement.svelte` - Single renderer for anything on the canvas (scene layers and overlay clips)
+  - `ElementInspector.svelte` - Single properties inspector for scene layers and overlay clips
   - `PreviewPlayer.svelte` - Playback controls and time display
   - `AssetPanel.svelte` - Upload and asset gallery
   - `AudioTracks.svelte` - Multi-track audio timeline
   - `RightPanel.svelte` - Properties and AI generation tabs
   - `EditorToolbar.svelte` - Save, export, zoom controls
 - **Stores**: `resources/js/lib/editor/`
-  - `project.svelte.ts` - Project state, scene/layer/audio CRUD
-  - `timeline.svelte.ts` - Playback state, current time, scene switching
-  - `selection.svelte.ts` - Selected scene/layer, current tool
+  - `project.svelte.ts` - Project state, scene/layer/audio CRUD; `onAfterMutate` hook
+  - `timeline.svelte.ts` - Playback state, current time; `onCurrentSceneChange` hook
+  - `selection.svelte.ts` - Selected scene/layer/clip; rules live in `selection-rules.ts` (pure, tested)
+  - `history.svelte.ts` - Undo/redo; use `transaction()` / `beginTransaction()` (never raw begin/endBatch)
+  - `normalize.ts` - `normalizeProject()` — the one place payload defaults are filled
+- **Gesture hooks**: `usePointerGesture` (core) → `useTimelineGesture` (move/trim any timeline block) and `useDragResize` (canvas move/resize). Never attach mousemove/mouseup listeners in components.
+- **Frontend tests**: `npm test` (Vitest, `resources/js/**/*.test.ts`); stores and hooks are tested headless.
 - **Types**: `resources/js/types/editor.ts` - Project, Scene, Layer, AudioTrack interfaces
 
 ### Path Aliases

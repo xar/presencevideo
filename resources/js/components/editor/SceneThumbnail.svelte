@@ -55,6 +55,14 @@
         }
     });
 
+    /**
+     * Decoding video frames is expensive, so the request is keyed on the values
+     * that actually change the output. Re-running the effect for an unrelated
+     * edit (or repeatedly while a trim handle is dragged) must not restart a
+     * decode that would produce identical frames.
+     */
+    let lastRequestKey = '';
+
     $effect(() => {
         const asset = previewAsset;
         const layer = visualLayer;
@@ -65,42 +73,55 @@
             return;
         }
 
+        const trimStartMs = layer.trim_start_ms ?? 0;
+        const usableDurationMs = Math.max(1, scene.duration_ms);
+        const requestKey = [assetUrl, count, trimStartMs, usableDurationMs].join('|');
+
+        if (requestKey === lastRequestKey) {
+            return;
+        }
+
         let cancelled = false;
         isGenerating = true;
 
-        const trimStartMs = layer.trim_start_ms ?? 0;
-        const usableDurationMs = Math.max(1, scene.duration_ms);
         const timestamps = Array.from({ length: count }, (_, index) => {
             const progress = (index + 0.5) / count;
 
             return (trimStartMs + usableDurationMs * progress) / 1000;
         });
 
-        // Lazy-load mediabunny so the heavy media library stays out of the initial bundle
-        void import('@/lib/editor/mediabunny')
-            .then(({ createVideoFrameBlobs }) => createVideoFrameBlobs(assetUrl, timestamps, 180))
-            .then((blobs) => {
-                if (cancelled) return;
+        // Coalesce bursts of changes (e.g. dragging a trim handle) into one decode
+        const timer = setTimeout(() => {
+            lastRequestKey = requestKey;
 
-                const urls = blobs.filter((blob): blob is Blob => Boolean(blob)).map((blob) => URL.createObjectURL(blob));
+            // Lazy-load mediabunny so the heavy media library stays out of the initial bundle
+            void import('@/lib/editor/mediabunny')
+                .then(({ createVideoFrameBlobs }) => createVideoFrameBlobs(assetUrl, timestamps, 180))
+                .then((blobs) => {
+                    if (cancelled) return;
 
-                for (const url of generatedThumbnailUrls) {
-                    URL.revokeObjectURL(url);
-                }
+                    const urls = blobs.filter((blob): blob is Blob => Boolean(blob)).map((blob) => URL.createObjectURL(blob));
 
-                generatedThumbnailUrls = urls;
-            })
-            .catch((error) => {
-                console.warn('Unable to generate scene thumbnails:', error);
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    isGenerating = false;
-                }
-            });
+                    for (const url of generatedThumbnailUrls) {
+                        URL.revokeObjectURL(url);
+                    }
+
+                    generatedThumbnailUrls = urls;
+                })
+                .catch((error) => {
+                    lastRequestKey = '';
+                    console.warn('Unable to generate scene thumbnails:', error);
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        isGenerating = false;
+                    }
+                });
+        }, 150);
 
         return () => {
             cancelled = true;
+            clearTimeout(timer);
         };
     });
 

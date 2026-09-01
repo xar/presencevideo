@@ -16,6 +16,11 @@
             title: 'Playback',
             shortcuts: [
                 { keys: ['Space'], label: 'Play / pause' },
+                { keys: ['L'], label: 'Play (again: speed 1× → 1.5× → 2×)' },
+                { keys: ['K'], label: 'Pause and reset speed to 1×' },
+                { keys: ['J'], label: 'Back 1s (pauses)' },
+                { keys: [','], label: 'Step back 1 frame' },
+                { keys: ['.'], label: 'Step forward 1 frame' },
                 { keys: ['←', '→'], label: 'Seek 100ms (Shift: 1s)' },
                 { keys: ['Home'], label: 'Jump to start' },
                 { keys: ['End'], label: 'Jump to end' },
@@ -26,6 +31,9 @@
             shortcuts: [
                 { keys: [`${mod} Z`], label: 'Undo' },
                 { keys: [`${mod} ⇧ Z`], label: 'Redo' },
+                { keys: [`${mod} C`], label: 'Copy selection' },
+                { keys: [`${mod} X`], label: 'Cut selection' },
+                { keys: [`${mod} V`], label: 'Paste (layer in scene, clip at playhead)' },
                 { keys: [`${mod} D`], label: 'Duplicate selection' },
                 { keys: ['S'], label: 'Split clip at playhead' },
                 { keys: ['⌫'], label: 'Delete selection' },
@@ -38,6 +46,9 @@
             shortcuts: [
                 { keys: ['V'], label: 'Select tool' },
                 { keys: ['H'], label: 'Pan tool' },
+                { keys: [`${mod} +`], label: 'Zoom in timeline' },
+                { keys: [`${mod} -`], label: 'Zoom out timeline' },
+                { keys: [`${mod} 0`], label: 'Reset timeline zoom' },
                 { keys: [`${mod} S`], label: 'Save project' },
                 { keys: [`${mod} ⇧ E`], label: 'JSON code editor' },
                 { keys: ['?'], label: 'Show this dialog' },

@@ -1,9 +1,12 @@
 <script lang="ts">
-    import { Plus, Volume2, VolumeX } from 'lucide-svelte';
+    import { Plus, Volume2, VolumeX, Trash2, ArrowUp, ArrowDown, Scissors, Copy } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
+    import { cn } from '@/lib/utils';
     import type { AudioTrack as AudioTrackType, AudioClip as AudioClipType } from '@/types';
     import AudioClip from './AudioClip.svelte';
+    import ContextMenu from './ContextMenu.svelte';
+import type {ContextMenuItem} from './ContextMenu.svelte';
     import TimelinePlayhead from './TimelinePlayhead.svelte';
 
     let audioTracks = $derived(projectStore.project?.audio_tracks ?? []);
@@ -18,6 +21,49 @@
 
     function toggleMute(track: AudioTrackType) {
         projectStore.updateAudioTrack(track.id, { muted: !track.muted });
+    }
+
+    // --- Selection & context menu -------------------------------------------
+    let selectedTrackId = $derived(
+        selectionStore.selection.type === 'audio_track' ? selectionStore.selection.audioTrackId : null,
+    );
+
+    let menu = $state<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+    function trackMenuItems(track: AudioTrackType, index: number): ContextMenuItem[] {
+        return [
+            { label: track.muted ? 'Unmute track' : 'Mute track', icon: track.muted ? Volume2 : VolumeX, onSelect: () => toggleMute(track) },
+            { label: 'Move up', icon: ArrowUp, disabled: index === 0, separator: true, onSelect: () => projectStore.moveAudioTrack(track.id, -1) },
+            { label: 'Move down', icon: ArrowDown, disabled: index === audioTracks.length - 1, onSelect: () => projectStore.moveAudioTrack(track.id, 1) },
+            { label: 'Delete track', icon: Trash2, destructive: true, separator: true, onSelect: () => { selectionStore.selectAudioTrack(track.id); selectionStore.deleteSelected(); } },
+        ];
+    }
+
+    function clipMenuItems(trackId: string, clip: AudioClipType): ContextMenuItem[] {
+        const playhead = timelineStore.currentTimeMs;
+        const canSplit = playhead > clip.start_ms && playhead < clip.start_ms + clip.duration_ms;
+        const select = () => selectionStore.selectAudioClip(trackId, clip.id);
+        return [
+            { label: 'Split at playhead', icon: Scissors, disabled: !canSplit, onSelect: () => { select(); selectionStore.splitSelectedAtPlayhead(); } },
+            { label: 'Duplicate', icon: Copy, onSelect: () => { select(); selectionStore.duplicateSelected(); } },
+            { label: 'Delete clip', icon: Trash2, destructive: true, separator: true, onSelect: () => { select(); selectionStore.deleteSelected(); } },
+        ];
+    }
+
+    function openMenu(e: MouseEvent, track: AudioTrackType, index: number) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const clipEl = (e.target as Element | null)?.closest<HTMLElement>('[data-clip-id]');
+        const clip = clipEl ? track.clips.find((c) => c.id === clipEl.dataset.clipId) : undefined;
+
+        if (clip) {
+            selectionStore.selectAudioClip(track.id, clip.id);
+            menu = { x: e.clientX, y: e.clientY, items: clipMenuItems(track.id, clip) };
+        } else {
+            selectionStore.selectAudioTrack(track.id);
+            menu = { x: e.clientX, y: e.clientY, items: trackMenuItems(track, index) };
+        }
     }
 
     function handleClipClick(trackId: string, clip: AudioClipType) {
@@ -36,7 +82,7 @@
         }
     }
 
-    function handleDragLeave(e: DragEvent) {
+    function handleDragLeave() {
         dragOverTrackId = null;
     }
 
@@ -107,9 +153,22 @@
 </script>
 
 <div class="flex flex-col border-t bg-muted/20">
-    {#each audioTracks as track (track.id)}
-        <div class="flex h-12 border-b">
-            <div class="flex w-32 items-center gap-2 border-r bg-background px-2">
+    {#each audioTracks as track, index (track.id)}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+            class={cn('flex h-12 border-b transition-colors', selectedTrackId === track.id && 'bg-primary/5')}
+            oncontextmenu={(e) => openMenu(e, track, index)}
+        >
+            <div
+                class={cn(
+                    'flex w-32 cursor-pointer items-center gap-2 border-r bg-background px-2',
+                    selectedTrackId === track.id && 'bg-primary/10 shadow-[inset_2px_0_0_0_hsl(var(--primary))]',
+                )}
+                role="button"
+                tabindex="0"
+                onclick={() => selectionStore.selectAudioTrack(track.id)}
+                onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectionStore.selectAudioTrack(track.id)}
+            >
                 <Button
                     variant="ghost"
                     size="icon"
@@ -160,3 +219,5 @@
         </Button>
     </div>
 </div>
+
+<ContextMenu position={menu} items={menu?.items ?? []} onClose={() => (menu = null)} />

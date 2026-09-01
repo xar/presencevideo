@@ -1,5 +1,8 @@
 import { projectStore, selectionStore } from '@/lib/editor';
-import type { Asset, Project } from '@/types';
+import type { Asset, AssetType, Project } from '@/types';
+
+/** Upper bound for a scene duration derived from a video asset. */
+export const MAX_AUTO_SCENE_DURATION_MS = 60_000;
 
 type FitDimensions = {
     x: number;
@@ -31,12 +34,36 @@ export function getCanvasFitDimensions(
     };
 }
 
+/**
+ * The scene duration a freshly dropped asset should imply, or null when the
+ * scene's own duration must be left alone.
+ *
+ * Only an empty scene follows its video: once a scene has layers its duration
+ * is a deliberate choice the user made.
+ */
+export function autoSceneDurationMs(
+    assetType: AssetType | string,
+    assetDurationMs: number | null | undefined,
+    existingLayerCount: number,
+): number | null {
+    if (assetType !== 'video' || existingLayerCount > 0) return null;
+    if (!assetDurationMs || assetDurationMs <= 0) return null;
+
+    return Math.min(MAX_AUTO_SCENE_DURATION_MS, Math.round(assetDurationMs));
+}
+
 export function addVisualAssetToSelectedScene(asset: Asset): void {
-    const selectedScene = selectionStore.getSelectedScene();
+    const selectedScene = selectionStore.getTargetScene();
     if (!selectedScene || asset.type === 'audio') return;
 
     const project = projectStore.project;
     if (!project) return;
+
+    const autoDurationMs = autoSceneDurationMs(
+        asset.type,
+        asset.duration_ms,
+        selectedScene.layers.length,
+    );
 
     const fit = getCanvasFitDimensions(project, asset);
     const layer = projectStore.addLayer(selectedScene.id, {
@@ -44,6 +71,10 @@ export function addVisualAssetToSelectedScene(asset: Asset): void {
         asset_id: asset.id,
         ...fit,
     });
+
+    if (autoDurationMs !== null) {
+        projectStore.updateScene(selectedScene.id, { duration_ms: autoDurationMs });
+    }
 
     selectionStore.selectLayer(selectedScene.id, layer.id);
 }
@@ -55,8 +86,7 @@ export function addVisualAssetAsScene(asset: Asset): void {
     const fit = getCanvasFitDimensions(project, asset);
     const scene = projectStore.addScene({
         name: asset.name,
-        duration_ms:
-            asset.type === 'video' ? (asset.duration_ms ?? 5000) : 5000,
+        duration_ms: autoSceneDurationMs(asset.type, asset.duration_ms, 0) ?? 5000,
     });
 
     const layer = projectStore.addLayer(scene.id, {

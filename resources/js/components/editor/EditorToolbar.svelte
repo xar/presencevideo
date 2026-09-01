@@ -16,6 +16,10 @@
         FileUp,
         Keyboard,
         SquareTerminal,
+        Shapes,
+        Square,
+        Circle,
+        Minus,
     } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
     import {
@@ -29,9 +33,10 @@
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
     import { downloadProjectJson, readProjectFile } from '@/lib/editor/project-json';
-    import ResolutionPicker from './ResolutionPicker.svelte';
+    import type { ShapeKind, ShapeLayer } from '@/types';
     import ExportDialog from './ExportDialog.svelte';
     import JsonEditorDialog from './JsonEditorDialog.svelte';
+    import ResolutionPicker from './ResolutionPicker.svelte';
 
     let {
         jsonEditorOpen = $bindable(false),
@@ -129,6 +134,45 @@
         selectionStore.selectVideoClip(track.id, clip.id);
         selectionStore.setTool('select');
     }
+
+    /**
+     * Drop a centred shape layer into the scene the user is looking at, sized
+     * relative to the project resolution so it reads the same at any size.
+     */
+    function addShape(shape: ShapeKind) {
+        const project = projectStore.project;
+        if (!project) return;
+
+        const scene = selectionStore.getTargetScene();
+        if (!scene) return;
+
+        const width = Math.round(project.resolution_width * 0.4);
+        const height = shape === 'line'
+            ? 8
+            : Math.round(project.resolution_height * 0.25);
+
+        const layer = projectStore.addLayer(scene.id, {
+            type: 'shape',
+            shape,
+            fill_color: '#ffffff',
+            border_width: 0,
+            border_color: '#000000',
+            corner_radius: 0,
+            x: Math.round((project.resolution_width - width) / 2),
+            y: Math.round((project.resolution_height - height) / 2),
+            width,
+            height,
+        } as Partial<ShapeLayer>);
+
+        selectionStore.selectLayer(scene.id, layer.id);
+        selectionStore.setTool('select');
+    }
+
+    const SHAPE_OPTIONS: Array<{ shape: ShapeKind; label: string; icon: typeof Square }> = [
+        { shape: 'rectangle', label: 'Rectangle', icon: Square },
+        { shape: 'ellipse', label: 'Ellipse', icon: Circle },
+        { shape: 'line', label: 'Line', icon: Minus },
+    ];
 </script>
 
 <div class="flex h-12 items-center gap-2 border-b bg-background px-2">
@@ -196,6 +240,43 @@
                 </TooltipTrigger>
                 <TooltipContent>Add Text Overlay</TooltipContent>
             </Tooltip>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    {#snippet children(menuProps)}
+                        <Tooltip>
+                            <TooltipTrigger>
+                                {#snippet child({ props: tooltipProps })}
+                                    <Button
+                                        {...tooltipProps}
+                                        variant="ghost"
+                                        size="icon"
+                                        onclick={menuProps.onclick}
+                                        aria-expanded={menuProps['aria-expanded']}
+                                        data-state={menuProps['data-state']}
+                                    >
+                                        <Shapes class="h-4 w-4" />
+                                    </Button>
+                                {/snippet}
+                            </TooltipTrigger>
+                            <TooltipContent>Add Shape</TooltipContent>
+                        </Tooltip>
+                    {/snippet}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                    {#each SHAPE_OPTIONS as option (option.shape)}
+                        {@const Icon = option.icon}
+                        <DropdownMenuItem asChild>
+                            {#snippet children(props)}
+                                <button class={props.class} onclick={(e) => { props.onClick?.(e); addShape(option.shape); }}>
+                                    <Icon class="h-4 w-4" />
+                                    {option.label}
+                                </button>
+                            {/snippet}
+                        </DropdownMenuItem>
+                    {/each}
+                </DropdownMenuContent>
+            </DropdownMenu>
 
             <Tooltip>
                 <TooltipTrigger>

@@ -28,13 +28,6 @@
         }
     });
 
-    // Validate selection after project mutations (e.g., scene/layer deleted externally)
-    $effect(() => {
-        if (projectStore.project) {
-            selectionStore.validateSelection();
-        }
-    });
-
     // Autosave every 30s when dirty
     $effect(() => {
         if (!projectStore.isDirty) return;
@@ -62,9 +55,13 @@
             return false;
         }
 
+        /** L cycles forward through these preview rates while playing. */
+        const PLAY_RATE_CYCLE = [1, 1.5, 2];
+
         function handleKeydown(e: KeyboardEvent) {
             const inEditable = isEditableElement(document.activeElement);
             const mod = e.metaKey || e.ctrlKey;
+            const key = e.key.toLowerCase();
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (inEditable) return;
@@ -92,6 +89,49 @@
                 if (inEditable) return;
                 e.preventDefault();
                 selectionStore.duplicateSelected();
+            }
+
+            // Clipboard: Cmd+C / Cmd+X / Cmd+V.
+            // Never fires in text fields, and falls through to the browser's
+            // native behaviour when there is nothing to copy/cut/paste.
+            if (mod && !e.shiftKey && !e.altKey && !inEditable) {
+                if (key === 'c') {
+                    if (selectionStore.copySelected()) {
+                        e.preventDefault();
+                    }
+                    return;
+                }
+                if (key === 'x') {
+                    if (selectionStore.cutSelected()) {
+                        e.preventDefault();
+                    }
+                    return;
+                }
+                if (key === 'v') {
+                    if (selectionStore.pasteClipboard()) {
+                        e.preventDefault();
+                    }
+                    return;
+                }
+            }
+
+            // Timeline zoom: Cmd +/- and Cmd+0 to reset (block browser page zoom)
+            if (mod && !e.altKey) {
+                if (key === '=' || key === '+') {
+                    e.preventDefault();
+                    timelineStore.setZoom(timelineStore.zoom * 1.5);
+                    return;
+                }
+                if (key === '-' || key === '_') {
+                    e.preventDefault();
+                    timelineStore.setZoom(timelineStore.zoom / 1.5);
+                    return;
+                }
+                if (key === '0') {
+                    e.preventDefault();
+                    timelineStore.setZoom(1);
+                    return;
+                }
             }
 
             // JSON Code Editor: Cmd+Shift+E
@@ -152,6 +192,47 @@
             if (!inEditable && !mod && !e.altKey && (e.key === 's' || e.key === 'S')) {
                 e.preventDefault();
                 selectionStore.splitSelectedAtPlayhead();
+            }
+
+            // J / K / L transport.
+            // The rAF clock only runs forward, so J is an honest "back 1s"
+            // step rather than reverse playback.
+            if (!inEditable && !mod && !e.altKey) {
+                if (key === 'j') {
+                    e.preventDefault();
+                    timelineStore.pause();
+                    timelineStore.setPlaybackRate(1);
+                    timelineStore.setCurrentTime(timelineStore.currentTimeMs - 1000);
+                    return;
+                }
+                if (key === 'k') {
+                    e.preventDefault();
+                    timelineStore.pause();
+                    timelineStore.setPlaybackRate(1);
+                    return;
+                }
+                if (key === 'l') {
+                    e.preventDefault();
+                    if (!timelineStore.isPlaying) {
+                        timelineStore.setPlaybackRate(1);
+                        timelineStore.play();
+                    } else {
+                        const index = PLAY_RATE_CYCLE.indexOf(
+                            timelineStore.playbackRate,
+                        );
+                        timelineStore.setPlaybackRate(
+                            PLAY_RATE_CYCLE[(index + 1) % PLAY_RATE_CYCLE.length],
+                        );
+                    }
+                    return;
+                }
+
+                // Frame stepping: , / . (pauses playback first)
+                if (key === ',' || key === '.') {
+                    e.preventDefault();
+                    timelineStore.stepFrames(key === ',' ? -1 : 1);
+                    return;
+                }
             }
 
             // Tool shortcuts (plain keypress only — don't hijack Cmd+V paste etc.)

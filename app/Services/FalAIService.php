@@ -35,6 +35,7 @@ class FalAIService
             return match ($generation->type) {
                 GenerationType::TextToImage => $this->generateImage($generation),
                 GenerationType::ImageToVideo => $this->generateVideo($generation),
+                GenerationType::TextToVideo => $this->generateVideoFromText($generation),
                 GenerationType::TextToMusic => $this->generateMusic($generation),
                 GenerationType::TextToSpeech => $this->generateSpeech($generation),
                 GenerationType::TextToSfx => $this->generateSfx($generation),
@@ -134,14 +135,27 @@ class FalAIService
             return GenerationResult::failed('Input image required for video generation');
         }
 
+        return $this->runVideoGeneration($generation, ['image_url' => $this->getPublicUrl($inputAsset)]);
+    }
+
+    /**
+     * Text to video models are driven by the prompt alone, with no source image.
+     */
+    protected function generateVideoFromText(Generation $generation): GenerationResult
+    {
+        return $this->runVideoGeneration($generation);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extraInput  Model input beyond the prompt, e.g. a source image URL.
+     */
+    protected function runVideoGeneration(Generation $generation, array $extraInput = []): GenerationResult
+    {
         $modelConfig = $this->resolveModelConfig($generation);
-        $imageUrl = $this->getPublicUrl($inputAsset);
 
         $input = array_merge(
-            [
-                'prompt' => $generation->prompt,
-                'image_url' => $imageUrl,
-            ],
+            ['prompt' => $generation->prompt],
+            $extraInput,
             $modelConfig['defaults'],
             $generation->parameters
         );
@@ -645,7 +659,7 @@ class FalAIService
     {
         return match ($generation->type) {
             GenerationType::TextToImage => $this->processImageResult($generation, $result),
-            GenerationType::ImageToVideo => $this->processVideoResult($generation, $result),
+            GenerationType::ImageToVideo, GenerationType::TextToVideo => $this->processVideoResult($generation, $result),
             GenerationType::TextToMusic, GenerationType::TextToSfx => $this->processMusicResult($generation, $result),
             GenerationType::TextToSpeech => $this->processSpeechResult($generation, $result),
             GenerationType::SpeechToText => $this->processTranscriptionResult($result),

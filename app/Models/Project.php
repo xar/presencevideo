@@ -37,11 +37,88 @@ class Project extends Model
             'resolution_width' => 'integer',
             'resolution_height' => 'integer',
             'fps' => 'integer',
-            'scenes' => 'array',
-            'video_tracks' => 'array',
             'subtitle_tracks' => 'array',
             'status' => ProjectStatus::class,
         ];
+    }
+
+    /**
+     * Scenes always carry a `layers` array, even when a writer (the AI compose
+     * tool, a partial editor payload) omitted it; the editor iterates it
+     * unconditionally.
+     *
+     * @return Attribute<array<int, array<string, mixed>>, array<int, array<string, mixed>>>
+     */
+    protected function scenes(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): array => $this->normalizeWithChildList($value ? json_decode($value, true) : [], 'layers'),
+            set: fn (array $value): string => json_encode($this->normalizeWithChildList($value, 'layers'), JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * Video tracks always carry a `clips` array, for the same reason as scenes.
+     *
+     * @return Attribute<array<int, array<string, mixed>>, array<int, array<string, mixed>>>
+     */
+    protected function videoTracks(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): array => $this->normalizeWithChildList($value ? json_decode($value, true) : [], 'clips'),
+            set: fn (array $value): string => json_encode($this->normalizeWithChildList($value, 'clips'), JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function normalizeWithChildList(mixed $items, string $childKey): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        return array_values(array_map(function (array $item) use ($childKey): array {
+            $children = is_array($item[$childKey] ?? null) ? array_values($item[$childKey]) : [];
+            $item[$childKey] = array_values(array_map(
+                fn (array $child): array => $this->normalizeElement($child),
+                array_filter($children, 'is_array')
+            ));
+
+            return $item;
+        }, array_filter($items, 'is_array')));
+    }
+
+    /**
+     * Shared defaults for canvas elements (scene layers and overlay clips):
+     * legacy rows carry no `type` (always video) and may lack the text/shape
+     * fields the render assumes. Mirrors `normalizeElement()` on the frontend.
+     *
+     * @param  array<string, mixed>  $element
+     * @return array<string, mixed>
+     */
+    protected function normalizeElement(array $element): array
+    {
+        $element['type'] ??= 'video';
+        $element['x'] ??= 0;
+        $element['y'] ??= 0;
+        $element['width'] ??= (int) round(($this->resolution_width ?? 1920) / 4);
+        $element['height'] ??= (int) round(($this->resolution_height ?? 1080) / 4);
+        $element['z_index'] ??= 0;
+
+        if ($element['type'] === 'text') {
+            $element['text'] ??= '';
+            $element['font_size'] ??= 48;
+            $element['font_color'] ??= '#ffffff';
+        }
+
+        if ($element['type'] === 'shape') {
+            $element['shape'] ??= 'rectangle';
+            $element['fill_color'] ??= '#ffffff';
+        }
+
+        return $element;
     }
 
     /**

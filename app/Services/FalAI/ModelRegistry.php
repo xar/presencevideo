@@ -8,6 +8,20 @@ use Illuminate\Support\Facades\Log;
 
 class ModelRegistry
 {
+    /**
+     * Generation types the registry is expected to populate.
+     *
+     * @var array<string>
+     */
+    protected const CATEGORIES = [
+        'text_to_image',
+        'image_to_video',
+        'text_to_video',
+        'text_to_music',
+        'text_to_speech',
+        'text_to_sfx',
+    ];
+
     protected string $platformUrl = 'https://api.fal.ai';
 
     public function __construct(
@@ -39,10 +53,11 @@ class ModelRegistry
     {
         $models = Cache::get('fal_models_registry_remote');
 
-        if (! $models || $this->hasEmptyCategories($models)) {
+        if (! $models || $this->hasEmptyCategories($models) || $this->isMissingCategories($models)) {
             $models = [
                 'text_to_image' => $this->fetchRemoteModels('text-to-image'),
                 'image_to_video' => $this->fetchRemoteModels('image-to-video'),
+                'text_to_video' => $this->fetchRemoteModels('text-to-video'),
                 'text_to_music' => $this->fetchRemoteModels('text-to-audio', ['music', 'song']),
                 'text_to_speech' => $this->fetchRemoteModels('text-to-speech'),
                 'text_to_sfx' => $this->fetchRemoteModels('text-to-audio', ['effect', 'sfx', 'foley', 'ambient', 'environment']),
@@ -63,6 +78,17 @@ class ModelRegistry
     protected function hasEmptyCategories(array $models): bool
     {
         return empty($models['text_to_image']) || empty($models['image_to_video']);
+    }
+
+    /**
+     * A payload cached before a new generation type was introduced has no key for
+     * it, which would leave that type's model picker empty until the cache expired.
+     *
+     * @param  array<string, mixed>  $models
+     */
+    protected function isMissingCategories(array $models): bool
+    {
+        return array_diff(self::CATEGORIES, array_keys($models)) !== [];
     }
 
     protected function getFallbackModels(): array
@@ -120,6 +146,7 @@ class ModelRegistry
                     'is_catalog' => true,
                 ],
             ],
+            'text_to_video' => [],
             'text_to_music' => [],
             'text_to_speech' => [],
             'text_to_sfx' => [],

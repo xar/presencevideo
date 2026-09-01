@@ -18,7 +18,7 @@ class ListFalModels implements Tool
 
     public function description(): Stringable|string
     {
-        return 'List fal.ai generation models available to create assets for video projects. Supports text_to_image, image_to_video, text_to_music, text_to_speech, text_to_sfx, and speech_to_text.';
+        return 'List fal.ai generation models available to create assets for video projects. Supports text_to_image, image_to_video, text_to_video, text_to_music, text_to_speech, text_to_sfx, and speech_to_text.';
     }
 
     public function handle(Request $request): Stringable|string

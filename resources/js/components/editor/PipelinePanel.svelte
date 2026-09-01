@@ -4,6 +4,7 @@
         Sparkles,
         Image,
         Video,
+        Clapperboard,
         Music,
         Mic,
         Wand2,
@@ -57,6 +58,7 @@
     let isLoadingCatalogModel = $state(false);
 
     let catalogModels = $state<Record<string, ModelConfig>>({});
+    let catalogLoadError = $state<string | null>(null);
 
     // Pipeline state
     let pipelineSteps = $state<{
@@ -73,6 +75,7 @@
     const generationTypes: { type: GenerationType; label: string; icon: typeof Image; description: string }[] = [
         { type: 'text_to_image', label: 'Text to Image', icon: Image, description: 'Generate images from text prompts' },
         { type: 'image_to_video', label: 'Image to Video', icon: Video, description: 'Animate images into videos' },
+        { type: 'text_to_video', label: 'Text to Video', icon: Clapperboard, description: 'Generate videos straight from a text prompt' },
         { type: 'text_to_music', label: 'Background Music', icon: Music, description: 'Generate music from descriptions' },
         { type: 'text_to_speech', label: 'Text to Speech', icon: Mic, description: 'Convert text to natural speech' },
         { type: 'text_to_sfx', label: 'Sound Effects', icon: Wand2, description: 'Generate sound effects' },
@@ -84,22 +87,23 @@
     const categoryToType: Record<string, string[]> = {
         'text_to_image': ['text-to-image'],
         'image_to_video': ['image-to-video'],
+        'text_to_video': ['text-to-video'],
         'text_to_music': ['text-to-audio'],
         'text_to_speech': ['text-to-speech'],
         'text_to_sfx': ['text-to-audio'],
     };
 
-    // Combine registry models with any loaded catalog models for current type
-    let availableModels = $derived.by(() => {
-        const type = currentType;
-        if (!type) return [];
-        const registryModels = models[type] ?? [];
+    /** Registry models for a generation type, plus any catalog models loaded for it. */
+    function modelsForType(type: GenerationType): ModelConfig[] {
         const allowedCategories = categoryToType[type] ?? [];
-        const catalogForType = Object.values(catalogModels).filter(m =>
-            allowedCategories.includes(m.category)
-        );
-        return [...registryModels, ...catalogForType];
-    });
+
+        return [
+            ...(models[type] ?? []),
+            ...Object.values(catalogModels).filter((m) => allowedCategories.includes(m.category)),
+        ];
+    }
+
+    let availableModels = $derived.by(() => (currentType ? modelsForType(currentType) : []));
 
     let currentModel = $derived(availableModels.find(m => m.key === currentModelKey));
 
@@ -165,28 +169,45 @@
         }
     });
 
-    async function selectCatalogModel(endpointId: string) {
-        // Check if we already loaded this model
-        if (catalogModels[endpointId]) {
-            selectModel(endpointId);
-            return;
-        }
+    async function loadCatalogModel(endpointId: string): Promise<ModelConfig | null> {
+        const cached = catalogModels[endpointId];
+        if (cached) return cached;
 
         isLoadingCatalogModel = true;
+        catalogLoadError = null;
+
         try {
             const response = await appFetch(`/editor/generations/catalog/model?endpoint_id=${encodeURIComponent(endpointId)}`);
-            if (response.ok) {
-                const data = await response.json();
-                const model = data.model as ModelConfig;
-                catalogModels = { ...catalogModels, [endpointId]: model };
-                selectModel(endpointId);
-            } else {
-                console.error('Failed to load catalog model');
+            if (!response.ok) {
+                catalogLoadError = `Could not load "${endpointId}" from the fal.ai catalog.`;
+
+                return null;
             }
+
+            const data = await response.json();
+            const model = data.model as ModelConfig;
+            catalogModels = { ...catalogModels, [endpointId]: model };
+
+            return model;
         } catch (err) {
             console.error('Failed to load catalog model:', err);
+            catalogLoadError = `Could not load "${endpointId}" from the fal.ai catalog.`;
+
+            return null;
         } finally {
             isLoadingCatalogModel = false;
+        }
+    }
+
+    async function selectCatalogModel(endpointId: string) {
+        if (await loadCatalogModel(endpointId)) {
+            selectModel(endpointId);
+        }
+    }
+
+    async function selectPipelineCatalogModel(index: number, endpointId: string) {
+        if (await loadCatalogModel(endpointId)) {
+            updatePipelineModel(index, endpointId);
         }
     }
 
@@ -331,11 +352,10 @@
 
     function updatePipelineModel(index: number, modelKey: string) {
         const step = pipelineSteps[index];
-        const stepModels = models[step.type] ?? [];
-        const model = stepModels.find(m => m.key === modelKey);
+        const model = modelsForType(step.type).find((m) => m.key === modelKey);
         updatePipelineStep(index, {
             modelKey,
-            parameters: model?.defaults ?? {}
+            parameters: { ...(model?.defaults ?? {}) },
         });
     }
 
@@ -497,7 +517,7 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-4">
             {#each pipelineSteps as step, index (index)}
                 {@const stepType = generationTypes.find(t => t.type === step.type)}
-                {@const stepModels = models[step.type] ?? []}
+                {@const stepModels = modelsForType(step.type)}
                 {@const isActive = index === currentPipelineStep}
                 {@const isCompleted = step.status === 'completed'}
                 {@const isLocked = index > 0 && pipelineSteps[index - 1].status !== 'completed'}
@@ -526,10 +546,22 @@
                                 <Label class="text-xs">Model</Label>
                                 <ModelPicker
                                     models={stepModels}
-                                    bind:selectedKey={step.modelKey}
+                                    selectedKey={step.modelKey}
                                     compact={true}
-                                    disabled={step.status === 'generating'}
+                                    disabled={step.status === 'generating' || isLoadingCatalogModel}
+                                    category={step.type}
+                                    onSelect={(key) => updatePipelineModel(index, key)}
+                                    onSelectCatalogModel={(endpointId) => selectPipelineCatalogModel(index, endpointId)}
                                 />
+                                {#if isLoadingCatalogModel}
+                                    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 class="h-3 w-3 animate-spin" />
+                                        Loading model...
+                                    </div>
+                                {/if}
+                                {#if catalogLoadError}
+                                    <p class="text-xs text-destructive">{catalogLoadError}</p>
+                                {/if}
                             </div>
 
                             <!-- Prompt -->
@@ -636,9 +668,10 @@
                 <Label class="text-xs font-medium">Model</Label>
                 <ModelPicker
                     models={availableModels}
-                    bind:selectedKey={currentModelKey}
+                    selectedKey={currentModelKey}
                     disabled={isGenerating || isLoadingCatalogModel}
                     category={currentType ?? ''}
+                    onSelect={selectModel}
                     onSelectCatalogModel={selectCatalogModel}
                 />
                 {#if isLoadingCatalogModel}
@@ -646,6 +679,9 @@
                         <Loader2 class="h-3 w-3 animate-spin" />
                         Loading model...
                     </div>
+                {/if}
+                {#if catalogLoadError}
+                    <p class="text-xs text-destructive">{catalogLoadError}</p>
                 {/if}
             </div>
 
@@ -658,6 +694,8 @@
                         Describe the image you want to generate
                     {:else if currentType === 'image_to_video'}
                         Describe the motion/animation
+                    {:else if currentType === 'text_to_video'}
+                        Describe the video you want to generate
                     {:else if currentType === 'text_to_music'}
                         Describe the music style and mood
                     {:else if currentType === 'text_to_speech'}

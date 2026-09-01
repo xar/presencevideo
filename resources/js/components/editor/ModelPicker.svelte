@@ -36,6 +36,7 @@
         disabled = false,
         compact = false,
         category = '',
+        onSelect,
         onSelectCatalogModel,
     }: {
         models: ModelConfig[];
@@ -43,6 +44,7 @@
         disabled?: boolean;
         compact?: boolean;
         category?: string;
+        onSelect?: (key: string) => void;
         onSelectCatalogModel?: (endpointId: string) => void;
     } = $props();
 
@@ -75,6 +77,7 @@
 
     function selectModel(model: ModelConfig) {
         selectedKey = model.key;
+        onSelect?.(model.key);
         searchQuery = '';
         catalogModels = [];
         isOpen = false;
@@ -95,6 +98,7 @@
                 const categoryMap: Record<string, string> = {
                     'text_to_image': 'text-to-image',
                     'image_to_video': 'image-to-video',
+                    'text_to_video': 'text-to-video',
                     'text_to_music': 'text-to-audio',
                     'text_to_speech': 'text-to-speech',
                     'text_to_sfx': 'text-to-audio',
@@ -206,9 +210,13 @@
 
     <DialogContent class="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <div class="pb-4 space-y-3">
-            <DialogTitle class="flex items-center gap-2">
+            <DialogTitle>
+                <div class="flex items-center gap-2">
+
+
                 <Sparkles class="h-5 w-5 text-primary" />
-                Choose a Model
+                <span>Choose a Model</span>
+                </div>
             </DialogTitle>
 
             <!-- Search Input -->

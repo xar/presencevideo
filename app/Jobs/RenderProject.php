@@ -70,7 +70,9 @@ class RenderProject implements ShouldQueue
                 'progress' => 70,
             ]);
 
-            $concatenated = $ffmpeg->concatenateVideos($sceneVideos);
+            // Scene transitions (when any) are applied while joining the scenes,
+            // which overlaps neighbouring scenes and shortens the output.
+            $concatenated = $ffmpeg->concatenateVideos($sceneVideos, $scenes, $project->fps);
 
             // Apply video track overlays (PIP, watermarks, etc.)
             $videoTracks = $project->video_tracks ?? [];
@@ -87,22 +89,22 @@ class RenderProject implements ShouldQueue
             }
 
             $audioTracks = $project->audio_tracks ?? [];
-            $totalDurationMs = array_sum(array_column($scenes, 'duration_ms'));
+            $totalDurationMs = $ffmpeg->totalOutputDurationMs($scenes, $project->fps);
 
             // Extract audio from video layers in scenes
-            $sceneAudio = $ffmpeg->extractSceneAudio($scenes);
+            $sceneAudio = $ffmpeg->extractSceneAudio($scenes, $project->fps);
 
             $finalOutput = $concatenated;
 
             // If we have both scene audio and audio tracks, mix them together
             if ($sceneAudio && ! empty($audioTracks)) {
-                $mixedTracks = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
+                $mixedTracks = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs, $scenes, $project->fps);
                 $mixedAudio = $ffmpeg->mixTwoAudioFiles($sceneAudio, $mixedTracks, $totalDurationMs);
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             } elseif ($sceneAudio) {
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $sceneAudio);
             } elseif (! empty($audioTracks)) {
-                $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs);
+                $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs, $scenes, $project->fps);
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             }
 
