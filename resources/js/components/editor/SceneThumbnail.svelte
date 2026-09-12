@@ -1,5 +1,7 @@
 <script lang="ts">
     import { ImageIcon, Video } from 'lucide-svelte';
+    import { timelineStore } from '@/lib/editor';
+    import { getCachedFrameBlobs } from '@/lib/editor/media-cache';
     import type { Asset, Scene } from '@/types';
 
     const THUMBNAIL_TILE_WIDTH = 80;
@@ -73,6 +75,12 @@
             return;
         }
 
+        // Decoding competes with the preview <video>s for the decoder; wait
+        // until playback pauses (the effect re-runs on the transition).
+        if (timelineStore.isPlaying) {
+            return;
+        }
+
         const trimStartMs = layer.trim_start_ms ?? 0;
         const usableDurationMs = Math.max(1, scene.duration_ms);
         const requestKey = [assetUrl, count, trimStartMs, usableDurationMs].join('|');
@@ -94,9 +102,7 @@
         const timer = setTimeout(() => {
             lastRequestKey = requestKey;
 
-            // Lazy-load mediabunny so the heavy media library stays out of the initial bundle
-            void import('@/lib/editor/mediabunny')
-                .then(({ createVideoFrameBlobs }) => createVideoFrameBlobs(assetUrl, timestamps, 180))
+            void getCachedFrameBlobs(assetUrl, timestamps, 180)
                 .then((blobs) => {
                     if (cancelled) return;
 

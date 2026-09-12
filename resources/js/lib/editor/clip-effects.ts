@@ -118,3 +118,44 @@ export function videoLayerContentEndMs(
 
     return Math.round(sourceMs / clampSpeed(layer.speed));
 }
+
+// ---- Video preview sync policy ---------------------------------------------
+
+/**
+ * While playing, tolerate this much drift (seconds, at 1x) between the
+ * timeline clock and a <video> element before seeking it. Browsers routinely
+ * drift 100-200ms; seeking a decoder mid-playback freezes it for a similar
+ * amount, so a tight tolerance causes a chronic stutter loop.
+ */
+export const PLAYING_DRIFT_TOLERANCE_SEC = 0.25;
+
+/** Never issue corrective seeks closer together than this while playing. */
+export const SEEK_COOLDOWN_MS = 500;
+
+/** While paused the frame should match exactly; seek on any visible drift. */
+export const PAUSED_DRIFT_TOLERANCE_SEC = 0.01;
+
+export type VideoSyncInput = {
+    playing: boolean;
+    driftSec: number;
+    speed: number;
+    lastSeekAtMs: number;
+    nowMs: number;
+};
+
+/**
+ * Whether a preview <video> should be seeked to correct drift. Paused: always
+ * correct visible drift (a wrong frame is worse than a seek). Playing: only
+ * for real drift, rate-limited so one slow seek cannot trigger the next.
+ */
+export function shouldCorrectVideoDrift({ playing, driftSec, speed, lastSeekAtMs, nowMs }: VideoSyncInput): boolean {
+    if (!playing) {
+        return driftSec > PAUSED_DRIFT_TOLERANCE_SEC;
+    }
+
+    if (driftSec <= PLAYING_DRIFT_TOLERANCE_SEC * Math.max(1, speed)) {
+        return false;
+    }
+
+    return nowMs - lastSeekAtMs >= SEEK_COOLDOWN_MS;
+}

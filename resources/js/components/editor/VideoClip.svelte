@@ -4,7 +4,7 @@
 
     import { projectStore, timelineStore } from '@/lib/editor';
     import { cssPaintColor } from '@/lib/editor/clip-effects';
-    import { getCachedFramePreviewUrl } from '@/lib/editor/media-cache';
+    import { getCachedFrameBlobs } from '@/lib/editor/media-cache';
     import { collectSnapPoints } from '@/lib/editor/snapping';
     import type { GesturePoint } from '@/lib/editor/usePointerGesture.svelte';
     import { useTimelineGesture } from '@/lib/editor/useTimelineGesture.svelte';
@@ -95,6 +95,8 @@
     // on every reactive tick.
     $effect(() => {
         if (gesture.active) return;
+        // Filmstrip decodes compete with playback for the decoder.
+        if (timelineStore.isPlaying) return;
         if (clipType !== 'video') {
             filmstripUrls = [];
             return;
@@ -115,16 +117,18 @@
         if (key === lastFilmstripKey) return;
         lastFilmstripKey = key;
 
-        Promise.all(
-            Array.from({ length: n }, (_, i) => {
-                const timeSec = (trim + ((i + 0.5) / n) * duration) / 1000;
-                return getCachedFramePreviewUrl(url, timeSec).catch(() => null);
-            }),
-        ).then((urls) => {
-            if (lastFilmstripKey === key) {
-                filmstripUrls = urls;
-            }
-        });
+        const timestamps = Array.from(
+            { length: n },
+            (_, i) => (trim + ((i + 0.5) / n) * duration) / 1000,
+        );
+
+        getCachedFrameBlobs(url, timestamps, 180)
+            .then((blobs) => {
+                if (lastFilmstripKey === key) {
+                    filmstripUrls = blobs.map((blob) => (blob ? URL.createObjectURL(blob) : null));
+                }
+            })
+            .catch(() => {});
     });
 </script>
 

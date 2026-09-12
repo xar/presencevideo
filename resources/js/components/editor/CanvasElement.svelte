@@ -9,6 +9,7 @@ import type {ResizeHandle} from '@/components/editor/ResizeHandles.svelte';
         clampSpeed,
         clampVolume,
         cssPaintColor,
+        shouldCorrectVideoDrift,
         supportsAdjustments,
     } from '@/lib/editor/clip-effects';
     import { editorFeatures } from '@/lib/editor/editor-features';
@@ -52,6 +53,8 @@ import type {SnapRequest} from '@/lib/editor/useDragResize.svelte';
 
     let videoEl: HTMLVideoElement | undefined = $state();
     let videoReady = $state(false);
+    /** Wall-clock time of the last corrective seek while playing (not reactive). */
+    let lastSeekAtMs = 0;
     let framePreviewUrl = $state<string | null>(null);
     let lastFrameKey = $state<string | null>(null);
     let isPlaying = $derived(timelineStore.isPlaying);
@@ -124,7 +127,10 @@ import type {SnapRequest} from '@/lib/editor/useDragResize.svelte';
         // Audio is only audible while the timeline actually runs: a paused
         // scrub would otherwise blast fragments on every seek.
         const shouldBeAudible = audible && playing && !pastContent && !(element.muted ?? false);
-        videoEl.volume = clampVolume(element.volume);
+        const volume = clampVolume(element.volume);
+        if (Math.abs(videoEl.volume - volume) > 0.005) {
+            videoEl.volume = volume;
+        }
         if (videoEl.muted !== !shouldBeAudible) {
             videoEl.muted = !shouldBeAudible;
         }
@@ -141,15 +147,16 @@ import type {SnapRequest} from '@/lib/editor/useDragResize.svelte';
                 videoEl.pause();
             }
 
-            if (drift > 0.01) {
+            if (shouldCorrectVideoDrift({ playing: false, driftSec: drift, speed, lastSeekAtMs, nowMs: Date.now() })) {
                 videoEl.currentTime = targetTime;
             }
             return;
         }
 
-        // Faster playback consumes source time faster, so allow proportionally
-        // more drift before re-seeking (seeking mid-playback is visibly jarring).
-        if (drift > 0.05 * Math.max(1, speed)) {
+        // Corrective seeks freeze the decoder briefly, so they are tolerant of
+        // drift and rate-limited — see shouldCorrectVideoDrift().
+        if (shouldCorrectVideoDrift({ playing: true, driftSec: drift, speed, lastSeekAtMs, nowMs: Date.now() })) {
+            lastSeekAtMs = Date.now();
             videoEl.currentTime = targetTime;
         }
 

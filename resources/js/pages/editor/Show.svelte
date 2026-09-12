@@ -40,6 +40,14 @@
     });
 
     onMount(() => {
+        // Dev-only: logs playback frame stats to the console (and Boost logs).
+        let stopPerfMonitor: (() => void) | undefined;
+        if (import.meta.env.DEV) {
+            import('@/lib/editor/perf-monitor').then((m) => {
+                stopPerfMonitor = m.startPlaybackPerfMonitor();
+            });
+        }
+
         projectStore.setProject(project);
         generationTracker.init(activeGenerations);
 
@@ -265,6 +273,7 @@
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            stopPerfMonitor?.();
             window.removeEventListener('keydown', handleKeydown);
             window.removeEventListener('beforeunload', handleBeforeUnload);
             document.removeEventListener('visibilitychange', handleVisibilityChange);

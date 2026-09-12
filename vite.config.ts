@@ -17,6 +17,9 @@ export default defineConfig({
             ],
             ssr: 'resources/js/ssr.ts',
             refresh: true,
+            // The site is served over HTTPS (Herd-secured); Vite's dev server
+            // must offer TLS too or the browser blocks it as mixed content.
+            detectTls: 'videoeditor',
         }),
         tailwindcss(),
         svelte(),

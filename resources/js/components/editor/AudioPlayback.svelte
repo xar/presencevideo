@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { projectStore, timelineStore } from '@/lib/editor';
-    import type { AudioClip, AudioTrack, Asset } from '@/types';
+    import type { AudioClip, AudioTrack } from '@/types';
 
     let audioTracks = $derived(projectStore.project?.audio_tracks ?? []);
     let assets = $derived(projectStore.project?.assets ?? []);
@@ -9,7 +9,8 @@
     let isPlaying = $derived(timelineStore.isPlaying);
     let playbackRate = $derived(timelineStore.playbackRate);
 
-    // Store audio elements outside of reactive state to avoid loops
+    // Store audio elements outside of reactive state to avoid loops.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- intentionally non-reactive
     const audioElements = new Map<string, HTMLAudioElement>();
     let lastSyncTime = 0;
 
@@ -115,7 +116,11 @@
                 ? 0
                 : mediaVolume(clip.volume, track.volume, fadeMultiplier(clip, currentTimeMs));
 
-            audio.volume = volume;
+            // Media element property writes are not free; skip no-op updates
+            // (with fades the value changes every frame anyway).
+            if (Math.abs(audio.volume - volume) > 0.005) {
+                audio.volume = volume;
+            }
 
             if (audio.playbackRate !== playbackRate) {
                 audio.playbackRate = playbackRate;
@@ -137,15 +142,18 @@
                 }
 
                 // Re-anchor the timeline clock to the first actively playing
-                // audio element to reduce drift. Only nudge for small, plausible
-                // deviations (40-200ms); larger gaps are handled by seeking audio.
+                // audio element to reduce drift. Only for plausible deviations
+                // (80-200ms); larger gaps are handled by seeking audio. The
+                // clock is nudged a quarter of the way per tick instead of
+                // snapping: a hard snap visibly jumps the playhead and shoves
+                // every preview <video> toward its seek threshold at once.
                 // Skipped at non-1x rates: the implied-position math assumes the
                 // element and clock advance at the same speed as wall time.
                 if (!anchored && isPlaying && playbackRate === 1 && !audio.paused) {
                     const impliedMs = clip.start_ms + (audio.currentTime * 1000 - trimStart);
                     const driftMs = impliedMs - currentTimeMs;
-                    if (Number.isFinite(impliedMs) && Math.abs(driftMs) > 40 && Math.abs(driftMs) < 200) {
-                        timelineStore.syncToClock(impliedMs);
+                    if (Number.isFinite(impliedMs) && Math.abs(driftMs) > 80 && Math.abs(driftMs) < 200) {
+                        timelineStore.syncToClock(currentTimeMs + driftMs / 4);
                         anchored = true;
                     }
                 }
@@ -162,7 +170,7 @@
         const timeDiff = Math.abs(currentTimeMs - lastSyncTime);
         if (timeDiff > 100) {
             // Force resync on seek
-            for (const { track, clip } of getAllClips()) {
+            for (const { clip } of getAllClips()) {
                 const audio = audioElements.get(clip.id);
                 if (!audio) continue;
 

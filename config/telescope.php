@@ -113,6 +113,10 @@ return [
     ],
 
     'ignore_paths' => [
+        // Media byte-range traffic: the browser fires dozens of these per
+        // played video; recording them (and their queries/views) makes every
+        // request slower and floods the telescope tables.
+        'editor/assets/*',
         'livewire*',
         'nova-api*',
         'pulse*',
