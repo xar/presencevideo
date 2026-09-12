@@ -103,6 +103,14 @@ RUN apt-get update && apt-get upgrade -y \
     # Image processing
     libgd3 \
     imagemagick \
+    # Fonts for ffmpeg drawtext/ass subtitle rendering. FFmpegService::findFontFile()
+    # resolves its Arial/Helvetica/Georgia/Times/Courier/Impact/Verdana map onto the
+    # Liberation and DejaVu families under /usr/share/fonts/truetype/{liberation,dejavu};
+    # without these packages every lookup misses and text silently falls back.
+    fonts-liberation \
+    fonts-dejavu-core \
+    fonts-noto-color-emoji \
+    fontconfig \
     # Add Caddy repository
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \

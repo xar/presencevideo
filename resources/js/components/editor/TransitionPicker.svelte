@@ -123,7 +123,7 @@
                         {transition?.type === option.value ? 'border-primary bg-primary/10' : 'border-border'}"
                         onclick={() => selectType(option.value)}
                     >
-                        <Diamond class="h-4 w-4 {option.previewable ? 'fill-current' : ''}" />
+                        <Diamond class="h-4 w-4 fill-current" />
                         <span class="text-center leading-tight">{option.label}</span>
                     </button>
                 {/each}

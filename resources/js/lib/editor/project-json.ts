@@ -1,4 +1,5 @@
 import type { Project } from '@/types';
+import { normalizeProject } from './normalize';
 
 type ProjectData = Pick<
     Project,
@@ -72,9 +73,13 @@ export function validateProjectData(input: unknown): ValidationResult {
         return { valid: false, error: '"subtitle_tracks" must be an array' };
     }
 
+    // Normalised here rather than at the call sites: both the JSON importer and
+    // the JSON editor apply this straight to the store, and an un-normalised
+    // payload renders wrong (no `fit`, no `start_ms`/`end_ms`/`track_id`) in a
+    // way that only shows up much later, on export.
     return {
         valid: true,
-        data: {
+        data: normalizeProject({
             name: obj.name,
             resolution_width: obj.resolution_width,
             resolution_height: obj.resolution_height,
@@ -83,7 +88,7 @@ export function validateProjectData(input: unknown): ValidationResult {
             audio_tracks: obj.audio_tracks as Project['audio_tracks'],
             video_tracks: obj.video_tracks as Project['video_tracks'],
             subtitle_tracks: obj.subtitle_tracks as Project['subtitle_tracks'],
-        },
+        }),
     };
 }
 

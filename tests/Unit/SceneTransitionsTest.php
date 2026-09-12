@@ -319,7 +319,10 @@ it('crossfades and shifts scene audio around a transition', function () {
         ->and($graph['filters'][1])->toBe(
             '[1:a]atrim=0:4.000000,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.500000,adelay=3500|3500[a1]'
         )
-        ->and($graph['filters'][2])->toBe('[a0][a1]amix=inputs=2:duration=longest[aout]');
+        // Pinned string updated deliberately: `amix` now runs with normalize=0, so a
+        // transition crossfade is a true sum of the two faded scene audios rather
+        // than a sum halved by the input count.
+        ->and($graph['filters'][2])->toBe('[a0][a1]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95:level=disabled[aout]');
 });
 
 it('places scene audio at plain scene offsets without transitions', function () {

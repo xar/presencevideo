@@ -23,3 +23,11 @@ export {
     createGenerationTracker,
     type GenerationTracker,
 } from './generations.svelte';
+export {
+    acquireMediaProvider,
+    releaseAllMediaProviders,
+    createUrlSource,
+    toCurrentOriginUrl,
+    type MediaProvider,
+    type MediaReadiness,
+} from './media-provider';

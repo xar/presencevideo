@@ -1,3 +1,4 @@
+import type { FormDataConvertible } from '@inertiajs/core';
 import { router } from '@inertiajs/svelte';
 import { v4 as uuid } from 'uuid';
 import { clampSpeed } from '@/lib/editor/clip-effects';
@@ -786,10 +787,14 @@ async function save(): Promise<void> {
                 resolution_width: project!.resolution_width,
                 resolution_height: project!.resolution_height,
                 fps: project!.fps,
-                scenes: project!.scenes,
-                audio_tracks: project!.audio_tracks,
-                video_tracks: project!.video_tracks,
-                subtitle_tracks: project!.subtitle_tracks,
+                // Inertia's FormDataConvertible cannot express a readonly tuple,
+                // which is what a cubic-bezier easing on a keyframe is. The
+                // payload is JSON either way, so the cast buys back the nested
+                // lists without weakening any type the editor actually uses.
+                scenes: project!.scenes as unknown as FormDataConvertible,
+                audio_tracks: project!.audio_tracks as unknown as FormDataConvertible,
+                video_tracks: project!.video_tracks as unknown as FormDataConvertible,
+                subtitle_tracks: project!.subtitle_tracks as unknown as FormDataConvertible,
             },
             {
                 preserveScroll: true,

@@ -1,5 +1,18 @@
 import type { Scene } from '@/types';
 import { projectStore } from './project.svelte';
+import {
+    getSceneIndexAtMs,
+    getSceneStartsMs,
+    getTotalDurationMs,
+} from './selectors';
+
+/**
+ * An authoritative external clock, in timeline ms, or null when it cannot
+ * currently say — no audio in the project, no `AudioContext`, a context the
+ * autoplay policy left suspended. Returning null is not an error: it hands the
+ * timeline straight back to the rAF wall clock for that frame.
+ */
+export type ClockSource = () => number | null;
 
 export type TimelineStore = {
     currentTimeMs: number;
@@ -16,6 +29,7 @@ export type TimelineStore = {
     setZoom: (zoom: number) => void;
     stepFrames: (frames: number) => void;
     seekToScene: (sceneIndex: number) => void;
+    setClockSource: (source: ClockSource | null) => void;
     getCurrentScene: () => Scene | null;
     getCurrentSceneIndex: () => number;
     getTotalDuration: () => number;
@@ -28,6 +42,7 @@ let playbackRate = $state(1.0);
 let zoom = $state(1.0);
 let animationFrameId: number | null = null;
 let lastFrameTime: number | null = null;
+let clockSource: ClockSource | null = null;
 
 const BASE_PIXELS_PER_MS = 0.1;
 
@@ -74,24 +89,17 @@ function syncToClock(ms: number): void {
     assignCurrentTime(ms);
 }
 
+/**
+ * Output duration, transitions included. Delegates to the selector so the
+ * playback clock stops at the same instant the exported file ends; summing raw
+ * scene durations here is what made the preview outlive the render.
+ */
 function getTotalDuration(): number {
-    const project = projectStore.project;
-    if (!project?.scenes?.length) return 0;
-    return project.scenes.reduce((sum, scene) => sum + scene.duration_ms, 0);
+    return getTotalDurationMs(projectStore.project);
 }
 
 function getCurrentSceneIndex(): number {
-    const project = projectStore.project;
-    if (!project?.scenes?.length) return -1;
-
-    let accumulated = 0;
-    for (let i = 0; i < project.scenes.length; i++) {
-        accumulated += project.scenes[i].duration_ms;
-        if (currentTimeMs < accumulated) {
-            return i;
-        }
-    }
-    return project.scenes.length - 1;
+    return getSceneIndexAtMs(projectStore.project, currentTimeMs);
 }
 
 function getCurrentScene(): Scene | null {
@@ -102,20 +110,66 @@ function getCurrentScene(): Scene | null {
 }
 
 function seekToScene(sceneIndex: number): void {
-    const project = projectStore.project;
-    if (!project?.scenes?.length) return;
+    const starts = getSceneStartsMs(projectStore.project);
+    if (starts.length === 0) return;
 
-    let time = 0;
-    for (let i = 0; i < sceneIndex && i < project.scenes.length; i++) {
-        time += project.scenes[i].duration_ms;
-    }
-    setCurrentTime(time);
+    const index = Math.max(0, Math.min(sceneIndex, starts.length - 1));
+    setCurrentTime(starts[index]);
 }
 
+/**
+ * Register the clock playback should follow, or null to remove it.
+ *
+ * The preview's audio engine registers here so the picture follows the
+ * `AudioContext` rather than the other way round. Only ONE source is held: a
+ * second registration replaces the first, because two authorities is exactly
+ * the arrangement this replaced.
+ */
+function setClockSource(source: ClockSource | null): void {
+    clockSource = source;
+}
+
+/**
+ * Read the external clock, if one can answer for this frame.
+ *
+ * A source that throws is treated as absent rather than allowed to kill the
+ * rAF loop: losing audio is survivable, losing playback is not.
+ */
+function externalClockMs(): number | null {
+    if (!clockSource) return null;
+
+    try {
+        const ms = clockSource();
+
+        return typeof ms === 'number' && Number.isFinite(ms) ? ms : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * The playback loop. It no longer OWNS the time — when an external clock is
+ * registered and answering, the loop only samples it and repaints against it —
+ * but it stays the rAF wall clock whenever nothing else can say, which is the
+ * whole of a silent project's playback and any project whose `AudioContext` the
+ * browser has not let start.
+ */
 function animate(timestamp: number): void {
     if (!isPlaying) return;
 
-    if (lastFrameTime !== null) {
+    const externalMs = externalClockMs();
+
+    if (externalMs !== null) {
+        const totalDuration = getTotalDuration();
+
+        if (externalMs >= totalDuration) {
+            assignCurrentTime(totalDuration);
+            pause();
+            return;
+        }
+
+        syncToClock(externalMs);
+    } else if (lastFrameTime !== null) {
         const deltaMs = (timestamp - lastFrameTime) * playbackRate;
         const newTime = currentTimeMs + deltaMs;
         const totalDuration = getTotalDuration();
@@ -129,6 +183,9 @@ function animate(timestamp: number): void {
         assignCurrentTime(newTime);
     }
 
+    // Kept current even while an external clock is driving, so a source that
+    // drops out mid-playback resumes wall-clock stepping from this frame
+    // instead of jumping by however long the audio was in charge.
     lastFrameTime = timestamp;
     animationFrameId = requestAnimationFrame(animate);
 }
@@ -210,6 +267,7 @@ export function createTimelineStore(): TimelineStore {
         setZoom,
         stepFrames,
         seekToScene,
+        setClockSource,
         getCurrentScene,
         getCurrentSceneIndex,
         getTotalDuration,

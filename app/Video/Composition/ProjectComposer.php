@@ -56,7 +56,7 @@ class ProjectComposer
         return $this;
     }
 
-    public function scene(?string $name = null, int $durationMs = 5000): SceneBuilder
+    public function scene(?string $name = null, int $durationMs = Project::DEFAULT_SCENE_DURATION_MS): SceneBuilder
     {
         $this->scenes[] = [
             'id' => (string) Str::uuid(),

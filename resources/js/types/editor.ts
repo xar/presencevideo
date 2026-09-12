@@ -1,3 +1,5 @@
+import type { KeyframeTracks } from '@/lib/editor/model/keyframes';
+
 // Project Types
 export type ProjectStatus = 'draft' | 'rendering' | 'completed' | 'failed';
 
@@ -40,15 +42,34 @@ export type SceneTransition = {
 };
 
 // Scene Types
+/**
+ * A named, ordered chunk of the timeline.
+ *
+ * @deprecated as STORAGE for elements. The unified model treats a scene as a
+ * derived VIEW over the timeline (`SceneView` in `lib/editor/model/timeline.ts`):
+ * a name, an absolute start and a duration. `layers` is still the persisted
+ * home of scene-scoped elements — and will remain readable forever for
+ * backwards compatibility — but nothing should reason about element timing by
+ * walking scenes. Use `buildTimeline(project)` and work with `TimelineElement`,
+ * which carries absolute `start_ms`/`end_ms` regardless of where the element is
+ * stored.
+ */
 export type Scene = {
     id: string;
     name?: string;
+    /** @deprecated Read `SceneView.durationMs` from `buildTimeline()` instead. */
     duration_ms: number;
+    /** @deprecated Read `Timeline.elements` instead; see the note on `Scene`. */
     layers: Layer[];
     background_color?: string;
     thumbnail_url?: string;
     /** Transition into the NEXT scene; ignored on the last scene. */
     transition?: SceneTransition | null;
+    /**
+     * Absolute start written by older payloads. Never read: scene starts are
+     * derived (prefix sum, minus transition overlap) so they cannot go stale.
+     */
+    start_ms?: number;
 };
 
 // Layer Types
@@ -64,7 +85,24 @@ export type BaseLayer = {
     rotation?: number;
     opacity?: number;
     z_index: number;
+    /**
+     * Animated overrides for the static properties above, keyed by property
+     * path. Keyframe times are ELEMENT-LOCAL so animation travels with the
+     * element when it is moved or retimed.
+     */
+    keyframes?: KeyframeTracks;
 };
+
+/**
+ * How media fills its box when the aspect ratios disagree.
+ *
+ * Declared here (rather than imported from `model/frame.ts`) so the persisted
+ * types stay free of a dependency on the render model; the two declarations are
+ * identical by construction.
+ */
+export type MediaFit = 'cover' | 'contain' | 'fill';
+
+export type TextAlign = 'left' | 'center' | 'right';
 
 /**
  * Colour adjustments stored on ffmpeg's own `eq` scales so the render and the
@@ -80,7 +118,8 @@ export type LayerAdjustments = {
 export type VideoLayer = BaseLayer & {
     type: 'video';
     asset_id: number;
-    start_time_ms?: number;
+    /** How the source fills the element box; 'cover' when absent. */
+    fit?: MediaFit;
     trim_start_ms?: number;
     trim_end_ms?: number;
     /** Constant playback speed multiplier, 0.25–4 (default 1). */
@@ -95,6 +134,8 @@ export type VideoLayer = BaseLayer & {
 export type ImageLayer = BaseLayer & {
     type: 'image';
     asset_id: number;
+    /** How the source fills the element box; 'cover' when absent. */
+    fit?: MediaFit;
     adjustments?: LayerAdjustments;
 };
 
@@ -105,7 +146,7 @@ export type TextLayer = BaseLayer & {
     font_size: number;
     font_color: string;
     font_weight?: 'normal' | 'bold';
-    text_align?: 'left' | 'center' | 'right';
+    text_align?: TextAlign;
     background_color?: string;
     padding?: number;
     stroke_color?: string;
@@ -128,6 +169,29 @@ export type ShapeLayer = BaseLayer & {
 };
 
 export type Layer = VideoLayer | ImageLayer | TextLayer | ShapeLayer;
+
+/**
+ * The one element type of the unified timeline.
+ *
+ * A scene layer and an overlay clip were always the same thing rendered by the
+ * same code; the only difference was where their timing came from. A
+ * `TimelineElement` is that thing with its timing resolved: ABSOLUTE
+ * `start_ms`/`end_ms` on a track, independent of any scene.
+ *
+ * Scene layers acquire these fields in `normalizeProject()` (derived from the
+ * enclosing scene) so legacy rows load with no data migration;
+ * `buildTimeline()` re-derives them from the scene for as long as scenes remain
+ * the storage primitive, so a stored value can never go stale against a scene
+ * whose duration changed.
+ */
+export type TimelineElement = Layer & {
+    /** Absolute start on the project timeline, inclusive. */
+    start_ms: number;
+    /** Absolute end on the project timeline, EXCLUSIVE. */
+    end_ms: number;
+    /** Owning track; the scene id for elements still stored inside a scene. */
+    track_id: string;
+};
 
 // Audio Types
 export type AudioTrack = {
@@ -170,6 +234,11 @@ export type ClipTiming = {
  * An overlay clip is a layer placed on the global timeline instead of inside a
  * scene: same rendering, same inspector, plus timing. `z_index` orders clips
  * within their track.
+ *
+ * @deprecated as a distinct concept. This is a `TimelineElement` whose timing
+ * happens to be stored as `start_ms` + `duration_ms`; `buildTimeline()` lifts
+ * both clips and scene layers into the same `TimelineElement` list, and new
+ * code should consume that rather than branching on clip-vs-layer.
  */
 export type VideoClip = Layer & ClipTiming;
 

@@ -1,10 +1,10 @@
 import { router } from '@inertiajs/svelte';
 import { appFetch } from '@/lib/http';
-import type { MediaMetadata } from './mediabunny';
-import { editorFeatures, mediaLimits } from './editor-features';
-import { getMediaCapabilities } from './media-capabilities';
 import { generateUuid } from '@/lib/utils';
 import type { AssetType } from '@/types';
+import { editorFeatures, mediaLimits } from './editor-features';
+import { getMediaCapabilities } from './media-capabilities';
+import type { MediaMetadata } from './mediabunny';
 
 export type UploadStatus =
     | 'reading'

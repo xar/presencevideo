@@ -1,145 +1,324 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import ResizeHandles from '@/components/editor/ResizeHandles.svelte';
+    import type { ResizeHandle } from '@/components/editor/ResizeHandles.svelte';
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
     import { autoSceneDurationMs } from '@/lib/editor/asset-actions';
     import {
         canvasGuides,
         screenThresholdToProject,
         snapMove,
-        snapResize
-        
-        
+        snapResize,
     } from '@/lib/editor/canvas-snapping.svelte';
-import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
-    import { effectiveTransition, isPreviewableTransition } from '@/lib/editor/transitions';
+    import type { SnapContext, SnapRect } from '@/lib/editor/canvas-snapping.svelte';
+    import {
+        computeBackingSize,
+        editTargetOf,
+        elementScreenBox,
+        fitScale,
+        frameMediaUrls,
+        hitTestElements,
+        interactiveElements,
+        isSameTarget,
+        projectPointFromClient,
+        sameUrls,
+    } from '@/lib/editor/canvas-view';
+    import type { EditTarget } from '@/lib/editor/canvas-view';
+    import { drawFrame } from '@/lib/editor/compositor';
+    import type { MediaLookup } from '@/lib/editor/compositor';
+    import { createPreviewMediaLookup } from '@/lib/editor/media-lookup';
+    import type { WarmUpRequest } from '@/lib/editor/media-lookup';
+    import type { ResolvedElement } from '@/lib/editor/model/frame';
+    import { resolveFrame } from '@/lib/editor/model/resolve-frame';
+    import { buildTimeline } from '@/lib/editor/model/timeline';
     import type { SnapRequest } from '@/lib/editor/useDragResize.svelte';
-    import type { Layer, ImageLayer, VideoLayer, VideoClip } from '@/types';
-    import CanvasElement from './CanvasElement.svelte';
-    import SubtitleOverlay from './SubtitleOverlay.svelte';
+    import { useDragResize } from '@/lib/editor/useDragResize.svelte';
+    import type { ImageLayer, Layer, VideoClip, VideoLayer } from '@/types';
+
+    /**
+     * The WYSIWYG canvas.
+     *
+     * Everything visible is painted by the SHARED compositor: the preview
+     * resolves a frame with `resolveFrame` and paints it with `drawFrame`,
+     * which is exactly what the exporter does, so what is on screen and what
+     * ends up in the file cannot drift. The DOM above the canvas is purely an
+     * interaction surface — selection ring, resize handles, alignment guides —
+     * positioned from the SAME resolved frame that was just painted.
+     */
 
     let project = $derived(projectStore.project);
     let currentTimeMs = $derived(timelineStore.currentTimeMs);
     let currentTool = $derived(selectionStore.tool);
 
-    let displayedScene = $derived.by(() => {
-        return timelineStore.getCurrentScene() ?? selectionStore.getSelectedScene();
-    });
-
-    /** Playhead position relative to the displayed scene's start. */
-    let sceneLocalTimeMs = $derived.by(() => {
-        const scenes = project?.scenes ?? [];
-        let accumulated = 0;
-        for (const scene of scenes) {
-            if (scene.id === displayedScene?.id) {
-                return Math.max(0, currentTimeMs - accumulated);
-            }
-            accumulated += scene.duration_ms;
-        }
-        return 0;
-    });
-
-    // Compute active video clips that should be displayed at current time
-    type ActiveVideoClip = { trackId: string; clip: VideoClip };
-    let activeVideoClips = $derived.by((): ActiveVideoClip[] => {
-        if (!project?.video_tracks?.length) return [];
-
-        const clips: ActiveVideoClip[] = [];
-
-        for (const track of project.video_tracks) {
-            // Skip hidden tracks
-            if (track.visible === false) continue;
-
-            for (const clip of track.clips) {
-                const clipStart = clip.start_ms;
-                const clipEnd = clip.start_ms + clip.duration_ms;
-
-                // Check if current time is within clip's time range
-                if (currentTimeMs >= clipStart && currentTimeMs < clipEnd) {
-                    clips.push({ trackId: track.id, clip });
-                }
-            }
-        }
-
-        // Sort by z_index
-        return clips.sort((a, b) => a.clip.z_index - b.clip.z_index);
-    });
+    /** Scene whose background and drop target the canvas represents. */
+    let displayedScene = $derived.by(
+        () => timelineStore.getCurrentScene() ?? selectionStore.getSelectedScene(),
+    );
 
     /**
-     * Cosmetic preview of the transition leaving the displayed scene.
-     *
-     * Only fade-family transitions are approximated (as a ramp to black/white
-     * over the last `duration_ms` of the scene); slide/wipe/circle transitions
-     * are not previewed. Note the preview timeline does NOT shorten the way the
-     * render does — scenes stay sequential here.
+     * Built once per project change rather than per frame: resolving a frame is
+     * cheap, walking every scene and track to derive absolute timings is not.
      */
-    let transitionOverlay = $derived.by((): { color: string; opacity: number } | null => {
-        const scenes = project?.scenes ?? [];
-        const index = scenes.findIndex((scene) => scene.id === displayedScene?.id);
-        if (index < 0 || index >= scenes.length - 1) return null;
+    let timeline = $derived(buildTimeline(project));
 
-        const transition = effectiveTransition(scenes[index], scenes[index + 1]);
-        if (!transition || !isPreviewableTransition(transition.type)) return null;
+    /** The single resolve per tick; the painter and the overlay share it. */
+    let frame = $derived(resolveFrame(project, currentTimeMs, { timeline }));
 
-        let sceneStartMs = 0;
-        for (let i = 0; i < index; i++) {
-            sceneStartMs += scenes[i].duration_ms;
-        }
+    /** Everything grabbable right now, bottom-first, in one global z order. */
+    let elements = $derived(interactiveElements(frame));
 
-        const remainingMs = sceneStartMs + scenes[index].duration_ms - currentTimeMs;
-        if (remainingMs < 0 || remainingMs > transition.duration_ms) return null;
+    let selectedElement = $derived.by((): ResolvedElement | null => {
+        const selection = selectionStore.selection;
 
-        return {
-            color: transition.type === 'fadewhite' ? '#ffffff' : '#000000',
-            opacity: 1 - remainingMs / transition.duration_ms,
-        };
+        return (
+            elements.find((element) =>
+                element.origin === 'scene'
+                    ? element.id === selection.layerId
+                    : element.id === selection.videoClipId,
+            ) ?? null
+        );
     });
 
     /** Magenta reads clearly over both bright footage and black backgrounds. */
     const GUIDE_COLOR = '#ff4dd2';
 
     let canvasScale = $state(0.5);
-    let containerEl: HTMLDivElement;
-    let canvasEl: HTMLDivElement | undefined = $state();
+    let containerEl: HTMLDivElement | undefined = $state();
+    let stageEl: HTMLDivElement | undefined = $state();
+    let canvasEl: HTMLCanvasElement | undefined = $state();
     let isDragOver = $state(false);
 
+    // ---------------------------------------------------------------- sizing
+
     $effect(() => {
-        if (containerEl && project) {
-            const containerWidth = containerEl.clientWidth - 48;
-            const containerHeight = containerEl.clientHeight - 48;
-            const scaleX = containerWidth / project.resolution_width;
-            const scaleY = containerHeight / project.resolution_height;
-            canvasScale = Math.min(scaleX, scaleY, 1);
-        }
+        const element = containerEl;
+        if (!element || typeof ResizeObserver === 'undefined') return;
+
+        const observer = new ResizeObserver(() => measure());
+        observer.observe(element);
+        measure();
+
+        return () => observer.disconnect();
     });
 
-    onDestroy(() => canvasGuides.clear());
+    // Re-fit when the project resolution changes, not only when the pane does.
+    $effect(() => {
+        void project?.resolution_width;
+        void project?.resolution_height;
+        measure();
+    });
 
-    function handleLayerClick(layer: Layer, e: MouseEvent) {
-        e.stopPropagation();
-        if (displayedScene) {
-            selectionStore.selectLayer(displayedScene.id, layer.id);
+    function measure(): void {
+        if (!containerEl || !project) return;
+
+        canvasScale = fitScale(
+            containerEl.clientWidth,
+            containerEl.clientHeight,
+            project.resolution_width,
+            project.resolution_height,
+        );
+    }
+
+    // --------------------------------------------------------------- painting
+
+    const previewMedia = createPreviewMediaLookup();
+
+    // Read-ahead is only worth issuing while the playhead is actually running;
+    // a scrub wants the newest position, not a queue of frames behind it.
+    $effect(() => {
+        previewMedia.setPlaybackMode(timelineStore.isPlaying ? 'playing' : 'idle');
+    });
+
+    /**
+     * Warm the decoders for whatever the first painted frame needs.
+     *
+     * Nothing else starts a decode until the renderer misses, so the opening
+     * picture would otherwise wait on a container parse, a range fetch and a
+     * keyframe decode that could all have run while the editor was mounting.
+     */
+    let warmedUp = false;
+
+    $effect(() => {
+        if (warmedUp) return;
+
+        const requests: WarmUpRequest[] = [];
+        const frames = [frame.primary, frame.transition?.incoming];
+
+        for (const resolved of frames) {
+            for (const element of resolved?.elements ?? []) {
+                if (element.kind !== 'video') continue;
+                if (!element.url || element.sourceTimeSec === null) continue;
+                requests.push({ url: element.url, timeSec: element.sourceTimeSec });
+            }
+        }
+
+        if (requests.length === 0) return;
+
+        warmedUp = true;
+        previewMedia.warmUp(requests);
+    });
+
+    /**
+     * A decode miss is transient, so it has to drive a repaint — otherwise a
+     * paused playhead keeps showing the hole the first frame had. Retried on a
+     * timer rather than on rAF: a permanently unavailable asset would otherwise
+     * spin the compositor at 60fps forever.
+     */
+    let mediaMissing = false;
+    const RETRY_MS = 100;
+
+    const trackedMedia: MediaLookup = {
+        getImage(url) {
+            const source = previewMedia.getImage(url);
+            if (!source) mediaMissing = true;
+            return source;
+        },
+        getVideoFrame(url, timeSec) {
+            const source = previewMedia.getVideoFrame(url, timeSec);
+            if (!source) mediaMissing = true;
+            return source;
+        },
+    };
+
+    let ctx: CanvasRenderingContext2D | null = null;
+    let ctxCanvas: HTMLCanvasElement | null = null;
+    let frameId: number | null = null;
+    let retryId: ReturnType<typeof setTimeout> | null = null;
+    let declaredUrls: string[] = [];
+
+    // Repaint whenever the resolved frame or the canvas size changes. `frame`
+    // is a memo, so this is one resolve per tick no matter how many readers it
+    // has, and the paint itself is coalesced onto the next animation frame.
+    $effect(() => {
+        void frame;
+        void canvasScale;
+        void canvasEl;
+        schedulePaint();
+    });
+
+    // Hold decoders open for exactly the assets on screen. Comparing the URL
+    // set keeps this to the handful of ticks where the set actually changes.
+    $effect(() => {
+        const urls = frameMediaUrls(frame);
+        if (sameUrls(urls, declaredUrls)) return;
+
+        declaredUrls = urls;
+        previewMedia.sync(urls);
+    });
+
+    function schedulePaint(): void {
+        if (frameId !== null) return;
+
+        frameId = requestAnimationFrame(() => {
+            frameId = null;
+            paint();
+        });
+    }
+
+    function paint(): void {
+        const canvas = canvasEl;
+        if (!canvas || !project) return;
+
+        if (ctxCanvas !== canvas) {
+            ctx = canvas.getContext('2d');
+            ctxCanvas = canvas;
+        }
+        if (!ctx) return;
+
+        const size = computeBackingSize(
+            project.resolution_width,
+            project.resolution_height,
+            canvasScale,
+            typeof window === 'undefined' ? 1 : window.devicePixelRatio,
+        );
+
+        if (canvas.width !== size.width || canvas.height !== size.height) {
+            canvas.width = size.width;
+            canvas.height = size.height;
+        }
+
+        // Decode preview frames at the size they are actually painted at,
+        // device pixels included. A 1080x1920 source in a 265px pane decoded
+        // at source size spends most of its decode budget on pixels that are
+        // scaled away before anyone sees them.
+        previewMedia.setPreviewSurface({ width: size.width, height: size.height });
+
+        // The painter works in PROJECT pixels; the device-pixel ratio is a
+        // single transform here and is never baked into resolved geometry.
+        ctx.setTransform(size.renderScale, 0, 0, size.renderScale, 0, 0);
+
+        mediaMissing = false;
+        drawFrame(ctx, frame, trackedMedia);
+
+        if (retryId !== null) {
+            clearTimeout(retryId);
+            retryId = null;
+        }
+        if (mediaMissing) {
+            retryId = setTimeout(() => {
+                retryId = null;
+                schedulePaint();
+            }, RETRY_MS);
         }
     }
 
-    function handleCanvasClick() {
-        if (!displayedScene || !canvasEl) return;
+    onDestroy(() => {
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        if (retryId !== null) clearTimeout(retryId);
+        previewMedia.dispose();
+        canvasGuides.clear();
+    });
 
-        selectionStore.selectScene(displayedScene.id);
+    // ------------------------------------------------------------ interaction
+
+    /** The element the live gesture edits; plain state, read inside callbacks. */
+    let activeTarget: EditTarget | null = null;
+
+    const EMPTY_RECT: SnapRect = { x: 0, y: 0, width: 0, height: 0 };
+
+    /**
+     * The STORED geometry of an element. Deliberately not the resolved
+     * geometry: a drag writes back to the layer, so it has to start from the
+     * value it will overwrite, or a keyframed element would jump by its own
+     * animation offset on the first pointer move.
+     */
+    function storedRect(target: EditTarget | null): SnapRect | null {
+        if (!target || !project) return null;
+
+        const source =
+            target.origin === 'scene'
+                ? project.scenes
+                      .find((scene) => scene.id === target.containerId)
+                      ?.layers.find((layer) => layer.id === target.id)
+                : project.video_tracks
+                      .find((track) => track.id === target.containerId)
+                      ?.clips.find((clip) => clip.id === target.id);
+
+        if (!source) return null;
+
+        return {
+            x: source.x,
+            y: source.y,
+            width: source.width,
+            height: source.height,
+        };
     }
 
     // Keep at least this many canvas pixels of an element visible so it can
     // always be grabbed again after a drag
     const MIN_VISIBLE_PX = 40;
 
+    /** Overlay clips are chrome-sized things (logos, badges); layers can be smaller. */
+    function minSizeFor(target: EditTarget | null): number {
+        return target?.origin === 'track' ? 40 : 20;
+    }
+
     function clampToCanvas(value: number, size: number, canvasSize: number): number {
         const minVisible = Math.min(MIN_VISIBLE_PX, size);
         return Math.max(minVisible - size, Math.min(value, canvasSize - minVisible));
     }
 
-    function clampPositionUpdates<T extends { x: number; y: number; width: number; height: number }>(
-        current: T,
-        updates: Partial<T>,
-    ): Partial<T> {
+    function clampPositionUpdates(current: SnapRect, updates: Partial<SnapRect>): Partial<SnapRect> {
         if (!project || (updates.x === undefined && updates.y === undefined)) {
             return updates;
         }
@@ -158,87 +337,132 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
         return clamped;
     }
 
-    function handleLayerUpdate(layer: Layer, updates: Partial<Layer>) {
-        if (displayedScene) {
-            projectStore.updateLayer(displayedScene.id, layer.id, clampPositionUpdates(layer, updates));
-        }
-    }
-
-    function handleVideoClipClick(trackId: string, clip: VideoClip, e: MouseEvent) {
-        e.stopPropagation();
-        selectionStore.selectVideoClip(trackId, clip.id);
-    }
-
-    function handleVideoClipUpdate(trackId: string, clip: VideoClip, updates: Partial<VideoClip>) {
-        projectStore.updateVideoClip(trackId, clip.id, clampPositionUpdates(clip, updates));
-    }
-
     /**
-     * Everything else currently visible on the canvas that the dragged element
-     * can line up against: the scene's other layers plus the overlay clips that
-     * are live at the playhead.
+     * Everything else on the canvas the dragged element can line up against,
+     * in the same (stored) space the gesture works in.
      */
-    function otherRects(excludeLayerId?: string, excludeClipId?: string): SnapRect[] {
+    function otherRects(exclude: EditTarget | null): SnapRect[] {
         const rects: SnapRect[] = [];
 
-        for (const layer of displayedScene?.layers ?? []) {
-            if (layer.id === excludeLayerId) continue;
-            rects.push({ x: layer.x, y: layer.y, width: layer.width, height: layer.height });
-        }
+        for (const element of elements) {
+            const target = editTargetOf(element);
+            if (isSameTarget(target, exclude)) continue;
 
-        for (const { clip } of activeVideoClips) {
-            if (clip.id === excludeClipId) continue;
-            rects.push({ x: clip.x, y: clip.y, width: clip.width, height: clip.height });
+            const rect = storedRect(target);
+            if (rect) rects.push(rect);
         }
 
         return rects;
     }
 
     /**
-     * Builds the `snap` callback handed to a draggable element.
-     *
      * Alt/Option suppresses snapping (matching the timeline's convention). An
-     * aspect-locked resize (shift) also skips it: honouring a snapped edge there
-     * would either break the locked ratio or fight the ratio's own correction,
-     * so the ratio wins and no guides are drawn.
+     * aspect-locked resize (shift) also skips it: honouring a snapped edge
+     * there would either break the locked ratio or fight the ratio's own
+     * correction, so the ratio wins and no guides are drawn.
      */
-    function createSnapHandler(
-        minWidth: number,
-        minHeight: number,
-        excludeLayerId?: string,
-        excludeClipId?: string,
-    ) {
-        return (request: SnapRequest): SnapRect => {
-            if (!project || request.disabled || (request.mode === 'resize' && request.aspectLocked)) {
-                canvasGuides.clear();
-                return request.rect;
-            }
+    function runSnap(request: SnapRequest): SnapRect {
+        if (!project || request.disabled || (request.mode === 'resize' && request.aspectLocked)) {
+            canvasGuides.clear();
+            return request.rect;
+        }
 
-            const context: SnapContext = {
-                canvasWidth: project.resolution_width,
-                canvasHeight: project.resolution_height,
-                others: otherRects(excludeLayerId, excludeClipId),
-                thresholdPx: screenThresholdToProject(canvasScale),
-                minWidth,
-                minHeight,
-            };
-
-            const result =
-                request.mode === 'move'
-                    ? snapMove(request.rect, context)
-                    : snapResize(request.rect, request.handle ?? '', context);
-
-            canvasGuides.set(result.guides);
-
-            return result;
+        const minSize = minSizeFor(activeTarget);
+        const context: SnapContext = {
+            canvasWidth: project.resolution_width,
+            canvasHeight: project.resolution_height,
+            others: otherRects(activeTarget),
+            thresholdPx: screenThresholdToProject(canvasScale),
+            minWidth: minSize,
+            minHeight: minSize,
         };
+
+        const result =
+            request.mode === 'move'
+                ? snapMove(request.rect, context)
+                : snapResize(request.rect, request.handle ?? '', context);
+
+        canvasGuides.set(result.guides);
+
+        return result;
     }
 
-    let sortedLayers = $derived(
-        displayedScene
-            ? [...(displayedScene.layers ?? [])].sort((a, b) => a.z_index - b.z_index)
-            : [],
-    );
+    const dragResize = useDragResize({
+        getPosition: () => storedRect(activeTarget) ?? EMPTY_RECT,
+        onUpdate: (updates) => {
+            const target = activeTarget;
+            const current = storedRect(target);
+            if (!target || !current) return;
+
+            const clamped = clampPositionUpdates(current, updates);
+
+            if (target.origin === 'scene') {
+                projectStore.updateLayer(target.containerId, target.id, clamped as Partial<Layer>);
+            } else {
+                projectStore.updateVideoClip(
+                    target.containerId,
+                    target.id,
+                    clamped as Partial<VideoClip>,
+                );
+            }
+        },
+        scale: () => canvasScale,
+        minWidth: () => minSizeFor(activeTarget),
+        minHeight: () => minSizeFor(activeTarget),
+        snap: runSnap,
+        // Guides only while the gesture runs; undo batching is owned by the hook.
+        onGestureEnd: () => canvasGuides.clear(),
+    });
+
+    // Ends a gesture that is still running at teardown; the hook closes its own
+    // undo transaction when it does.
+    onDestroy(dragResize.cleanup);
+
+    function select(element: ResolvedElement): void {
+        if (element.origin === 'scene') {
+            selectionStore.selectLayer(element.containerId, element.id);
+        } else {
+            selectionStore.selectVideoClip(element.containerId, element.id);
+        }
+    }
+
+    /**
+     * Pointerdown (rather than click) so selection and the drag begin in the
+     * same event and the gesture can take pointer capture. The canvas is a
+     * single surface, so which element was pressed is decided by hit-testing
+     * the resolved frame — topmost first, rotation included — instead of by
+     * the browser hit-testing one DOM node per layer.
+     */
+    function handlePointerDown(e: PointerEvent): void {
+        if (!project || !stageEl) return;
+        // Resize handles are real buttons over the canvas and own their gesture.
+        if (e.target instanceof Element && e.target.closest('button')) return;
+
+        const point = projectPointFromClient(
+            e.clientX,
+            e.clientY,
+            stageEl.getBoundingClientRect(),
+            canvasScale,
+        );
+        const hit = hitTestElements(elements, point.x, point.y);
+
+        if (!hit) {
+            activeTarget = null;
+            if (displayedScene) selectionStore.selectScene(displayedScene.id);
+            return;
+        }
+
+        select(hit);
+        activeTarget = editTargetOf(hit);
+        dragResize.handleMouseDown(e);
+    }
+
+    function handleResizeStart(handle: ResizeHandle, e: MouseEvent): void {
+        if (!selectedElement) return;
+
+        activeTarget = editTargetOf(selectedElement);
+        dragResize.handleResizeStart(handle, e);
+    }
 
     function getCursor(): string {
         switch (currentTool) {
@@ -248,6 +472,8 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
                 return 'default';
         }
     }
+
+    // ------------------------------------------------------------------- drop
 
     function handleDragOver(e: DragEvent) {
         e.preventDefault();
@@ -265,7 +491,7 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
         e.preventDefault();
         isDragOver = false;
 
-        if (!e.dataTransfer || !displayedScene || !canvasEl || !project) return;
+        if (!e.dataTransfer || !displayedScene || !stageEl || !project) return;
 
         const data = e.dataTransfer.getData('application/json');
         if (!data) return;
@@ -274,16 +500,19 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
             const parsed = JSON.parse(data);
             if (parsed.type !== 'asset') return;
 
-            const rect = canvasEl.getBoundingClientRect();
-            const dropX = Math.round((e.clientX - rect.left) / canvasScale);
-            const dropY = Math.round((e.clientY - rect.top) / canvasScale);
+            const drop = projectPointFromClient(
+                e.clientX,
+                e.clientY,
+                stageEl.getBoundingClientRect(),
+                canvasScale,
+            );
 
             const assetWidth = parsed.width ?? project.resolution_width;
             const assetHeight = parsed.height ?? project.resolution_height;
 
             // Center the layer on drop position
-            const x = Math.max(0, dropX - assetWidth / 2);
-            const y = Math.max(0, dropY - assetHeight / 2);
+            const x = Math.max(0, Math.round(drop.x) - assetWidth / 2);
+            const y = Math.max(0, Math.round(drop.y) - assetHeight / 2);
 
             const layerType = parsed.assetType === 'audio' ? null : parsed.assetType;
             if (!layerType) return;
@@ -320,16 +549,15 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
 >
     {#if displayedScene && project}
         <div
-            bind:this={canvasEl}
-            class="relative isolate overflow-hidden rounded-lg shadow-lg transition-all"
+            bind:this={stageEl}
+            class="relative isolate overflow-hidden rounded-lg shadow-lg"
             class:ring-2={isDragOver}
             class:ring-primary={isDragOver}
             class:ring-dashed={isDragOver}
             style:width="{project.resolution_width * canvasScale}px"
             style:height="{project.resolution_height * canvasScale}px"
-            style:background-color={displayedScene.background_color ?? '#000'}
             style:cursor={getCursor()}
-            onclick={handleCanvasClick}
+            onpointerdown={handlePointerDown}
             ondragover={handleDragOver}
             ondragleave={handleDragLeave}
             ondrop={handleDrop}
@@ -337,45 +565,27 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
             role="button"
             tabindex="0"
         >
-            {#each sortedLayers as layer (layer.id)}
-                <CanvasElement
-                    element={layer}
-                    localTimeMs={sceneLocalTimeMs}
-                    scale={canvasScale}
-                    isSelected={selectionStore.selection.layerId === layer.id}
-                    onclick={(e) => handleLayerClick(layer, e)}
-                    onUpdate={(updates) => handleLayerUpdate(layer, updates)}
-                    snap={createSnapHandler(20, 20, layer.id)}
-                />
-            {/each}
+            <!-- The one painted surface: same resolver, same painter as the export. -->
+            <canvas
+                bind:this={canvasEl}
+                class="block h-full w-full"
+                style:background-color={displayedScene.background_color ?? '#000'}
+            ></canvas>
 
-            <!-- Approximate fade transition into the next scene (cosmetic) -->
-            {#if transitionOverlay}
+            <!-- Selection ring and resize handles, placed on the painted pixels -->
+            {#if selectedElement}
+                {@const box = elementScreenBox(selectedElement, canvasScale)}
                 <div
-                    class="pointer-events-none absolute inset-0"
-                    style:background-color={transitionOverlay.color}
-                    style:opacity={transitionOverlay.opacity}
-                ></div>
+                    class="pointer-events-none absolute ring-2 ring-primary ring-offset-1 [&>button]:pointer-events-auto"
+                    style:left="{box.left}px"
+                    style:top="{box.top}px"
+                    style:width="{box.width}px"
+                    style:height="{box.height}px"
+                    style:transform="rotate({box.rotation}deg)"
+                >
+                    <ResizeHandles onStart={handleResizeStart} />
+                </div>
             {/if}
-
-            <!-- Video track overlays (PIP, watermarks, etc.) -->
-            {#each activeVideoClips as { trackId, clip } (clip.id)}
-                <CanvasElement
-                    element={clip}
-                    localTimeMs={currentTimeMs - clip.start_ms}
-                    scale={canvasScale}
-                    isSelected={selectionStore.selection.videoClipId === clip.id}
-                    audible={false}
-                    minSize={40}
-                    class="z-[100]"
-                    onclick={(e) => handleVideoClipClick(trackId, clip, e)}
-                    onUpdate={(updates) => handleVideoClipUpdate(trackId, clip, updates)}
-                    snap={createSnapHandler(40, 40, undefined, clip.id)}
-                />
-            {/each}
-
-            <!-- Subtitle overlay -->
-            <SubtitleOverlay scale={canvasScale} />
 
             <!-- Alignment guides (only present mid drag/resize) -->
             {#if canvasGuides.active.length > 0}
@@ -384,7 +594,7 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
                         <!-- Subtle centre crosshair while a canvas-centre snap holds -->
                         <div
                             class="absolute"
-                            style:left="{project.resolution_width * canvasScale / 2}px"
+                            style:left="{(project.resolution_width * canvasScale) / 2}px"
                             style:top="0"
                             style:width="1px"
                             style:height="100%"
@@ -392,7 +602,7 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
                         ></div>
                         <div
                             class="absolute"
-                            style:top="{project.resolution_height * canvasScale / 2}px"
+                            style:top="{(project.resolution_height * canvasScale) / 2}px"
                             style:left="0"
                             style:height="1px"
                             style:width="100%"
@@ -425,8 +635,10 @@ import type {SnapContext, SnapRect} from '@/lib/editor/canvas-snapping.svelte';
             {/if}
 
             {#if isDragOver}
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-primary/10">
-                    <p class="text-white text-sm bg-primary px-3 py-1 rounded shadow-lg">
+                <div
+                    class="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/10"
+                >
+                    <p class="rounded bg-primary px-3 py-1 text-sm text-white shadow-lg">
                         Drop to add layer
                     </p>
                 </div>

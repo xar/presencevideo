@@ -2,6 +2,7 @@
 
 namespace App\Video\Composition\Data;
 
+use App\Models\Project;
 use Illuminate\Support\Str;
 
 readonly class SceneData implements SerializesToArray
@@ -24,7 +25,7 @@ readonly class SceneData implements SerializesToArray
     {
         return new self(
             id: (string) ($attributes['id'] ?? Str::uuid()),
-            durationMs: (int) ($attributes['duration_ms'] ?? 5000),
+            durationMs: (int) ($attributes['duration_ms'] ?? Project::DEFAULT_SCENE_DURATION_MS),
             layers: $attributes['layers'] ?? [],
             name: $attributes['name'] ?? null,
             backgroundColor: $attributes['background_color'] ?? null,

@@ -1,4 +1,5 @@
 import type { Asset, AudioClip, Layer, Project, Scene, Selection, VideoClip } from '@/types';
+import { sceneStartsMs, totalDurationMs } from './model/timeline';
 
 export function getAssetById(project: Project | null | undefined, assetId: number | null | undefined): Asset | null {
     if (!project || !assetId) return null;
@@ -42,8 +43,61 @@ export function getSelectedLayer(project: Project | null | undefined, selection:
     return getLayerById(project, selection.sceneId, selection.layerId);
 }
 
+/**
+ * Total OUTPUT duration of the project, in ms.
+ *
+ * Delegates to the timeline model, which subtracts transition overlap. Summing
+ * raw scene durations — what this used to do, and what the playback clock, the
+ * ruler and the snapping code each re-implemented — made the preview run longer
+ * than the file it exported, by the total of every transition.
+ */
 export function getTotalDurationMs(project: Project | null | undefined): number {
-    return project?.scenes.reduce((duration, scene) => duration + scene.duration_ms, 0) ?? 0;
+    return totalDurationMs(project);
+}
+
+/**
+ * Absolute start of every scene, in project order.
+ *
+ * Scene-start arithmetic was re-implemented in seven places, each summing raw
+ * durations; this is the single source of truth and it is transition-aware.
+ */
+export function getSceneStartsMs(project: Project | null | undefined): number[] {
+    return sceneStartsMs(project?.scenes ?? [], project?.fps ?? 30);
+}
+
+/** Absolute start of one scene, or 0 when it is not in the project. */
+export function getSceneStartMs(
+    project: Project | null | undefined,
+    sceneId: string | null | undefined,
+): number {
+    const index = (project?.scenes ?? []).findIndex((scene) => scene.id === sceneId);
+
+    return index === -1 ? 0 : getSceneStartsMs(project)[index];
+}
+
+/** Index of the scene that contains an absolute time, or -1 when there are none. */
+export function getSceneIndexAtMs(project: Project | null | undefined, timeMs: number): number {
+    const scenes = project?.scenes ?? [];
+    if (scenes.length === 0) {
+        return -1;
+    }
+
+    const starts = getSceneStartsMs(project);
+    for (let index = 0; index < scenes.length; index++) {
+        if (timeMs < starts[index] + scenes[index].duration_ms) {
+            return index;
+        }
+    }
+
+    return scenes.length - 1;
+}
+
+/** Every scene boundary, for rulers and snapping. */
+export function getSceneBoundariesMs(project: Project | null | undefined): number[] {
+    const scenes = project?.scenes ?? [];
+    const starts = getSceneStartsMs(project);
+
+    return scenes.map((scene, index) => starts[index] + scene.duration_ms);
 }
 
 export function getAssetPreviewUrl(asset: Asset | null | undefined): string | null {

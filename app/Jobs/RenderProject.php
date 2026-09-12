@@ -19,14 +19,44 @@ class RenderProject implements ShouldQueue
 {
     use Queueable;
 
+    /**
+     * Failure messages we raise ourselves and that are safe to show the user.
+     *
+     * Anything not matching these is assumed to contain ffmpeg stderr (server
+     * paths, filtergraphs) and is replaced with a generic summary.
+     *
+     * @var list<string>
+     */
+    protected const SAFE_ERROR_PREFIXES = [
+        'No scenes to render',
+        'Asset files not found on disk',
+    ];
+
     public int $tries = 1;
 
-    public int $timeout = 3600;
+    /**
+     * Wall-clock budget for a render, in seconds.
+     *
+     * This value is only an upper bound *inside* the worker: the worker process
+     * itself is started with `--timeout` (docker/entrypoint.sh, QUEUE_TIMEOUT)
+     * and the smaller of the two wins, so a job-level timeout larger than the
+     * worker's is silently ignored and the job is SIGKILLed at the worker's
+     * limit instead. Keep this in lockstep with QUEUE_TIMEOUT.
+     *
+     * The queue connection's `retry_after` must in turn be strictly greater
+     * than this value (see config/queue.php); otherwise the broker hands the
+     * same render to a second worker while the first is still encoding.
+     */
+    public int $timeout = 900;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(public Render $render) {}
+    public function __construct(public Render $render)
+    {
+        // Renders are long-running and must not block the shared default queue.
+        $this->onQueue('renders');
+    }
 
     /**
      * Execute the job.
@@ -37,6 +67,9 @@ class RenderProject implements ShouldQueue
             'status' => RenderStatus::Processing,
             'started_at' => now(),
         ]);
+
+        /** @var array<int, string> $tempPaths every intermediate this job creates */
+        $tempPaths = [];
 
         try {
             $project = $this->render->project;
@@ -60,6 +93,7 @@ class RenderProject implements ShouldQueue
             foreach ($scenes as $index => $scene) {
                 $sceneVideo = $ffmpeg->renderScene($project, $scene);
                 $sceneVideos[] = $sceneVideo;
+                $tempPaths[] = $sceneVideo;
 
                 $progress = 10 + (int) (($index + 1) / $totalScenes * 50);
                 $this->render->update(['progress' => $progress]);
@@ -73,12 +107,14 @@ class RenderProject implements ShouldQueue
             // Scene transitions (when any) are applied while joining the scenes,
             // which overlaps neighbouring scenes and shortens the output.
             $concatenated = $ffmpeg->concatenateVideos($sceneVideos, $scenes, $project->fps);
+            $tempPaths[] = $concatenated;
 
             // Apply video track overlays (PIP, watermarks, etc.)
             $videoTracks = $project->video_tracks ?? [];
             if (! empty($videoTracks)) {
                 $this->render->update(['progress' => 75]);
                 $concatenated = $ffmpeg->overlayVideoTracks($concatenated, $videoTracks, $project);
+                $tempPaths[] = $concatenated;
             }
 
             // Burn subtitles onto the video
@@ -86,6 +122,7 @@ class RenderProject implements ShouldQueue
             if (! empty($subtitleTracks)) {
                 $this->render->update(['progress' => 78]);
                 $concatenated = $ffmpeg->burnSubtitles($concatenated, $subtitleTracks, $project);
+                $tempPaths[] = $concatenated;
             }
 
             $audioTracks = $project->audio_tracks ?? [];
@@ -94,24 +131,35 @@ class RenderProject implements ShouldQueue
             // Extract audio from video layers in scenes
             $sceneAudio = $ffmpeg->extractSceneAudio($scenes, $project->fps);
 
+            if ($sceneAudio !== null) {
+                $tempPaths[] = $sceneAudio;
+            }
+
             $finalOutput = $concatenated;
 
             // If we have both scene audio and audio tracks, mix them together
             if ($sceneAudio && ! empty($audioTracks)) {
                 $mixedTracks = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs, $scenes, $project->fps);
+                $tempPaths[] = $mixedTracks;
                 $mixedAudio = $ffmpeg->mixTwoAudioFiles($sceneAudio, $mixedTracks, $totalDurationMs);
+                $tempPaths[] = $mixedAudio;
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             } elseif ($sceneAudio) {
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $sceneAudio);
             } elseif (! empty($audioTracks)) {
                 $mixedAudio = $ffmpeg->mixAudioTracks($audioTracks, $totalDurationMs, $scenes, $project->fps);
+                $tempPaths[] = $mixedAudio;
                 $finalOutput = $ffmpeg->mergeAudioVideo($concatenated, $mixedAudio);
             }
 
-            // Move final output to permanent storage
+            $tempPaths[] = $finalOutput;
+
+            // Move final output to permanent storage. Streamed rather than read
+            // into a string: a long render easily exceeds the worker's PHP
+            // memory_limit, and OOM-ing here would throw away all the encoding
+            // work at the very last step.
             $storagePath = 'renders/final_'.Str::uuid().'.mp4';
-            Storage::put($storagePath, file_get_contents($finalOutput));
-            @unlink($finalOutput);
+            $this->storeFinalOutput($finalOutput, $storagePath);
 
             $this->render->update([
                 'status' => RenderStatus::Completed,
@@ -121,31 +169,74 @@ class RenderProject implements ShouldQueue
             ]);
 
             $this->updateAgentActivity('completed');
-
-            foreach ($sceneVideos as $tempVideo) {
-                @unlink($tempVideo);
-            }
-
-            // Clean up any temp files downloaded from remote storage
-            Asset::cleanupTempFiles();
         } catch (\Throwable $e) {
+            // The raw message can be ffmpeg stderr containing absolute server
+            // paths; keep it in the log and hand the client a safe summary.
             Log::error('Render failed', [
                 'render_id' => $this->render->id,
+                'project_id' => $this->render->project_id,
                 'error' => $e->getMessage(),
+                'exception' => $e,
             ]);
 
             $this->render->update([
                 'status' => RenderStatus::Failed,
-                'error_message' => $e->getMessage(),
+                'error_message' => $this->sanitizeErrorMessage($e),
                 'completed_at' => now(),
             ]);
 
             $this->updateAgentActivity('failed');
 
-            Asset::cleanupTempFiles();
-
             throw $e;
+        } finally {
+            foreach ($tempPaths as $tempPath) {
+                @unlink($tempPath);
+            }
+
+            // Clean up any temp files downloaded from remote storage
+            Asset::cleanupTempFiles();
         }
+    }
+
+    /**
+     * Stream the finished render into permanent storage.
+     */
+    protected function storeFinalOutput(string $finalOutput, string $storagePath): void
+    {
+        $handle = fopen($finalOutput, 'rb');
+
+        if ($handle === false) {
+            throw new \RuntimeException('Unable to open the rendered file for upload.');
+        }
+
+        try {
+            Storage::writeStream($storagePath, $handle);
+        } finally {
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
+        }
+    }
+
+    /**
+     * Turn an internal failure into a message that is safe to show the user.
+     *
+     * ffmpeg stderr leaks absolute server paths and internal filtergraphs, so
+     * only messages we raise ourselves (validation, empty project) are passed
+     * through verbatim; everything else becomes a generic summary.
+     */
+    protected function sanitizeErrorMessage(\Throwable $e): string
+    {
+        $message = $e->getMessage();
+
+        foreach (self::SAFE_ERROR_PREFIXES as $prefix) {
+            if (str_starts_with($message, $prefix)) {
+                return $message;
+            }
+        }
+
+        return 'The render failed while processing your project. Please try again; '
+            .'if the problem persists, contact support and quote render #'.$this->render->id.'.';
     }
 
     protected function updateAgentActivity(string $status): void

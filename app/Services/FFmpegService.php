@@ -6,6 +6,7 @@ use App\Enums\TransitionType;
 use App\Models\Asset;
 use App\Models\Project;
 use App\Services\Subtitles\AssSubtitleBuilder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
@@ -16,6 +17,32 @@ class FFmpegService
 
     /** Hard upper bound for a scene transition. */
     public const MAX_TRANSITION_MS = 1500;
+
+    /**
+     * Container extension used for every intermediate audio file.
+     *
+     * Intermediates are lossless: a lossy codec would stack encoder generations
+     * (scene audio -> track mix -> combined mix -> final AAC) and, worse, MP3's
+     * encoder/decoder delay padding shifts the stream by ~26ms per generation,
+     * which breaks the sample-exact positioning `adelay` relies on.
+     */
+    public const AUDIO_INTERMEDIATE_EXTENSION = '.wav';
+
+    /** Codec used for every intermediate audio file (24-bit keeps headroom). */
+    public const AUDIO_INTERMEDIATE_CODEC = 'pcm_s24le';
+
+    /** Filename prefix of the mixed audio-track intermediate. */
+    public const AUDIO_INTERMEDIATE_PREFIX_MIX = 'audio_mix_';
+
+    /**
+     * Peak ceiling applied after every audio sum.
+     *
+     * `amix` runs with `normalize=0` so clip volumes survive verbatim (see
+     * buildAudioMixFilter), which means summed clips can exceed 0 dBFS. This
+     * brick-wall limiter catches those peaks instead of letting the encoder
+     * hard-clip them. It is transparent below roughly -0.5 dBFS.
+     */
+    public const AUDIO_LIMITER = 'alimiter=limit=0.95:level=disabled';
 
     /** Slowest supported constant playback speed for video content. */
     public const MIN_SPEED = 0.25;
@@ -30,7 +57,10 @@ class FFmpegService
      */
     public function renderScene(Project $project, array $scene): string
     {
-        $outputPath = $this->getTempPath('scene_'.($scene['id'] ?? Str::uuid()).'.mp4');
+        // The filename must be unique per *render*, not per scene: two concurrent
+        // renders of the same project would otherwise write to the same path and
+        // corrupt each other's intermediates.
+        $outputPath = $this->getTempPath('scene_'.Str::uuid().'.mp4');
         $durationMs = $scene['duration_ms'] ?? 5000;
         $durationSec = $durationMs / 1000;
 
@@ -1346,7 +1376,7 @@ class FFmpegService
      */
     public function mixAudioTracks(array $audioTracks, int $totalDurationMs, array $scenes = [], int $fps = 30): string
     {
-        $outputPath = $this->getTempPath('audio_mix_'.Str::uuid().'.mp3');
+        $outputPath = $this->getTempPath(self::AUDIO_INTERMEDIATE_PREFIX_MIX.Str::uuid().self::AUDIO_INTERMEDIATE_EXTENSION);
         $durationSec = $totalDurationMs / 1000;
 
         $graph = $this->buildAudioMixFilter($audioTracks, null, $scenes, $fps);
@@ -1366,6 +1396,8 @@ class FFmpegService
         $command[] = implode(';', $graph['filters']);
         $command[] = '-map';
         $command[] = $graph['output'];
+        $command[] = '-c:a';
+        $command[] = self::AUDIO_INTERMEDIATE_CODEC;
         $command[] = '-t';
         $command[] = (string) $durationSec;
         $command[] = $outputPath;
@@ -1455,9 +1487,24 @@ class FFmpegService
             return ['filters' => [], 'inputs' => [], 'output' => null];
         }
 
-        $filters[] = implode('', $mixInputs).'amix=inputs='.count($mixInputs).':duration=longest[aout]';
+        $filters[] = implode('', $mixInputs).$this->buildAudioMixNode(count($mixInputs)).'[aout]';
 
         return ['filters' => $filters, 'inputs' => $inputs, 'output' => '[aout]'];
+    }
+
+    /**
+     * Build the `amix` node (plus peak limiter) used to sum audio streams.
+     *
+     * `normalize=1` — ffmpeg's default — divides every input by the number of
+     * inputs, so three clips come out ~9.5 dB quieter than one and the per-clip
+     * `volume` the user set is silently contradicted. The browser preview does
+     * no such division, so the default also makes exports diverge from preview.
+     * We therefore sum verbatim (`normalize=0`) and hand the peak problem to a
+     * limiter instead of a blanket attenuation.
+     */
+    protected function buildAudioMixNode(int $inputCount): string
+    {
+        return 'amix=inputs='.$inputCount.':duration=longest:normalize=0,'.self::AUDIO_LIMITER;
     }
 
     /**
@@ -1496,23 +1543,7 @@ class FFmpegService
     {
         $outputPath = $this->getTempPath('final_'.Str::uuid().'.mp4');
 
-        $result = Process::timeout(300)->run([
-            'ffmpeg', '-y',
-            '-i', $videoPath,
-            '-i', $audioPath,
-            '-c:v', 'libx264',
-            '-profile:v', 'high',
-            '-level', '4.0',
-            '-pix_fmt', 'yuv420p',
-            '-preset', 'fast',
-            '-c:a', 'aac',
-            '-ar', '44100',
-            '-b:a', '128k',
-            '-movflags', '+faststart',
-            '-brand', 'mp42',
-            '-shortest',
-            $outputPath,
-        ]);
+        $result = Process::timeout(300)->run($this->buildMergeAudioVideoCommand($videoPath, $audioPath, $outputPath));
 
         if (! $result->successful()) {
             throw new \RuntimeException('Audio/video merge failed: '.$result->errorOutput());
@@ -1522,6 +1553,43 @@ class FFmpegService
         @unlink($audioPath);
 
         return $outputPath;
+    }
+
+    /**
+     * Build the final mux command. Pure array construction so it stays testable.
+     *
+     * The **video** stream is authoritative for the output duration. The audio
+     * pipeline hard-cuts its mixes at `-t {totalDurationMs}`, so rounding can
+     * leave the mixed audio a few milliseconds short of the encoded video; a
+     * bare `-shortest` would then silently clip the tail off the render.
+     * `apad` makes the audio effectively infinite and `-shortest` truncates it
+     * back to exactly the video length, so the output can never be shorter than
+     * the video and never longer than it either.
+     *
+     * @return array<int, string>
+     */
+    public function buildMergeAudioVideoCommand(string $videoPath, string $audioPath, string $outputPath): array
+    {
+        return [
+            'ffmpeg', '-y',
+            '-i', $videoPath,
+            '-i', $audioPath,
+            '-filter_complex', '[1:a]apad[aout]',
+            '-map', '0:v:0',
+            '-map', '[aout]',
+            // Muxing an audio stream needs no video re-encode: every path that
+            // produces $videoPath (renderScene / xfade / overlay / subtitles)
+            // already emits high@4.0 yuv420p H.264, and -movflags/-brand are
+            // muxer options that still apply to a copied stream.
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-ar', '44100',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            '-brand', 'mp42',
+            '-shortest',
+            $outputPath,
+        ];
     }
 
     protected function createBlankVideo(
@@ -1558,6 +1626,7 @@ class FFmpegService
             'ffmpeg', '-y',
             '-f', 'lavfi',
             '-i', 'anullsrc=r=44100:cl=stereo',
+            '-c:a', self::AUDIO_INTERMEDIATE_CODEC,
             '-t', (string) $durationSec,
             $outputPath,
         ]);
@@ -1887,15 +1956,16 @@ class FFmpegService
      */
     public function mixTwoAudioFiles(string $audio1, string $audio2, int $totalDurationMs): string
     {
-        $outputPath = $this->getTempPath('mixed_'.Str::uuid().'.mp3');
+        $outputPath = $this->getTempPath('mixed_'.Str::uuid().self::AUDIO_INTERMEDIATE_EXTENSION);
         $durationSec = $totalDurationMs / 1000;
 
         $result = Process::timeout(300)->run([
             'ffmpeg', '-y',
             '-i', $audio1,
             '-i', $audio2,
-            '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest[aout]',
+            '-filter_complex', '[0:a][1:a]'.$this->buildAudioMixNode(2).'[aout]',
             '-map', '[aout]',
+            '-c:a', self::AUDIO_INTERMEDIATE_CODEC,
             '-t', (string) $durationSec,
             $outputPath,
         ]);
@@ -2012,7 +2082,7 @@ class FFmpegService
 
         $filters[] = count($mixInputs) === 1
             ? $mixInputs[0].'anull[aout]'
-            : implode('', $mixInputs).'amix=inputs='.count($mixInputs).':duration=longest[aout]';
+            : implode('', $mixInputs).$this->buildAudioMixNode(count($mixInputs)).'[aout]';
 
         return ['filters' => $filters, 'inputs' => $inputs, 'output' => '[aout]'];
     }
@@ -2030,7 +2100,7 @@ class FFmpegService
             return null;
         }
 
-        $outputPath = $this->getTempPath('scene_audio_'.Str::uuid().'.mp3');
+        $outputPath = $this->getTempPath('scene_audio_'.Str::uuid().self::AUDIO_INTERMEDIATE_EXTENSION);
 
         $command = ['ffmpeg', '-y'];
 
@@ -2043,16 +2113,60 @@ class FFmpegService
         $command[] = implode(';', $graph['filters']);
         $command[] = '-map';
         $command[] = $graph['output'];
+        $command[] = '-c:a';
+        $command[] = self::AUDIO_INTERMEDIATE_CODEC;
         $command[] = $outputPath;
 
         $result = Process::timeout(300)->run($command);
 
         if (! $result->successful()) {
-            // Video might not have audio track - this is not fatal
-            return null;
+            @unlink($outputPath);
+
+            $stderr = $result->errorOutput();
+
+            // A source video without an audio stream is legitimate: the ':a'
+            // stream specifier simply matches nothing. Anything else (a broken
+            // filtergraph, a missing file, a codec failure) used to be swallowed
+            // here, silently dropping *all* in-scene audio from the render.
+            if ($this->isMissingAudioStreamError($stderr)) {
+                Log::info('No audio streams to extract from scene videos', [
+                    'inputs' => $graph['inputs'],
+                ]);
+
+                return null;
+            }
+
+            Log::error('Scene audio extraction failed', [
+                'inputs' => $graph['inputs'],
+                'filters' => $graph['filters'],
+                'stderr' => $stderr,
+            ]);
+
+            throw new \RuntimeException('Scene audio extraction failed: '.$stderr);
         }
 
         return $outputPath;
+    }
+
+    /**
+     * Whether an ffmpeg failure only means "this input carries no audio stream".
+     */
+    protected function isMissingAudioStreamError(string $stderr): bool
+    {
+        $needles = [
+            'matches no streams',
+            'does not contain any stream',
+            'Stream map',
+            'Output file does not contain any stream',
+        ];
+
+        foreach ($needles as $needle) {
+            if (str_contains($stderr, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function getTempPath(string $filename): string

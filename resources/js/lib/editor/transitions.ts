@@ -7,32 +7,26 @@ export const MAX_TRANSITION_MS = 1500;
 export type TransitionOption = {
     value: TransitionType;
     label: string;
-    /** Whether the DOM preview can approximate this transition. */
-    previewable: boolean;
 };
 
 /** Mirrors App\Enums\TransitionType — every value is an ffmpeg xfade name. */
 export const TRANSITION_OPTIONS: TransitionOption[] = [
-    { value: 'fade', label: 'Fade', previewable: true },
-    { value: 'fadeblack', label: 'Fade to Black', previewable: true },
-    { value: 'fadewhite', label: 'Fade to White', previewable: true },
-    { value: 'dissolve', label: 'Dissolve', previewable: true },
-    { value: 'slideleft', label: 'Slide Left', previewable: false },
-    { value: 'slideright', label: 'Slide Right', previewable: false },
-    { value: 'slideup', label: 'Slide Up', previewable: false },
-    { value: 'slidedown', label: 'Slide Down', previewable: false },
-    { value: 'wipeleft', label: 'Wipe Left', previewable: false },
-    { value: 'wiperight', label: 'Wipe Right', previewable: false },
-    { value: 'circleopen', label: 'Circle Open', previewable: false },
-    { value: 'circleclose', label: 'Circle Close', previewable: false },
+    { value: 'fade', label: 'Fade' },
+    { value: 'fadeblack', label: 'Fade to Black' },
+    { value: 'fadewhite', label: 'Fade to White' },
+    { value: 'dissolve', label: 'Dissolve' },
+    { value: 'slideleft', label: 'Slide Left' },
+    { value: 'slideright', label: 'Slide Right' },
+    { value: 'slideup', label: 'Slide Up' },
+    { value: 'slidedown', label: 'Slide Down' },
+    { value: 'wipeleft', label: 'Wipe Left' },
+    { value: 'wiperight', label: 'Wipe Right' },
+    { value: 'circleopen', label: 'Circle Open' },
+    { value: 'circleclose', label: 'Circle Close' },
 ];
 
 export function transitionLabel(type: TransitionType | undefined): string {
     return TRANSITION_OPTIONS.find((option) => option.value === type)?.label ?? 'None';
-}
-
-export function isPreviewableTransition(type: TransitionType | undefined): boolean {
-    return TRANSITION_OPTIONS.find((option) => option.value === type)?.previewable ?? false;
 }
 
 /**

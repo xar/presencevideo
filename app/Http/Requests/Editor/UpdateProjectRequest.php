@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Editor;
 
 use App\Enums\TransitionType;
+use App\Models\Project;
 use App\Services\FFmpegService;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,7 +26,10 @@ class UpdateProjectRequest extends FormRequest
             'fps' => ['sometimes', 'integer', 'min:1', 'max:120'],
             'scenes' => ['sometimes', 'array'],
             'scenes.*.id' => ['required_with:scenes', 'string', 'uuid'],
-            'scenes.*.duration_ms' => ['required_with:scenes', 'integer', 'min:0'],
+            // Scenes are becoming a derived view over absolute element timing,
+            // so a payload may omit the duration entirely; it is still accepted
+            // and still the source of a scene's span while the view exists.
+            'scenes.*.duration_ms' => ['sometimes', 'integer', 'min:0'],
             'scenes.*.layers' => ['sometimes', 'array'],
             ...$this->elementRules('scenes.*.layers.*'),
             'scenes.*.transition' => ['sometimes', 'nullable', 'array'],
@@ -41,8 +46,9 @@ class UpdateProjectRequest extends FormRequest
             'video_tracks.*.visible' => ['sometimes', 'boolean'],
             'video_tracks.*.clips' => ['sometimes', 'array'],
             'video_tracks.*.clips.*.id' => ['required_with:video_tracks.*.clips', 'string', 'uuid'],
-            'video_tracks.*.clips.*.start_ms' => ['required_with:video_tracks.*.clips', 'integer', 'min:0'],
-            'video_tracks.*.clips.*.duration_ms' => ['required_with:video_tracks.*.clips', 'integer', 'min:0'],
+            // `start_ms`/`end_ms` now come from the shared element rules below;
+            // `duration_ms` stays accepted for legacy clips.
+            'video_tracks.*.clips.*.duration_ms' => ['sometimes', 'integer', 'min:0'],
             ...$this->elementRules('video_tracks.*.clips.*'),
             'subtitle_tracks' => ['sometimes', 'array'],
             'subtitle_tracks.*.id' => ['required_with:subtitle_tracks', 'string', 'uuid'],
@@ -76,6 +82,13 @@ class UpdateProjectRequest extends FormRequest
      * structure and the fields the render depends on, but `validated()` would
      * otherwise drop every nested key without a rule of its own (scene names,
      * layer geometry, font settings…), silently corrupting the project.
+     *
+     * So each nested list is written back RAW from the request: the rules GATE
+     * the payload (an invalid value rejects the whole request) but they do not
+     * FILTER it. Keys without a rule survive, which is what lets the frontend
+     * ship a new element field before the backend knows about it. Model-side
+     * normalization (`Project::normalizeElement()`) is what gives those raw
+     * arrays their defaults.
      *
      * @return array<string, mixed>
      */
@@ -123,7 +136,107 @@ class UpdateProjectRequest extends FormRequest
             "{$prefix}.border_color" => ['sometimes', 'nullable', 'string', 'max:20'],
             "{$prefix}.border_width" => ['sometimes', 'numeric', 'min:0', 'max:1000'],
             "{$prefix}.corner_radius" => ['sometimes', 'numeric', 'min:0', 'max:10000'],
+            "{$prefix}.fit" => ['sometimes', 'string', 'in:cover,contain,fill'],
+            // Absolute position on the project timeline. Legacy payloads omit
+            // these and the model derives them; new payloads carry them.
+            "{$prefix}.start_ms" => ['sometimes', 'integer', 'min:0'],
+            "{$prefix}.end_ms" => ['sometimes', 'integer', 'min:0'],
+            "{$prefix}.track_id" => ['sometimes', 'string', 'max:255'],
+            ...$this->keyframeRules($prefix),
         ];
+    }
+
+    /**
+     * Keyframe animation tracks: a map of property path to a list of
+     * keyframes. `time_ms` is element-local, so the animation travels with the
+     * element when it is moved on the timeline.
+     *
+     * The whole map is validated by one closure rather than by dotted rule
+     * paths, because property paths such as `adjustments.brightness` are
+     * literal keys containing a dot — a dotted validation path could not
+     * address them.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    protected function keyframeRules(string $prefix): array
+    {
+        return [
+            "{$prefix}.keyframes" => ['sometimes', 'nullable', 'array', function (string $attribute, mixed $value, Closure $fail): void {
+                if (! is_array($value)) {
+                    return;
+                }
+
+                foreach ($value as $property => $track) {
+                    $this->validateKeyframeTrack($attribute, (string) $property, $track, $fail);
+                }
+            }],
+        ];
+    }
+
+    /**
+     * Validate one property's keyframe track.
+     */
+    protected function validateKeyframeTrack(string $attribute, string $property, mixed $track, Closure $fail): void
+    {
+        if (! in_array($property, Project::KEYFRAMABLE_PROPERTIES, true)) {
+            $fail("The {$attribute} field contains an unsupported animated property [{$property}].");
+
+            return;
+        }
+
+        if (! is_array($track)) {
+            $fail("The {$attribute}.{$property} field must be a list of keyframes.");
+
+            return;
+        }
+
+        foreach ($track as $index => $keyframe) {
+            $path = "{$attribute}.{$property}.{$index}";
+
+            if (! is_array($keyframe)) {
+                $fail("The {$path} field must be a keyframe object.");
+
+                continue;
+            }
+
+            $timeMs = $keyframe['time_ms'] ?? null;
+
+            if (! is_int($timeMs) || $timeMs < 0) {
+                $fail("The {$path}.time_ms field must be an integer of at least 0.");
+            }
+
+            if (! is_numeric($keyframe['value'] ?? null)) {
+                $fail("The {$path}.value field must be numeric.");
+            }
+
+            if (array_key_exists('easing', $keyframe) && $keyframe['easing'] !== null) {
+                $this->validateKeyframeEasing("{$path}.easing", $keyframe['easing'], $fail);
+            }
+        }
+    }
+
+    /**
+     * An easing is either a named curve or a four-number cubic bezier.
+     */
+    protected function validateKeyframeEasing(string $path, mixed $easing, Closure $fail): void
+    {
+        if (is_string($easing)) {
+            if (! in_array($easing, Project::KEYFRAME_EASINGS, true)) {
+                $fail("The {$path} field must be one of: ".implode(', ', Project::KEYFRAME_EASINGS).', or a cubic-bezier array.');
+            }
+
+            return;
+        }
+
+        if (is_array($easing)) {
+            if (count($easing) !== 4 || array_filter($easing, 'is_numeric') !== $easing) {
+                $fail("The {$path} field must be a cubic-bezier array of exactly four numbers.");
+            }
+
+            return;
+        }
+
+        $fail("The {$path} field must be an easing name or a cubic-bezier array.");
     }
 
     /**

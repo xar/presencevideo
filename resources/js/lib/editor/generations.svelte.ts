@@ -11,11 +11,11 @@ type ActiveGeneration = {
 };
 
 let activeGenerations = $state<ActiveGeneration[]>([]);
-let pollTimers = $state<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+const pollTimers = $state<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
 const POLL_INTERVAL = 2000;
 const MAX_POLLS = 150; // 5 min
-let pollCounts = new Map<number, number>();
+const pollCounts = new Map<number, number>();
 
 function init(serverGenerations: Generation[]): void {
     // Merge server-provided active generations with any client-tracked ones

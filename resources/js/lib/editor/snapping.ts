@@ -1,4 +1,5 @@
 import type { Project } from '@/types';
+import { getSceneBoundariesMs } from './selectors';
 
 export type SnapOptions = {
     excludeVideoClipId?: string;
@@ -23,10 +24,10 @@ export function collectSnapPoints(
     const points = new Set<number>();
     points.add(0);
 
-    let accumulated = 0;
-    for (const scene of project.scenes ?? []) {
-        accumulated += scene.duration_ms;
-        points.add(accumulated);
+    // Scene boundaries come from the one transition-aware selector; summing raw
+    // durations here snapped clips to positions the render does not have.
+    for (const boundaryMs of getSceneBoundariesMs(project)) {
+        points.add(boundaryMs);
     }
 
     if (opts.playheadMs != null && Number.isFinite(opts.playheadMs)) {

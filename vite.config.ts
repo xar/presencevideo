@@ -19,7 +19,7 @@ export default defineConfig({
             refresh: true,
             // The site is served over HTTPS (Herd-secured); Vite's dev server
             // must offer TLS too or the browser blocks it as mixed content.
-            detectTls: 'videoeditor',
+            detectTls: 'videoeditor.test',
         }),
         tailwindcss(),
         svelte(),

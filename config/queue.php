@@ -29,6 +29,24 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Visibility Timeout
+    |--------------------------------------------------------------------------
+    |
+    | `retry_after` is how long the broker waits before assuming a reserved job
+    | died and handing it to another worker. Laravel requires it to be strictly
+    | GREATER than the worker's `--timeout` (docker/entrypoint.sh, QUEUE_TIMEOUT)
+    | and than any job's `$timeout` (see App\Jobs\RenderProject) -- otherwise a
+    | still-running render is re-dispatched to a second worker while the first
+    | is still encoding, and both write the same project's intermediates.
+    |
+    | The worker timeout is 900s, so this default leaves a 300s margin.
+    |
+    */
+
+    'retry_after' => (int) env('QUEUE_RETRY_AFTER', 1200),
+
     'connections' => [
 
         'sync' => [
@@ -40,7 +58,7 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', (int) env('QUEUE_RETRY_AFTER', 1200)),
             'after_commit' => false,
         ],
 
@@ -48,7 +66,7 @@ return [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
             'queue' => env('BEANSTALKD_QUEUE', 'default'),
-            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', (int) env('QUEUE_RETRY_AFTER', 1200)),
             'block_for' => 0,
             'after_commit' => false,
         ],
@@ -68,7 +86,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', (int) env('QUEUE_RETRY_AFTER', 1200)),
             'block_for' => null,
             'after_commit' => false,
         ],

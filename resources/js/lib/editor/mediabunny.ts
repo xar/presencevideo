@@ -3,7 +3,6 @@ import {
     AudioSampleSink,
     BlobSource,
     CanvasSink,
-    UrlSource,
     Conversion,
     Input,
     Mp4OutputFormat,
@@ -11,6 +10,7 @@ import {
     QUALITY_LOW,
     BufferTarget,
 } from 'mediabunny';
+import { createUrlSource, toCurrentOriginUrl } from './media-provider';
 
 export type MediaMetadata = {
     durationMs: number | null;
@@ -426,14 +426,6 @@ function createInput(file: File): Input {
     });
 }
 
-function createUrlSource(url: string): UrlSource {
-    return new UrlSource(toCurrentOriginUrl(url), {
-        requestInit: {
-            credentials: 'include',
-        },
-    });
-}
-
 async function logUrlDiagnostics(url: string): Promise<void> {
     if (typeof fetch === 'undefined') {
         return;
@@ -464,21 +456,6 @@ async function logUrlDiagnostics(url: string): Promise<void> {
     } catch (error) {
         console.error('range fetch diagnostics failed', error);
     }
-}
-
-function toCurrentOriginUrl(url: string): string {
-    if (typeof window === 'undefined') {
-        return url;
-    }
-
-    const parsedUrl = new URL(url, window.location.href);
-
-    if (parsedUrl.hostname === window.location.hostname) {
-        parsedUrl.protocol = window.location.protocol;
-        parsedUrl.port = window.location.port;
-    }
-
-    return parsedUrl.toString();
 }
 
 async function canvasToBlob(canvas: HTMLCanvasElement | OffscreenCanvas, type: string, quality: number): Promise<Blob | null> {

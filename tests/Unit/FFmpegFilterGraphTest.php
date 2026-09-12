@@ -394,7 +394,10 @@ it('builds an audio clip chain with trim, delay and combined volume', function (
         ->and($graph['filters'][0])->toBe(
             '[0:a]atrim=start=0.500000:duration=4.000000,asetpts=PTS-STARTPTS,adelay=2000|2000,volume=0.250000[a0]'
         )
-        ->and($graph['filters'][1])->toBe('[a0]amix=inputs=1:duration=longest[aout]');
+        // Pinned string updated deliberately: `amix` now runs with normalize=0 so
+        // clip volumes are summed verbatim instead of being divided by the input
+        // count, with a peak limiter taking over the clipping protection.
+        ->and($graph['filters'][1])->toBe('[a0]amix=inputs=1:duration=longest:normalize=0,alimiter=limit=0.95:level=disabled[aout]');
 });
 
 it('skips muted audio tracks entirely', function () {
@@ -464,7 +467,8 @@ it('mixes clips from multiple tracks', function () {
     ]);
 
     expect($graph['inputs'])->toHaveCount(3)
-        ->and(end($graph['filters']))->toBe('[a0][a1][a2]amix=inputs=3:duration=longest[aout]');
+        // Pinned string updated deliberately: see the normalize=0 note above.
+        ->and(end($graph['filters']))->toBe('[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,alimiter=limit=0.95:level=disabled[aout]');
 });
 
 /**

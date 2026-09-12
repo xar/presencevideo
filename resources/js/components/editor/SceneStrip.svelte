@@ -4,6 +4,7 @@
     import { Button } from '@/components/ui/button';
     import { projectStore, timelineStore, selectionStore } from '@/lib/editor';
     import { getCanvasFitDimensions } from '@/lib/editor/asset-actions';
+    import { getSceneStartsMs } from '@/lib/editor/selectors';
     import { collectSnapPoints } from '@/lib/editor/snapping';
     import type { Scene } from '@/types';
     import SceneCard from './SceneCard.svelte';
@@ -344,12 +345,11 @@
         resizeStartX = e.clientX;
         resizeStartDuration = scene.duration_ms;
 
-        // Absolute timeline offset where this scene starts
-        let sceneStart = 0;
-        for (const s of scenes) {
-            if (s.id === scene.id) break;
-            sceneStart += s.duration_ms;
-        }
+        // Absolute timeline offset where this scene starts. Transition-aware,
+        // via the shared model: summing raw durations here made the resize
+        // snap points disagree with the playhead once a transition existed.
+        const sceneIndex = scenes.findIndex((s) => s.id === scene.id);
+        const sceneStart = getSceneStartsMs(projectStore.project)[sceneIndex] ?? 0;
         resizeSceneStartMs = sceneStart;
 
         // Snap the scene's right edge to other boundaries/clips/playhead,
