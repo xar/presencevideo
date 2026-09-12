@@ -145,12 +145,33 @@ class Project extends Model
             return [];
         }
 
-        return array_values(array_map(function (array $track): array {
+        $index = 0;
+
+        return array_values(array_map(function (array $track) use (&$index): array {
+            $track = $this->withTrackName($track, 'Subtitles', $index++);
             $entries = is_array($track['entries'] ?? null) ? $track['entries'] : [];
             $track['entries'] = array_values(array_filter($entries, 'is_array'));
 
             return $track;
         }, array_filter($tracks, 'is_array')));
+    }
+
+    /**
+     * A track's `name` is a display label the editor shows and sends back on
+     * save, but nothing that produces a project guarantees it: agent-composed
+     * compositions omit it entirely. Default it to the same label the editor
+     * gives a track it creates itself, so such a project stays editable.
+     *
+     * @param  array<string, mixed>  $track
+     * @return array<string, mixed>
+     */
+    protected function withTrackName(array $track, string $label, int $index): array
+    {
+        if (! is_string($track['name'] ?? null) || trim($track['name']) === '') {
+            $track['name'] = $label.' '.($index + 1);
+        }
+
+        return $track;
     }
 
     /**
@@ -175,6 +196,10 @@ class Project extends Model
         $normalized = [];
 
         foreach (array_filter($items, 'is_array') as $item) {
+            if (! $isScene) {
+                $item = $this->withTrackName($item, 'Video Track', count($normalized));
+            }
+
             $durationMs = $this->positiveInt($item['duration_ms'] ?? null, self::DEFAULT_SCENE_DURATION_MS);
 
             $context = [
@@ -302,7 +327,10 @@ class Project extends Model
             return [];
         }
 
-        return array_values(array_map(function (array $track): array {
+        $index = 0;
+
+        return array_values(array_map(function (array $track) use (&$index): array {
+            $track = $this->withTrackName($track, 'Track', $index++);
             $track['volume'] = $this->finiteFloat($track['volume'] ?? 1.0, 1.0, 0.0, 2.0);
             $track['muted'] = (bool) ($track['muted'] ?? false);
             $track['clips'] = array_values(array_map(function (array $clip): array {

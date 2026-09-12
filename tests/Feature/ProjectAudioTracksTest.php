@@ -55,3 +55,23 @@ it('sends normalized audio tracks to the editor', function () {
         ->where('project.audio_tracks.0.clips.0.volume', 1)
     );
 });
+
+it('saves tracks that carry no name and labels them on the way in', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->put(route('editor.projects.update', $project), [
+            'audio_tracks' => [['id' => fake()->uuid(), 'clips' => []]],
+            'video_tracks' => [['id' => fake()->uuid(), 'clips' => []]],
+            'subtitle_tracks' => [['id' => fake()->uuid(), 'entries' => []]],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $fresh = $project->refresh();
+
+    expect($fresh->audio_tracks[0]['name'])->toBe('Track 1')
+        ->and($fresh->video_tracks[0]['name'])->toBe('Video Track 1')
+        ->and($fresh->subtitle_tracks[0]['name'])->toBe('Subtitles 1');
+});

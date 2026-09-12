@@ -53,14 +53,14 @@ export function normalizeProject<T extends NormalizableProject>(project: T): T {
         return normalized;
     });
 
-    project.video_tracks = (project.video_tracks ?? []).map((track) =>
-        normalizeVideoTrack(track, canvas),
+    project.video_tracks = (project.video_tracks ?? []).map((track, index) =>
+        normalizeVideoTrack(track, canvas, index),
     );
-    project.audio_tracks = (project.audio_tracks ?? []).map(
-        normalizeAudioTrack,
+    project.audio_tracks = (project.audio_tracks ?? []).map((track, index) =>
+        normalizeAudioTrack(track, index),
     );
     project.subtitle_tracks = (project.subtitle_tracks ?? []).map(
-        normalizeSubtitleTrack,
+        (track, index) => normalizeSubtitleTrack(track, index),
     );
 
     return project;
@@ -143,10 +143,18 @@ export function normalizeElement<T extends Layer>(
     return element;
 }
 
+/**
+ * A track's `name` is a display label, but every consumer — the track header,
+ * the inspector, the save request — assumes it exists. Agent-composed projects
+ * carry tracks without one, so it is defaulted here to the same label the
+ * editor gives a track it creates itself.
+ */
 export function normalizeVideoTrack(
     track: VideoTrack,
     canvas: CanvasSize = DEFAULT_CANVAS,
+    index = 0,
 ): VideoTrack {
+    track.name ||= `Video Track ${index + 1}`;
     track.clips = (track.clips ?? []).map((clip) =>
         normalizeVideoClip(clip, canvas),
     );
@@ -160,12 +168,20 @@ export function normalizeVideoClip(
     return normalizeElement(clip, canvas);
 }
 
-export function normalizeAudioTrack(track: AudioTrack): AudioTrack {
+export function normalizeAudioTrack(
+    track: AudioTrack,
+    index = 0,
+): AudioTrack {
+    track.name ||= `Track ${index + 1}`;
     track.clips ??= [];
     return track;
 }
 
-export function normalizeSubtitleTrack(track: SubtitleTrack): SubtitleTrack {
+export function normalizeSubtitleTrack(
+    track: SubtitleTrack,
+    index = 0,
+): SubtitleTrack {
+    track.name ||= `Subtitles ${index + 1}`;
     track.entries ??= [];
     return track;
 }

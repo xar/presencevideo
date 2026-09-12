@@ -46,6 +46,16 @@ export const mediaLimits = {
      */
     previewPrefetchMaxInFlight: 6,
     /**
+     * How far the playhead may overtake the read-ahead run before the run is
+     * abandoned and reopened at the playhead.
+     *
+     * Slack, not zero, because a run that has fallen one frame behind is still
+     * the right run — reopening costs a seek to the preceding key packet and a
+     * re-decode, and doing that on every frame of a brief stall would turn a
+     * hiccup into a permanent one.
+     */
+    previewPrefetchRetargetMs: 250,
+    /**
      * Preview decode sizing. The decode target is the size the frame is
      * actually PAINTED at, rounded UP to this step so that dragging a splitter
      * a few pixels does not rebuild the decoder on every resize.

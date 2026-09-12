@@ -76,6 +76,7 @@ const harness = vi.hoisted(() => {
         streamStarts: [] as Array<number | undefined>,
         streamedTimestamps: [] as number[],
         onStreamFrame: null as null | (() => void),
+        onDemandDecode: null as null | (() => Promise<void> | void),
         requestedTimestamps: [] as number[],
         sequentialRanges: [] as Array<[number | undefined, number | undefined]>,
         samples: [] as FakeVideoSample[],
@@ -181,6 +182,10 @@ const harness = vi.hoisted(() => {
         async getCanvas(timestamp: number): Promise<FakeWrappedCanvas | null> {
             state.requestedTimestamps.push(timestamp);
             await state.gate.promise;
+            // Lets a test model the render loop missing AGAIN while this
+            // decode is still in flight, which is what a playhead that has
+            // fallen behind actually does.
+            await state.onDemandDecode?.();
 
             return makeCanvas(snap(timestamp), this.options);
         }
@@ -327,6 +332,7 @@ describe('media-provider', () => {
             streamStarts: [],
             streamedTimestamps: [],
             onStreamFrame: null,
+            onDemandDecode: null,
             requestedTimestamps: [],
             sequentialRanges: [],
             samples: [],
@@ -636,6 +642,176 @@ describe('media-provider', () => {
         });
     });
 
+    describe('sustained playback', () => {
+        /**
+         * Drives the provider exactly the way `createPreviewMediaLookup` drives
+         * it from the render loop: a cache read every frame, a decode request
+         * only on a miss, and a playhead report either way.
+         */
+        async function play(
+            provider: MediaProvider,
+            fromSec: number,
+            frames: number,
+        ): Promise<{ hits: number; misses: number }> {
+            let hits = 0;
+            let misses = 0;
+
+            for (let frame = 0; frame < frames; frame++) {
+                const timeSec = fromSec + frame / state.fps;
+
+                if (provider.frameAt(timeSec)) {
+                    hits++;
+                    provider.setPlayhead(timeSec);
+                } else {
+                    misses++;
+                    provider.requestFrame(timeSec);
+                }
+
+                await settle();
+            }
+
+            return { hits, misses };
+        }
+
+        it('keeps the read-ahead run alive for the whole scene', async () => {
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            const { hits, misses } = await play(provider, 1, 150);
+
+            // The run must still be producing at the END of the scene, not
+            // only for the first half second after the first miss.
+            expect(state.streamedTimestamps.length).toBeGreaterThan(120);
+            expect(state.streamedTimestamps.at(-1)).toBeGreaterThan(5);
+            expect(hits / (hits + misses)).toBeGreaterThan(0.8);
+        });
+
+        it('advances the read-ahead horizon on cache hits, not only on misses', async () => {
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            await decode(provider, 1);
+            await settle();
+            const afterFirstHorizon = state.streamedTimestamps.length;
+            expect(afterFirstHorizon).toBeGreaterThan(0);
+
+            // Nothing misses here; the playhead report is the only signal.
+            provider.setPlayhead(1.4);
+            await settle();
+
+            expect(state.streamedTimestamps.length).toBeGreaterThan(
+                afterFirstHorizon,
+            );
+        });
+
+        it('keeps read-ahead progressing even while the demand lane never goes idle', async () => {
+            // A cache this small makes every lookup miss.
+            mediaLimits.previewFrameCacheCount = 1;
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            /**
+             * Each demand decode produces the next miss before it finishes, so
+             * a demand is pending every single time the pump looks. That is the
+             * self-sustaining state a fallen-behind playhead gets into: without
+             * guaranteed forward progress the run is never pulled again, so
+             * every frame keeps missing, and it only ends at the next scene.
+             */
+            let next = 1;
+            let streamedDuringBurst = 0;
+            state.onDemandDecode = async () => {
+                next += 1 / state.fps;
+
+                if (next >= 4) {
+                    streamedDuringBurst = state.streamedTimestamps.length;
+                    return;
+                }
+
+                provider.requestFrame(next);
+
+                // Let the (async) schedule land before the decode resolves.
+                for (let tick = 0; tick < 5; tick++) {
+                    await Promise.resolve();
+                }
+            };
+
+            provider.requestFrame(next);
+            await waitFor(() => next >= 4, 'the demand burst');
+            await settle();
+
+            // Measured while the burst was still running, not after it ended:
+            // the run has to make progress DURING the starvation, or it never
+            // gets the chance to end it.
+            expect(streamedDuringBurst).toBeGreaterThan(10);
+        });
+
+        it('stops rebuilding a read-ahead run once the source has run out', async () => {
+            state.duration = 2;
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            // Play out the tail, where there is nothing left to read ahead to.
+            for (let frame = 0; frame < 20; frame++) {
+                const timeSec = 1.9 + frame / state.fps;
+
+                if (provider.frameAt(timeSec)) {
+                    provider.setPlayhead(timeSec);
+                } else {
+                    provider.requestFrame(timeSec);
+                }
+
+                await settle();
+            }
+
+            // One run discovers the end; the rest of the tail must not each
+            // build a decoder that immediately ends.
+            expect(state.streamStarts.length).toBeLessThanOrEqual(2);
+        });
+
+        it('re-targets a stalled run to the playhead without a scene change', async () => {
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            await decode(provider, 1);
+            await settle();
+            const runsBefore = state.streamStarts.length;
+            expect(runsBefore).toBe(1);
+
+            // The playhead has run well past everything the first run decoded.
+            provider.requestFrame(4);
+            await waitFor(
+                () => state.streamStarts.length > runsBefore,
+                'the re-targeted run',
+            );
+            await settle();
+
+            expect(state.streamStarts.at(-1)).toBeCloseTo(4, 5);
+            // Recovered: the frames after the jump are read ahead again.
+            expect(provider.frameAt(4.2)).not.toBeNull();
+        });
+
+        it('keeps a run that has only just fallen behind the playhead', async () => {
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            await decode(provider, 1);
+            await settle();
+
+            // Inside the retarget slack: reopening here would cost a seek and
+            // a re-decode for nothing.
+            provider.setPlayhead(1.5 + 0.1);
+            await settle();
+
+            expect(state.streamStarts).toHaveLength(1);
+        });
+    });
+
     describe('preview decode size', () => {
         it('decodes at the declared surface size rather than the source size', async () => {
             state.width = 1080;
@@ -746,6 +922,31 @@ describe('media-provider', () => {
 
             expect(provider.frameAt(1)).not.toBeNull();
             expect(provider.frameAt(2)).toBeNull();
+        });
+
+        it('spares read-ahead frames the playhead has not reached yet', async () => {
+            // Just enough room for the read-ahead window, so every new frame
+            // decoded ahead forces exactly one eviction and the policy decides
+            // which.
+            mediaLimits.previewFrameCacheCount = 16;
+            const provider = acquireMediaProvider('/a.mp4');
+            await provider.ready();
+            provider.setPlaybackMode('playing');
+
+            await decode(provider, 1);
+            await settle();
+
+            const step = 1 / state.fps;
+
+            // Reading the current frame must not promote it over the frames
+            // decoded ahead of it — those are the ones about to be drawn, and
+            // plain LRU would evict them first.
+            for (let frame = 0; frame < 6; frame++) {
+                const timeSec = 1 + frame * step;
+                expect(provider.frameAt(timeSec)).not.toBeNull();
+                provider.setPlayhead(timeSec);
+                await settle();
+            }
         });
 
         it('drops every cached frame when the provider is released', async () => {

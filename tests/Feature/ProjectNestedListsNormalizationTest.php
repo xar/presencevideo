@@ -222,3 +222,20 @@ it('round trips keyframes through persistence', function () {
 
     expect(Project::query()->findOrFail($project->id)->scenes[0]['layers'][0]['keyframes'])->toBe($keyframes);
 });
+
+it('names unnamed tracks so agent composed projects stay editable', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->create(['user_id' => $user->id]);
+
+    $project->forceFill([
+        'audio_tracks' => [['id' => fake()->uuid()], ['id' => fake()->uuid(), 'name' => 'Score'], ['id' => fake()->uuid(), 'name' => '  ']],
+        'video_tracks' => [['id' => fake()->uuid()], ['id' => fake()->uuid(), 'name' => 'Overlay']],
+        'subtitle_tracks' => [['id' => fake()->uuid()]],
+    ])->save();
+
+    $fresh = Project::query()->findOrFail($project->id);
+
+    expect(array_column($fresh->audio_tracks, 'name'))->toBe(['Track 1', 'Score', 'Track 3'])
+        ->and(array_column($fresh->video_tracks, 'name'))->toBe(['Video Track 1', 'Overlay'])
+        ->and($fresh->subtitle_tracks[0]['name'])->toBe('Subtitles 1');
+});

@@ -129,6 +129,16 @@ export type MediaProvider = {
      */
     setPlaybackMode(mode: PreviewPlaybackMode): void;
     /**
+     * Report where the playhead is, in source seconds, on EVERY rendered frame
+     * — including the ones served straight from cache.
+     *
+     * Read-ahead has to track the playhead, not the misses. Inferring position
+     * from `requestFrame` alone means the horizon stops advancing exactly when
+     * the cache is working, so the run halts, the playhead drains what it
+     * decoded, and playback falls back to seeking per frame.
+     */
+    setPlayhead(timeSec: number): void;
+    /**
      * Declare the pixel size preview frames are painted at, so the decode can
      * be sized to it. Passing null decodes at source resolution.
      */
@@ -259,6 +269,15 @@ class MediaProviderImpl implements MediaProvider {
     private streamHeadSec = Number.NEGATIVE_INFINITY;
     /** Source time the read-ahead should stay decoded up to. */
     private prefetchUntilSec = Number.NEGATIVE_INFINITY;
+    /** Newest reported playhead position, cache hits included. */
+    private playheadSec = Number.NEGATIVE_INFINITY;
+    /**
+     * Playhead position at which a read-ahead run ran out of source. There is
+     * nothing left to read ahead into from here on, so reopening a run would
+     * build a decoder that immediately ends — once per miss, for the rest of
+     * the clip. Cleared when the playhead goes backwards.
+     */
+    private readAheadExhaustedFromSec = Number.POSITIVE_INFINITY;
 
     private mode: PreviewPlaybackMode = 'idle';
     private surface: PreviewDecodeSize | null = null;
@@ -317,8 +336,37 @@ class MediaProviderImpl implements MediaProvider {
             // Read-ahead past a stopped playhead is work nobody asked for, and
             // a paused decoder run holds a decoder open for nothing.
             this.prefetchUntilSec = Number.NEGATIVE_INFINITY;
+            this.playheadSec = Number.NEGATIVE_INFINITY;
+            this.readAheadExhaustedFromSec = Number.POSITIVE_INFINITY;
             void this.closeStream();
         }
+    }
+
+    setPlayhead(timeSec: number): void {
+        if (
+            this.disposed ||
+            !this.previewOpen ||
+            !this.metadata?.canDecode ||
+            !Number.isFinite(timeSec)
+        ) {
+            return;
+        }
+
+        const clamped = this.clampTime(timeSec);
+        this.playheadSec = clamped;
+
+        if (this.mode !== 'playing') {
+            return;
+        }
+
+        /**
+         * A provider serving nothing but cache hits would otherwise never
+         * refresh its scheduler slot and would be evicted — losing the very
+         * cache that was making it look healthy.
+         */
+        touchPreviewSlot(this);
+        this.trackPlayhead(clamped);
+        void this.pump();
     }
 
     setPreviewSurface(surface: PreviewDecodeSize | null): void {
@@ -444,6 +492,8 @@ class MediaProviderImpl implements MediaProvider {
         this.previewOpen = false;
         this.pendingTimestamp = null;
         this.prefetchUntilSec = Number.NEGATIVE_INFINITY;
+        this.playheadSec = Number.NEGATIVE_INFINITY;
+        this.readAheadExhaustedFromSec = Number.POSITIVE_INFINITY;
         this.sink = null;
         this.decodeSizeKey = null;
         void this.closeStream();
@@ -602,26 +652,8 @@ class MediaProviderImpl implements MediaProvider {
         const cached = this.lookupFrame(timeSec) !== null;
 
         if (this.mode === 'playing') {
-            const aheadSec = Math.max(
-                0,
-                mediaLimits.previewPrefetchAheadMs / 1000,
-            );
-            this.prefetchUntilSec = clamped + aheadSec;
-
-            /**
-             * The open run is kept whenever the playhead is still inside the
-             * window it is feeding, even if it has fallen behind: reopening
-             * costs a flush and a re-decode from the preceding key packet,
-             * which is the one thing worth avoiding. It is only rebuilt when
-             * the playhead has actually gone somewhere else.
-             */
-            if (
-                this.stream &&
-                (clamped < this.streamHeadSec - aheadSec ||
-                    clamped > this.streamHeadSec + aheadSec)
-            ) {
-                void this.closeStream();
-            }
+            this.playheadSec = clamped;
+            this.trackPlayhead(clamped);
         }
 
         if (!cached) {
@@ -637,13 +669,58 @@ class MediaProviderImpl implements MediaProvider {
     }
 
     /**
-     * Drains the demand lane, then the read-ahead lane, then stops.
+     * Move the read-ahead horizon with the playhead, and decide whether the
+     * open run is still the right one.
+     *
+     * The run is kept whenever it is still ahead of the playhead, or only
+     * slightly behind: reopening costs a seek to the preceding key packet and a
+     * re-decode, so doing it on every frame of a brief stall would be worse
+     * than the stall. It IS reopened once the playhead has genuinely overtaken
+     * it — a run frozen behind the playhead can never catch up on its own, and
+     * leaving it there is what turns a stall into a freeze that only a scene
+     * change clears.
+     */
+    private trackPlayhead(clamped: number): void {
+        const aheadSec = Math.max(0, mediaLimits.previewPrefetchAheadMs / 1000);
+        const slackSec = Math.max(
+            0,
+            mediaLimits.previewPrefetchRetargetMs / 1000,
+        );
+
+        this.prefetchUntilSec = clamped + aheadSec;
+
+        if (clamped < this.readAheadExhaustedFromSec) {
+            // Moved back into a region that still has source ahead of it.
+            this.readAheadExhaustedFromSec = Number.POSITIVE_INFINITY;
+        }
+
+        if (!this.stream) {
+            return;
+        }
+
+        const overtaken = clamped > this.streamHeadSec + slackSec;
+        const wentBackwards = clamped < this.streamHeadSec - aheadSec;
+
+        if (overtaken || wentBackwards) {
+            void this.closeStream();
+        }
+    }
+
+    /**
+     * Alternates the demand lane and the read-ahead lane until both are idle.
      *
      * There is no parking and no wake-up: the pump simply runs until there is
      * nothing left to do, and the next `requestFrame` restarts it. At most ONE
-     * decode is ever outstanding, which is what keeps a scrub from queueing
-     * behind read-ahead — the demand lane is re-checked between every single
-     * frame.
+     * decode is ever outstanding, so a scrub is served within a frame of
+     * arriving.
+     *
+     * The alternation is load-bearing, not tidiness. Draining the demand lane
+     * to empty before touching read-ahead looks obviously right and is a
+     * livelock: once the playhead falls behind, every rendered frame misses, so
+     * a fresh demand lands during every demand decode, so read-ahead is never
+     * reached, so every frame keeps missing. Playback freezes on a stale frame
+     * and only a scene change clears it. Giving the run one guaranteed frame
+     * per turn is what lets it catch up and take over again.
      */
     private async pump(): Promise<void> {
         if (this.pumping) {
@@ -659,10 +736,11 @@ class MediaProviderImpl implements MediaProvider {
                 if (demand !== null) {
                     this.pendingTimestamp = null;
                     await this.decodeDemand(demand);
-                    continue;
                 }
 
-                if (!(await this.pullAhead())) {
+                const readAhead = await this.pullAhead();
+
+                if (!readAhead && this.pendingTimestamp === null) {
                     return;
                 }
             }
@@ -724,7 +802,8 @@ class MediaProviderImpl implements MediaProvider {
     private async pullAhead(): Promise<boolean> {
         if (
             this.mode !== 'playing' ||
-            this.streamHeadSec >= this.prefetchUntilSec
+            this.streamHeadSec >= this.prefetchUntilSec ||
+            this.playheadSec >= this.readAheadExhaustedFromSec
         ) {
             return false;
         }
@@ -740,7 +819,15 @@ class MediaProviderImpl implements MediaProvider {
             pulled < mediaLimits.previewPrefetchMaxInFlight;
             pulled++
         ) {
-            if (this.pendingTimestamp !== null) {
+            /**
+             * Yield to the demand lane only AFTER a frame has been pulled.
+             * Checking first lets a continuously-missing playhead starve the
+             * run completely: every pump turn would find a demand pending,
+             * pull nothing, and so guarantee the next frame misses too. One
+             * frame of guaranteed progress per turn breaks that loop while
+             * still letting a scrub preempt within a single frame.
+             */
+            if (pulled > 0 && this.pendingTimestamp !== null) {
                 return true;
             }
 
@@ -753,7 +840,15 @@ class MediaProviderImpl implements MediaProvider {
             const next = await stream.next();
 
             if (next.done || this.disposed || !this.previewOpen) {
+                if (next.done) {
+                    this.readAheadExhaustedFromSec = Math.min(
+                        this.readAheadExhaustedFromSec,
+                        this.playheadSec,
+                    );
+                }
+
                 await this.closeStream();
+
                 return false;
             }
 
@@ -776,14 +871,13 @@ class MediaProviderImpl implements MediaProvider {
             return null;
         }
 
-        const metadata = this.metadata;
-        const from = this.clampTime(
-            Math.max(
-                this.prefetchUntilSec -
-                    mediaLimits.previewPrefetchAheadMs / 1000,
-                metadata?.firstTimestampSec ?? 0,
-            ),
-        );
+        /**
+         * A re-targeted run starts at the PLAYHEAD, so its very first frame is
+         * the one the renderer is waiting on and everything after it is read
+         * ahead. That is the whole reason a playback miss reopens the run
+         * instead of falling back to a seek per frame.
+         */
+        const from = this.clampTime(this.playheadSec);
 
         this.streamHeadSec = from;
         this.stream = sink.canvases(from);
@@ -889,15 +983,50 @@ class MediaProviderImpl implements MediaProvider {
             (this.frames.size > mediaLimits.previewFrameCacheCount ||
                 this.cachedBytes > mediaLimits.previewFrameCacheBytes)
         ) {
-            const oldest = this.frames.values().next().value;
+            const victim = this.chooseVictim();
 
-            if (!oldest) {
+            if (!victim) {
                 return;
             }
 
-            this.frames.delete(oldest.index);
-            this.cachedBytes -= oldest.bytes;
+            this.frames.delete(victim.index);
+            this.cachedBytes -= victim.bytes;
         }
+    }
+
+    /**
+     * The least recently read frame — except that frames between the playhead
+     * and the read-ahead horizon are spared while anything else can go.
+     *
+     * Plain LRU is actively wrong for playback. Reading a frame promotes it, so
+     * the frame the playhead just drew becomes the NEWEST entry and the frames
+     * read ahead of it — decoded but not yet drawn — become the oldest. LRU
+     * then evicts precisely the frames that are about to be needed, the
+     * playhead misses every one of them, and the read-ahead it just threw away
+     * has to be decoded again by seeking. Sparing the window turns that
+     * pathology back into ordinary eviction of frames already played.
+     */
+    private chooseVictim(): CachedFrame | null {
+        let oldest: CachedFrame | null = null;
+
+        for (const frame of this.frames.values()) {
+            oldest ??= frame;
+
+            if (!this.insideReadAheadWindow(frame)) {
+                return frame;
+            }
+        }
+
+        // Everything is spoken for; the budget still has to be honoured.
+        return oldest;
+    }
+
+    private insideReadAheadWindow(frame: CachedFrame): boolean {
+        return (
+            this.mode === 'playing' &&
+            frame.frame.timestamp >= this.playheadSec - TIMESTAMP_EPSILON &&
+            frame.frame.timestamp <= this.prefetchUntilSec
+        );
     }
 
     private clearFrames(): void {

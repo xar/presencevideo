@@ -131,6 +131,11 @@ export function createPreviewMediaLookup(
                 return held.get(url)?.source ?? null;
             }
 
+            // Tell the provider where the playhead is even though nothing
+            // needed decoding. Read-ahead has to track the playhead, and a
+            // healthy hit streak reports NOTHING if only misses speak up —
+            // which is exactly when the run would quietly stop.
+            provider.setPlayhead(timeSec);
             held.set(url, { source: frame.source, timeSec });
             return frame.source;
         },

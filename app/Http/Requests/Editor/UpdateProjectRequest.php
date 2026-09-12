@@ -35,14 +35,17 @@ class UpdateProjectRequest extends FormRequest
             'scenes.*.transition' => ['sometimes', 'nullable', 'array'],
             'scenes.*.transition.type' => ['required_with:scenes.*.transition', 'string', Rule::in(TransitionType::values())],
             'scenes.*.transition.duration_ms' => ['required_with:scenes.*.transition', 'integer', 'min:1', 'max:'.FFmpegService::MAX_TRANSITION_MS],
+            // A track's `name` is a display label the model defaults when it is
+            // missing, so it is not required here: agent-composed projects carry
+            // unnamed tracks and must stay saveable from the editor.
             'audio_tracks' => ['sometimes', 'array'],
             'audio_tracks.*.id' => ['required_with:audio_tracks', 'string', 'uuid'],
-            'audio_tracks.*.name' => ['required_with:audio_tracks', 'string', 'max:255'],
+            'audio_tracks.*.name' => ['sometimes', 'string', 'max:255'],
             'audio_tracks.*.volume' => ['sometimes', 'numeric', 'min:0', 'max:2'],
             'audio_tracks.*.clips' => ['sometimes', 'array'],
             'video_tracks' => ['sometimes', 'array'],
             'video_tracks.*.id' => ['required_with:video_tracks', 'string', 'uuid'],
-            'video_tracks.*.name' => ['required_with:video_tracks', 'string', 'max:255'],
+            'video_tracks.*.name' => ['sometimes', 'string', 'max:255'],
             'video_tracks.*.visible' => ['sometimes', 'boolean'],
             'video_tracks.*.clips' => ['sometimes', 'array'],
             'video_tracks.*.clips.*.id' => ['required_with:video_tracks.*.clips', 'string', 'uuid'],
@@ -52,7 +55,7 @@ class UpdateProjectRequest extends FormRequest
             ...$this->elementRules('video_tracks.*.clips.*'),
             'subtitle_tracks' => ['sometimes', 'array'],
             'subtitle_tracks.*.id' => ['required_with:subtitle_tracks', 'string', 'uuid'],
-            'subtitle_tracks.*.name' => ['required_with:subtitle_tracks', 'string', 'max:255'],
+            'subtitle_tracks.*.name' => ['sometimes', 'string', 'max:255'],
             'subtitle_tracks.*.enabled' => ['sometimes', 'boolean'],
             'subtitle_tracks.*.style' => ['sometimes', 'array'],
             'subtitle_tracks.*.style.font_size' => ['sometimes', 'integer', 'min:8', 'max:200'],

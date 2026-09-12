@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AssetSource;
 use App\Enums\AssetType;
 use App\Enums\GenerationType;
+use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\Generation;
 use App\Services\FalAI\FalClient;
@@ -772,7 +773,7 @@ class FalAIService
 
         Storage::disk($disk)->put($path, $content);
 
-        return Asset::create([
+        $asset = Asset::create([
             'user_id' => $generation->user_id,
             'project_id' => $generation->project_id,
             'type' => $type,
@@ -788,6 +789,12 @@ class FalAIService
                 'model' => $generation->model,
             ],
         ]);
+
+        // Generated media arrives without duration, dimensions or a poster
+        // frame; the same probe that runs after an upload fills them in.
+        ProcessAssetUpload::dispatch($asset);
+
+        return $asset;
     }
 
     /**

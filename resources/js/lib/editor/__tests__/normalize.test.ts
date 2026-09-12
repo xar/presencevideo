@@ -48,6 +48,21 @@ describe('normalizeProject', () => {
         expect(result.scenes[0]).toBe(scene);
     });
 
+    it('labels tracks that carry no name, keeping the ones that do', () => {
+        const raw = {
+            ...makeProject(),
+            video_tracks: [{ id: 'v1' }, { id: 'v2', name: 'Overlay' }],
+            audio_tracks: [{ id: 'a1' }, { id: 'a2', name: 'Music' }],
+            subtitle_tracks: [{ id: 't1' }],
+        } as unknown as Project;
+
+        const project = normalizeProject(raw);
+
+        expect(project.video_tracks.map((t) => t.name)).toEqual(['Video Track 1', 'Overlay']);
+        expect(project.audio_tracks.map((t) => t.name)).toEqual(['Track 1', 'Music']);
+        expect(project.subtitle_tracks[0].name).toBe('Subtitles 1');
+    });
+
     it('fills element defaults for legacy and partial elements', () => {
         const legacy = normalizeElement({ id: 'a', asset_id: 1, x: 0, y: 0, width: 1, height: 1 } as never);
         expect(legacy).toMatchObject({ type: 'video', z_index: 0 });

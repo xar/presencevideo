@@ -36,6 +36,7 @@ function fakeProvider(frames: Map<number, FakeFrame> = new Map()) {
         release: vi.fn(),
         requestFrame: vi.fn(),
         setPlaybackMode: vi.fn(),
+        setPlayhead: vi.fn(),
         setPreviewSurface: vi.fn(),
         frameAt: vi.fn((timeSec: number) => frames.get(timeSec) ?? null),
     };
@@ -330,5 +331,31 @@ describe('createPreviewMediaLookup warm-up', () => {
         lookup.warmUp([{ url: 'a.mp4', timeSec: Number.NaN }]);
 
         expect(acquireMediaProvider).not.toHaveBeenCalled();
+    });
+});
+
+describe('createPreviewMediaLookup playhead reporting', () => {
+    it('reports the playhead on a cache HIT, where nothing else would', () => {
+        const frame = fakeSample('frame-a');
+        const provider = fakeProvider(new Map([[1.5, frame]]));
+        acquireMediaProvider.mockReturnValue(provider);
+
+        const lookup = createPreviewMediaLookup();
+        lookup.getVideoFrame('clip.mp4', 1.5);
+
+        // Without this the read-ahead horizon stops advancing exactly when the
+        // cache is working, and playback freezes once it drains.
+        expect(provider.setPlayhead).toHaveBeenCalledWith(1.5);
+        expect(provider.requestFrame).not.toHaveBeenCalled();
+    });
+
+    it('still schedules a decode on a miss', () => {
+        const provider = fakeProvider();
+        acquireMediaProvider.mockReturnValue(provider);
+
+        const lookup = createPreviewMediaLookup();
+        lookup.getVideoFrame('clip.mp4', 2);
+
+        expect(provider.requestFrame).toHaveBeenCalledWith(2);
     });
 });

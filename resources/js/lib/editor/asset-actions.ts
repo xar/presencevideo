@@ -1,4 +1,6 @@
+import { router } from '@inertiajs/svelte';
 import { projectStore, selectionStore } from '@/lib/editor';
+import { appFetch } from '@/lib/http';
 import type { Asset, AssetType, Project } from '@/types';
 
 /** Upper bound for a scene duration derived from a video asset. */
@@ -137,4 +139,19 @@ export function serializeAssetDragData(asset: Asset): string {
         height: asset.height,
         durationMs: asset.duration_ms,
     });
+}
+
+/**
+ * Remove an asset from the library. The timeline is left alone: elements that
+ * pointed at it simply stop resolving, which is why the panel shows the usage
+ * count before asking.
+ */
+export async function deleteAsset(asset: Asset): Promise<void> {
+    const response = await appFetch(`/editor/assets/${asset.id}`, { method: 'DELETE' });
+
+    if (!response.ok) {
+        throw new Error(`Could not delete asset: ${response.status}`);
+    }
+
+    router.reload({ only: ['project'] });
 }
