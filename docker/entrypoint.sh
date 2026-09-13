@@ -141,6 +141,11 @@ case "$CONTAINER_MODE" in
         QUEUE_MAX_JOBS=${QUEUE_MAX_JOBS:-1000}
         QUEUE_MEMORY=${QUEUE_MEMORY:-128}
 
+        # Printed so a misconfigured worker is obvious in `docker logs` rather
+        # than presenting as a queue that silently never runs: chat dies if
+        # `agents` is missing from the list, renders die if `renders` is.
+        log "Queues: ${QUEUE_NAME} (connection=${QUEUE_CONNECTION}, timeout=${QUEUE_TIMEOUT}s, tries=${QUEUE_TRIES}, memory=${QUEUE_MEMORY}M)"
+
         exec php artisan queue:work "$QUEUE_CONNECTION" \
             --queue="$QUEUE_NAME" \
             --timeout="$QUEUE_TIMEOUT" \

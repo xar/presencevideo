@@ -92,6 +92,20 @@ ENV CONTAINER_MODE=${CONTAINER_MODE}
 ENV REVERB_SERVER_HOST=0.0.0.0
 ENV REVERB_SERVER_PORT=8080
 
+# Log to the container, not to a file inside it.
+#
+# The default stack writes to storage/logs/laravel.log, which in a container is
+# write-only in practice: nothing ships it anywhere and it dies with the
+# container. Everything a job logs -- and every handled exception -- was
+# therefore invisible to `docker logs`, leaving the queue worker's own job
+# start/finish lines as the only signal that anything had happened.
+#
+# These are ENV rather than baked into config so a platform can still override
+# them; Laravel's dotenv is immutable, so a real environment variable wins over
+# any .env that turns up in the image.
+ENV LOG_CHANNEL=stderr
+ENV LOG_STACK=stderr
+
 # PHP-FPM/Octane settings
 ENV PHP_OPCACHE_ENABLE=1
 ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
@@ -236,6 +250,9 @@ RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
 COPY docker/php-fpm/www.conf /etc/php/8.5/fpm/pool.d/www.conf
 COPY docker/php-fpm/php.ini /etc/php/8.5/fpm/conf.d/99-production.ini
 COPY docker/php-fpm/php.ini /etc/php/8.5/cli/conf.d/99-production.ini
+# Loaded after 99-production.ini: restores unbuffered output so queue/scheduler/
+# reverb logs reach `docker logs` as they happen instead of sitting in a 4KB buffer.
+COPY docker/php-fpm/cli.ini /etc/php/8.5/cli/conf.d/99-zz-cli.ini
 
 # Copy Caddy configuration
 COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
