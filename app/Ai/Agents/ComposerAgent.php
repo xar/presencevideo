@@ -29,7 +29,7 @@ use Stringable;
  * It never generates media (CreatorAgent) and never renders (the producer).
  */
 #[Provider(Lab::OpenAI)]
-#[Model('gpt-5.5')]
+#[Model('gpt-5.6-terra')]
 #[MaxSteps(30)]
 class ComposerAgent implements Agent, CanActAsTool, Conversational, HasTools
 {

@@ -28,7 +28,7 @@ use Stringable;
  * attachments; laravel/ai supports image attachments on prompts.
  */
 #[Provider(Lab::OpenAI)]
-#[Model('gpt-5.5')]
+#[Model('gpt-5.6-terra')]
 #[MaxSteps(8)]
 class ReviewerAgent implements Agent, CanActAsTool, Conversational, HasStructuredOutput, HasTools
 {

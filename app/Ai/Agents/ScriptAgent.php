@@ -23,7 +23,7 @@ use Stringable;
  * to CreatorAgent (assets per beat) and ComposerAgent (apply_video_recipe).
  */
 #[Provider(Lab::OpenAI)]
-#[Model('gpt-5.5')]
+#[Model('gpt-5.6-terra')]
 #[MaxSteps(4)]
 class ScriptAgent implements Agent, CanActAsTool, HasStructuredOutput
 {

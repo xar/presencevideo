@@ -8,8 +8,10 @@
     import agent from '@/routes/agent';
     import type { BreadcrumbItem } from '@/types';
     import ChatMessageBubble from '@/components/agent/ChatMessageBubble.svelte';
+    import ChatEmptyState from '@/components/agent/ChatEmptyState.svelte';
     import StreamingAssistantMessage from '@/components/agent/StreamingAssistantMessage.svelte';
     import type { ChatMessage, ToolActivity } from '@/components/agent/types';
+    import type { TrendFormat } from '@/lib/agent/trend-formats';
     import {
         applyServerState,
         applyStreamEvent,
@@ -20,7 +22,7 @@
         type StreamState
     } from '@/lib/agent/stream-state';
     import { createStreamClient, type StreamClient } from '@/lib/agent/stream-client';
-    import { PenLine, Send, Sparkles } from 'lucide-svelte';
+    import { PenLine, Send } from 'lucide-svelte';
 
     type Conversation = {
         id: string;
@@ -55,6 +57,7 @@
     ];
 
     let message = $state('');
+    let composer = $state<HTMLTextAreaElement | null>(null);
     let stream = $state<StreamState>(createStreamState());
     /** Shown the instant the user hits send, before the server has answered. */
     let pendingPrompt = $state<string | null>(null);
@@ -196,6 +199,26 @@
             pendingPrompt = null;
             error = 'The agent could not start. Your message was not sent — try again.';
             client?.setStreaming(false);
+        }
+    }
+
+    /**
+     * Loads a trend format's brief into the composer rather than sending it.
+     * The briefs carry a `[bracketed]` blank that only the user can fill, and a
+     * send starts a billable agent run, so a misclick must not be able to.
+     */
+    async function applyTrendFormat(format: TrendFormat) {
+        message = format.prompt;
+
+        await tick();
+
+        composer?.focus();
+
+        const start = format.prompt.indexOf('[');
+        const end = format.prompt.indexOf(']', start);
+
+        if (start !== -1 && end !== -1) {
+            composer?.setSelectionRange(start, end + 1);
         }
     }
 
@@ -375,16 +398,7 @@
             class="flex min-h-0 flex-1 flex-col overflow-hidden border border-border/50 border-b-0 bg-card shadow-lg shadow-black/[0.04] dark:shadow-black/20">
             <div bind:this={messagesContainer} class="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
                 {#if renderedMessages.length === 0 && !stream.text && !streaming}
-                    <div class="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
-                        <div class="mb-6 flex size-16 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-inner">
-                            <Sparkles class="size-8" />
-                        </div>
-                        <h2 class="text-3xl font-black tracking-tight">What should we create?</h2>
-                        <p class="mt-3 text-muted-foreground">
-                            Start a conversation with your new GenericAgent. Later, this space can drive project edits,
-                            generation, and timeline actions.
-                        </p>
-                    </div>
+                    <ChatEmptyState onpick={(format) => void applyTrendFormat(format)} />
                 {:else}
                     <div class="mx-auto flex max-w-4xl flex-col gap-5 {streaming ? 'pb-[65vh]' : 'pb-6'}">
                         {#each renderedMessages as message (message.id)}
@@ -407,6 +421,7 @@
                 {/if}
                 <div class="mx-auto flex max-w-4xl items-end gap-3 rounded-3xl border border-border/70 bg-background p-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/20">
                     <textarea
+                        bind:this={composer}
                         bind:value={message}
                         onkeydown={onKeydown}
                         rows="1"
