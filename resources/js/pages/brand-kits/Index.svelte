@@ -304,21 +304,21 @@
         </Button>
     {/snippet}
 
-    <div class="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4">
+    <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-12">
         <Card class="shrink-0">
-            <CardHeader class="py-4">
+            <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-base">
                     <Sparkles class="h-4 w-4 text-primary" />
                     Let an AI build the kit from your website
                 </CardTitle>
-                <CardDescription>
+                <CardDescription class="max-w-2xl">
                     Copy the prompt into ChatGPT or Claude. It carries a private, expiring link that lets the
                     agent read your site and write the colours, fonts, logos and tone straight back into this kit.
                 </CardDescription>
             </CardHeader>
-            <CardContent class="space-y-3">
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="grid min-w-64 flex-1 gap-1">
+            <CardContent class="space-y-4">
+                <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
+                    <div class="grid gap-1.5">
                         <Label for="intake-website"
                                class="text-xs">Website</Label>
                         <Input id="intake-website"
@@ -327,11 +327,11 @@
                                oninput={(e) => { intakeWebsite = stringFrom(e); resetIntake(); }}
                                placeholder="https://acme.com" />
                     </div>
-                    <div class="grid gap-1">
+                    <div class="grid gap-1.5">
                         <Label for="intake-target"
                                class="text-xs">Fills in</Label>
                         <select id="intake-target"
-                                class="h-9 rounded-md border bg-background px-2 text-sm"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
                                 value={intakeTarget}
                                 onchange={(e) => {
                                     const value = (e.target as HTMLSelectElement).value;
@@ -344,6 +344,9 @@
                             {/each}
                         </select>
                     </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
                     <Button onclick={copyPrompt}
                             disabled={intakeBusy}>
                         {#if copiedField === 'prompt'}
@@ -402,61 +405,81 @@
             </CardContent>
         </Card>
 
-        <div class="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div class="space-y-3  overflow-y-auto">
+        <div class="grid min-h-0 gap-6 {editingId !== null ? 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]' : ''}">
+        <div class={editingId !== null ? 'flex flex-col gap-4' : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3'}>
             {#if brandKits.length === 0}
-                <Card>
-                    <CardContent class="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-                        <Palette class="h-8 w-8" />
-                        <p class="text-sm">No brand kits yet. Create one and attach it to a project to style it with
-                            tokens.</p>
+                <Card class="border-dashed shadow-none {editingId !== null ? '' : 'sm:col-span-2 xl:col-span-3'}">
+                    <CardContent class="flex flex-col items-center gap-3 py-10 text-center">
+                        <div class="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <Palette class="h-6 w-6" />
+                        </div>
+                        <p class="max-w-sm text-sm text-muted-foreground">
+                            No brand kits yet. Create one and attach it to a project to style every element with
+                            tokens such as <code class="rounded bg-muted px-1 py-0.5 text-xs">brand.primary</code>.
+                        </p>
+                        <Button variant="outline"
+                                class="mt-1 rounded-full"
+                                onclick={startNew}>
+                            <Plus class="mr-2 h-4 w-4" />
+                            New brand kit
+                        </Button>
                     </CardContent>
                 </Card>
             {/if}
 
             {#each brandKits as kit (kit.id)}
-                <Card class={editingId === kit.id ? 'border-primary' : ''}>
-                    <CardHeader class="flex flex-row items-start justify-between gap-3 space-y-0">
-                        <div>
-                            <CardTitle class="text-base">{kit.name}</CardTitle>
+                <Card class="gap-4 {editingId === kit.id ? 'border-primary/60 ring-2 ring-primary/15' : ''}">
+                    <CardHeader class="flex w-full flex-row items-start justify-between gap-3 space-y-0">
+                        <div class="min-w-0 flex-1">
+                            <CardTitle class="truncate text-base">{kit.name}</CardTitle>
                             <CardDescription class="truncate">
                                 {kit.website_url ?? kit.fonts?.display ?? 'No display font'}
                             </CardDescription>
                         </div>
-                        <div class="flex gap-1">
+                        <div class="flex shrink-0 items-center gap-1">
                             <Button variant="outline"
                                     size="sm"
                                     onclick={() => startEdit(kit)}>Edit
                             </Button>
                             <Button variant="ghost"
                                     size="sm"
+                                    class="text-muted-foreground hover:text-destructive"
                                     onclick={() => remove(kit)}
-                                    aria-label="Delete">
+                                    aria-label="Delete {kit.name}">
                                 <Trash2 class="h-4 w-4" />
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div class="flex gap-1.5">
+                    <CardContent class="space-y-4">
+                        <div class="flex flex-wrap gap-1.5">
                             {#each COLOR_ROLES as { role, label } (role)}
+                                {@const value = kit.colors?.[role] ?? null}
                                 <span
-                                    class="h-6 w-6 rounded-full border"
-                                    style="background: {kit.colors?.[role] ?? 'transparent'}"
-                                    title="{label}: {kit.colors?.[role] ?? 'unset'}"
+                                    class="size-7 rounded-full border-2 shadow-sm {value
+                                        ? 'border-border/40'
+                                        : 'border-dashed border-border bg-muted'}"
+                                    style={value ? `background: ${value}` : undefined}
+                                    title="{label}: {value ?? 'unset'}"
                                 ></span>
                             {/each}
                         </div>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs">
+                            {#each FONT_ROLES as { role, label } (role)}
+                                <div class="min-w-0">
+                                    <dt class="text-muted-foreground">{label}</dt>
+                                    <dd class="truncate font-medium">{kit.fonts?.[role] ?? '—'}</dd>
+                                </div>
+                            {/each}
+                        </dl>
                     </CardContent>
                 </Card>
             {/each}
         </div>
 
         {#if editingId !== null}
-            <div class=" overflow-y-auto p-4">
-
-
-                <Card class="pb-4">
-                    <CardHeader class="py-4">
+            <div class="min-w-0">
+                <Card>
+                    <CardHeader>
                         <CardTitle>{editingId === 'new' ? 'New brand kit' : 'Edit brand kit'}</CardTitle>
                         <CardDescription>
                             Elements reference these as tokens such as <code>brand.primary</code> or

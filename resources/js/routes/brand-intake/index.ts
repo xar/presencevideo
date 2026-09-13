@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import assets from './assets'
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 export const show = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 show.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { token: string | number } | [token: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 show.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.get = (args: { token: string | number } | [token: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 show.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -64,7 +64,7 @@ show.head = (args: { token: string | number } | [token: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 const showForm = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -74,7 +74,7 @@ const showForm = (args: { token: string | number } | [token: string | number ] |
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 showForm.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -84,7 +84,7 @@ showForm.get = (args: { token: string | number } | [token: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::show
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:39
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:40
 * @route '/brand-intake/{token}'
 */
 showForm.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -101,7 +101,7 @@ show.form = showForm
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 export const update = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -116,7 +116,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 update.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -143,7 +143,7 @@ update.url = (args: { token: string | number } | [token: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 update.patch = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -153,7 +153,7 @@ update.patch = (args: { token: string | number } | [token: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 update.post = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -163,7 +163,7 @@ update.post = (args: { token: string | number } | [token: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 const updateForm = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -178,7 +178,7 @@ const updateForm = (args: { token: string | number } | [token: string | number ]
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 updateForm.patch = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -193,7 +193,7 @@ updateForm.patch = (args: { token: string | number } | [token: string | number ]
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::update
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:53
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:54
 * @route '/brand-intake/{token}'
 */
 updateForm.post = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

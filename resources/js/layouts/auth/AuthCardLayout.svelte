@@ -30,7 +30,7 @@
         </Link>
 
         <div class="flex flex-col gap-6">
-            <Card class="rounded-2xl border-sidebar-border shadow-xl shadow-black/[0.04] dark:shadow-white/5 bg-card/95 backdrop-blur-sm overflow-hidden">
+            <Card class="py-0 rounded-2xl border-sidebar-border shadow-xl shadow-black/[0.04] dark:shadow-white/5 bg-card/95 backdrop-blur-sm overflow-hidden">
                 <CardHeader class="px-10 pt-10 pb-2 text-center">
                     <CardTitle class="text-2xl font-semibold tracking-tight text-foreground/90">{title}</CardTitle>
                     {#if description}

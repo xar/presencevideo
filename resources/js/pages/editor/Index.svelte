@@ -159,7 +159,7 @@
                         class="text-left group outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 rounded-[2rem] transition-all duration-500"
                         onclick={() => openProject(project)}
                     >
-                        <Card class="cursor-pointer transition-all duration-500 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30 border-border/50 bg-card shadow-lg shadow-black/[0.04] dark:shadow-black/20 overflow-hidden h-full flex flex-col group-hover:-translate-y-2">
+                        <Card class="py-0 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30 border-border/50 bg-card shadow-lg shadow-black/[0.04] dark:shadow-black/20 overflow-hidden h-full flex flex-col group-hover:-translate-y-2">
                             <CardContent class="p-0">
                                 <div class="aspect-video bg-gradient-to-br from-sidebar via-background to-muted flex items-center justify-center border-b border-border/50 relative overflow-hidden group-hover:from-primary/5 group-hover:via-accent/5 group-hover:to-chart-3/5 transition-colors duration-700">
                                     <div class="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

@@ -466,7 +466,7 @@
         <!-- Main Menu -->
         <div class="flex-1 overflow-y-auto p-3 space-y-3">
             <!-- Quick Pipeline -->
-            <Card class="border-primary/50 bg-primary/5">
+            <Card class="py-0 border-primary/50 bg-primary/5">
                 <CardHeader class="p-3 pb-2">
                     <CardTitle class="text-sm flex items-center gap-2">
                         <Zap class="h-4 w-4 text-primary" />
@@ -492,7 +492,7 @@
             {#each generationTypes as genType (genType.type)}
                 {@const typeModels = models[genType.type] ?? []}
                 <button type="button" class="w-full text-left" onclick={() => selectType(genType.type)}>
-                    <Card class="cursor-pointer hover:border-primary/50 transition-colors">
+                    <Card class="py-0 cursor-pointer hover:border-primary/50 transition-colors">
                         <CardContent class="flex items-center gap-3 p-3">
                             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                                 <genType.icon class="h-4 w-4 text-primary" />
@@ -522,7 +522,7 @@
                 {@const isCompleted = step.status === 'completed'}
                 {@const isLocked = index > 0 && pipelineSteps[index - 1].status !== 'completed'}
 
-                <Card class={`transition-all ${isActive ? 'border-primary ring-1 ring-primary/20' : ''} ${isCompleted ? 'border-green-500/50 bg-green-500/5' : ''} ${isLocked ? 'opacity-50' : ''}`}>
+                <Card class={`py-0 transition-all ${isActive ? 'border-primary ring-1 ring-primary/20' : ''} ${isCompleted ? 'border-green-500/50 bg-green-500/5' : ''} ${isLocked ? 'opacity-50' : ''}`}>
                     <CardHeader class="p-3 pb-2">
                         <div class="flex items-center gap-2">
                             <div class={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isCompleted ? 'bg-green-500 text-white' : isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
@@ -614,7 +614,7 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-4">
             <!-- Input Image Preview for image-to-video -->
             {#if currentType === 'image_to_video'}
-                <Card class={selectedSourceImageAsset ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>
+                <Card class={`py-0 ${selectedSourceImageAsset ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}`}>
                     <CardHeader class="p-3 pb-2">
                         <CardTitle class="text-xs flex items-center gap-2">
                             <Image class="h-3 w-3" />

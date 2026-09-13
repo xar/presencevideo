@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::store
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:79
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:80
 * @route '/brand-intake/{token}/assets'
 */
 export const store = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::store
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:79
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:80
 * @route '/brand-intake/{token}/assets'
 */
 store.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ store.url = (args: { token: string | number } | [token: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::store
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:79
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:80
 * @route '/brand-intake/{token}/assets'
 */
 store.post = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -53,7 +53,7 @@ store.post = (args: { token: string | number } | [token: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::store
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:79
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:80
 * @route '/brand-intake/{token}/assets'
 */
 const storeForm = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -63,7 +63,7 @@ const storeForm = (args: { token: string | number } | [token: string | number ] 
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitIntakeController::store
-* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:79
+* @see app/Http/Controllers/Editor/BrandKitIntakeController.php:80
 * @route '/brand-intake/{token}/assets'
 */
 storeForm.post = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
