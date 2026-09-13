@@ -92,6 +92,15 @@ ENV CONTAINER_MODE=${CONTAINER_MODE}
 ENV REVERB_SERVER_HOST=0.0.0.0
 ENV REVERB_SERVER_PORT=8080
 
+# Which background services the `app` container starts under supervisord.
+# Defaults are ON so a single-container deploy processes jobs out of the box.
+# Set to false for a service that has its own CONTAINER_MODE=queue/scheduler/
+# reverb container, so the two do not both reserve the same jobs.
+# (supervisord reads these as %(ENV_RUN_*)s, so they must always be defined.)
+ENV RUN_QUEUE=true
+ENV RUN_SCHEDULER=true
+ENV RUN_REVERB=true
+
 # Log to the container, not to a file inside it.
 #
 # The default stack writes to storage/logs/laravel.log, which in a container is
@@ -260,9 +269,10 @@ COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
 # Copy supervisor and entrypoint
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/services.sh /usr/local/bin/services.sh
 
 # Set permissions
-RUN chmod +x /usr/local/bin/entrypoint.sh \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/services.sh \
     && chown -R www:www /var/www/html \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache

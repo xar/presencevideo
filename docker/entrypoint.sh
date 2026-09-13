@@ -24,6 +24,11 @@ error() {
     echo -e "${RED}[ENTRYPOINT]${NC} $1"
 }
 
+# Shared service definitions (queue/scheduler/reverb command lines).
+# Same file supervisord runs in single-container deploys.
+# shellcheck source=./services.sh
+. /usr/local/bin/services.sh
+
 # Default values
 CONTAINER_MODE=${CONTAINER_MODE:-app}
 APP_ENV=${APP_ENV:-production}
@@ -133,49 +138,17 @@ case "$CONTAINER_MODE" in
 
     queue)
         log "Starting queue worker..."
-
-        QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-        QUEUE_NAME=${QUEUE_NAME:-default,agents,renders,generations}
-        QUEUE_TIMEOUT=${QUEUE_TIMEOUT:-900}
-        QUEUE_TRIES=${QUEUE_TRIES:-3}
-        QUEUE_MAX_JOBS=${QUEUE_MAX_JOBS:-1000}
-        QUEUE_MEMORY=${QUEUE_MEMORY:-128}
-
-        # Printed so a misconfigured worker is obvious in `docker logs` rather
-        # than presenting as a queue that silently never runs: chat dies if
-        # `agents` is missing from the list, renders die if `renders` is.
-        log "Queues: ${QUEUE_NAME} (connection=${QUEUE_CONNECTION}, timeout=${QUEUE_TIMEOUT}s, tries=${QUEUE_TRIES}, memory=${QUEUE_MEMORY}M)"
-
-        exec php artisan queue:work "$QUEUE_CONNECTION" \
-            --queue="$QUEUE_NAME" \
-            --timeout="$QUEUE_TIMEOUT" \
-            --tries="$QUEUE_TRIES" \
-            --max-jobs="$QUEUE_MAX_JOBS" \
-            --memory="$QUEUE_MEMORY" \
-            --sleep=3 \
-            --verbose
+        start_queue
         ;;
 
     scheduler)
         log "Starting task scheduler..."
-
-        # Run scheduler in a loop
-        while true; do
-            php artisan schedule:run --verbose --no-interaction &
-            sleep 60
-        done
+        start_scheduler
         ;;
 
     reverb)
         log "Starting Laravel Reverb WebSocket server..."
-
-        REVERB_SERVER_HOST=${REVERB_SERVER_HOST:-0.0.0.0}
-        REVERB_SERVER_PORT=${REVERB_SERVER_PORT:-8080}
-
-        exec php artisan reverb:start \
-            --host="$REVERB_SERVER_HOST" \
-            --port="$REVERB_SERVER_PORT" \
-            --verbose
+        start_reverb
         ;;
 
     horizon)
