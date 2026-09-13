@@ -10,6 +10,7 @@ use App\Models\Asset;
 use App\Models\Generation;
 use App\Services\FalAI\FalClient;
 use App\Services\FalAI\ModelRegistry;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -86,15 +87,38 @@ class FalAIService
         return null;
     }
 
+    /**
+     * Keys we store on `Generation::$parameters` for our own bookkeeping and
+     * must strip before the payload reaches fal.ai.
+     *
+     * @var array<int, string>
+     */
+    protected const INTERNAL_PARAMETER_KEYS = [
+        'model_key',
+        'agent_activity_id',
+        'agent_conversation_id',
+        'transcription_text',
+        'transcription_chunks',
+    ];
+
+    /**
+     * `aspect_ratio` request -> fal.ai `image_size` enum bucket.
+     *
+     * @var array<string, string>
+     */
+    protected const ASPECT_RATIO_IMAGE_SIZES = [
+        '9:16' => 'portrait_16_9',
+        '3:4' => 'portrait_4_3',
+        '1:1' => 'square_hd',
+        '4:3' => 'landscape_4_3',
+        '16:9' => 'landscape_16_9',
+    ];
+
     protected function generateImage(Generation $generation): GenerationResult
     {
         $modelConfig = $this->resolveModelConfig($generation);
 
-        $input = array_merge(
-            ['prompt' => $generation->prompt],
-            $modelConfig['defaults'],
-            $generation->parameters
-        );
+        $input = $this->buildModelInput($generation, $modelConfig);
 
         $result = $this->client->subscribe(
             $modelConfig['id'],
@@ -154,12 +178,7 @@ class FalAIService
     {
         $modelConfig = $this->resolveModelConfig($generation);
 
-        $input = array_merge(
-            ['prompt' => $generation->prompt],
-            $extraInput,
-            $modelConfig['defaults'],
-            $generation->parameters
-        );
+        $input = $this->buildModelInput($generation, $modelConfig, $extraInput);
 
         $result = $this->client->subscribe(
             $modelConfig['id'],
@@ -194,11 +213,7 @@ class FalAIService
     {
         $modelConfig = $this->resolveModelConfig($generation);
 
-        $input = array_merge(
-            ['prompt' => $generation->prompt],
-            $modelConfig['defaults'],
-            $generation->parameters
-        );
+        $input = $this->buildModelInput($generation, $modelConfig);
 
         $result = $this->client->subscribe(
             $modelConfig['id'],
@@ -240,11 +255,7 @@ class FalAIService
             default => 'prompt',
         };
 
-        $input = array_merge(
-            [$textField => $generation->prompt],
-            $modelConfig['defaults'],
-            $generation->parameters
-        );
+        $input = $this->buildModelInput($generation, $modelConfig, promptField: $textField);
 
         $result = $this->client->subscribe(
             $modelConfig['id'],
@@ -277,11 +288,7 @@ class FalAIService
     {
         $modelConfig = $this->resolveModelConfig($generation);
 
-        $input = array_merge(
-            ['prompt' => $generation->prompt],
-            $modelConfig['defaults'],
-            $generation->parameters
-        );
+        $input = $this->buildModelInput($generation, $modelConfig);
 
         $result = $this->client->subscribe(
             $modelConfig['id'],
@@ -323,12 +330,14 @@ class FalAIService
         // regroup words into readable caption segments server-side. Wizper
         // (Whisper v3 Large) accepts the Whisper input schema including
         // chunk_level. See https://fal.ai/models/fal-ai/wizper
-        $input = array_merge(
+        $input = $this->buildModelInput(
+            $generation,
+            ['parameters' => [], 'defaults' => []],
             [
                 'audio_url' => $audioUrl,
                 'chunk_level' => 'word',
             ],
-            $generation->parameters
+            promptField: null,
         );
 
         // Use wizper model directly since it may not be in the registry
@@ -508,6 +517,75 @@ class FalAIService
             ],
             'words' => array_values($words),
         ];
+    }
+
+    /**
+     * Build the input payload sent to fal.ai for a generation.
+     *
+     * The single place the payload is assembled, so the two things that are
+     * easy to get wrong stay fixed for every generation type:
+     *
+     * - Internal bookkeeping we stash on `parameters` (the agent conversation
+     *   and activity ids, the resolved model key, transcription results written
+     *   back after a run) is NOT model input and must not be POSTed.
+     * - A requested aspect ratio is translated onto whatever parameter the
+     *   model actually exposes. Passing `aspect_ratio` to a model that only
+     *   takes `image_size` is silently ignored by fal, which is how a project
+     *   asking for 9:16 came back with landscape assets.
+     *
+     * @param  array{id: string, name: string, description: string, parameters: array<string, mixed>, defaults: array<string, mixed>}  $modelConfig
+     * @param  array<string, mixed>  $extraInput
+     * @param  string|null  $promptField  Input key the model wants the prompt under; null omits it.
+     * @return array<string, mixed>
+     */
+    protected function buildModelInput(
+        Generation $generation,
+        array $modelConfig,
+        array $extraInput = [],
+        ?string $promptField = 'prompt',
+    ): array {
+        $input = array_merge(
+            $promptField === null ? [] : [$promptField => $generation->prompt],
+            $extraInput,
+            $modelConfig['defaults'] ?? [],
+            Arr::except($generation->parameters ?? [], self::INTERNAL_PARAMETER_KEYS),
+        );
+
+        return $this->applyAspectRatio($input, $modelConfig);
+    }
+
+    /**
+     * Translate a requested `aspect_ratio` onto the parameter the model accepts.
+     *
+     * Models that expose `aspect_ratio` keep it verbatim. Models that instead
+     * expose an `image_size` enum get the matching bucket. A model whose schema
+     * we never fetched (a catalog endpoint) exposes no parameters at all, so the
+     * request is left untouched rather than guessed at.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array{parameters: array<string, mixed>, defaults: array<string, mixed>}  $modelConfig
+     * @return array<string, mixed>
+     */
+    protected function applyAspectRatio(array $input, array $modelConfig): array
+    {
+        $aspectRatio = $input['aspect_ratio'] ?? null;
+        $parameters = $modelConfig['parameters'] ?? [];
+
+        if (! is_string($aspectRatio) || isset($parameters['aspect_ratio']) || ! isset($parameters['image_size'])) {
+            return $input;
+        }
+
+        $imageSize = self::ASPECT_RATIO_IMAGE_SIZES[$aspectRatio] ?? null;
+        $options = $parameters['image_size']['options'] ?? [];
+
+        if ($imageSize === null || ($options !== [] && ! array_key_exists($imageSize, $options))) {
+            return $input;
+        }
+
+        $input['image_size'] = $imageSize;
+        unset($input['aspect_ratio']);
+
+        return $input;
     }
 
     /**

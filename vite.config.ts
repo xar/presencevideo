@@ -14,6 +14,8 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.ts',
                 'resources/js/islands/demo-editor.ts',
+                // Headless server render: the browser export, run by Puppeteer.
+                'resources/js/headless/render.ts',
             ],
             ssr: 'resources/js/ssr.ts',
             refresh: true,

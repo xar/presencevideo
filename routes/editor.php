@@ -3,6 +3,7 @@
 use App\Http\Controllers\Editor\AssetController;
 use App\Http\Controllers\Editor\AssetStreamController;
 use App\Http\Controllers\Editor\GenerationController;
+use App\Http\Controllers\Editor\HeadlessRenderController;
 use App\Http\Controllers\Editor\ProjectController;
 use App\Http\Controllers\Editor\RenderController;
 use Illuminate\Support\Facades\Route;
@@ -34,4 +35,18 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
     Route::post('/projects/{project}/render', [RenderController::class, 'store'])->name('editor.renders.store');
     Route::get('/renders/{render}', [RenderController::class, 'show'])->name('editor.renders.show');
     Route::get('/renders/{render}/download', [RenderController::class, 'download'])->name('editor.renders.download');
+});
+
+/*
+ * Headless render surface.
+ *
+ * Deliberately outside the auth guard: the browser that renders these pages has
+ * no session. Access is granted instead by a short-lived, single-project token
+ * (App\Services\HeadlessRender\RenderAccessToken) that the render job mints and
+ * revokes, and every route re-checks that the asset belongs to that project.
+ */
+Route::prefix('editor/headless')->group(function () {
+    Route::get('/{token}/page', [HeadlessRenderController::class, 'page'])->name('editor.headless.page');
+    Route::get('/{token}/assets/{asset}', [HeadlessRenderController::class, 'asset'])->name('editor.headless.asset');
+    Route::get('/{token}/assets/{asset}/thumbnail', [HeadlessRenderController::class, 'thumbnail'])->name('editor.headless.thumbnail');
 });

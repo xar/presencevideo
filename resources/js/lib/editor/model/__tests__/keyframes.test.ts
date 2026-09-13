@@ -171,3 +171,41 @@ describe('applyKeyframes', () => {
         expect(resolved.opacity).toBe(1);
     });
 });
+
+describe('malformed track shapes', () => {
+    it('samples a non-array track to null instead of throwing', () => {
+        // A project storing `keyframes` as an ARRAY rather than a property map
+        // hands applyKeyframes a single keyframe object per entry.
+        expect(
+            sampleKeyframes({ time_ms: 0, value: 1 } as never, 500),
+        ).toBeNull();
+    });
+
+    it('keeps the static property when a track is malformed', () => {
+        const element = { opacity: 0.4, x: 10 };
+
+        expect(
+            applyKeyframes(
+                element,
+                [{ time_ms: 0, value: 1 }] as never,
+                500,
+            ),
+        ).toEqual(element);
+    });
+
+    it('still applies the valid tracks alongside a malformed one', () => {
+        const resolved = applyKeyframes(
+            { opacity: 0.4, x: 10 },
+            {
+                opacity: 'nonsense',
+                x: [
+                    { time_ms: 0, value: 0 },
+                    { time_ms: 1000, value: 100 },
+                ],
+            } as never,
+            500,
+        );
+
+        expect(resolved).toEqual({ opacity: 0.4, x: 50 });
+    });
+});

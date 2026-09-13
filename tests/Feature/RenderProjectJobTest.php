@@ -5,6 +5,7 @@ use App\Jobs\RenderProject;
 use App\Models\Project;
 use App\Models\Render;
 use App\Services\FFmpegService;
+use App\Services\HeadlessRenderService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -108,7 +109,7 @@ it('streams the finished render into storage instead of buffering it in memory',
     $ffmpeg = new RecordingFFmpegService;
     $render = renderForScenes();
 
-    (new RenderProject($render))->handle($ffmpeg);
+    (new RenderProject($render))->handle($ffmpeg, new HeadlessRenderService);
 
     $render->refresh();
 
@@ -129,7 +130,7 @@ it('removes every intermediate file on the success path', function () {
 
     $ffmpeg = new RecordingFFmpegService;
 
-    (new RenderProject(renderForScenes()))->handle($ffmpeg);
+    (new RenderProject(renderForScenes()))->handle($ffmpeg, new HeadlessRenderService);
 
     expect($ffmpeg->created)->not->toBeEmpty();
 
@@ -145,7 +146,7 @@ it('removes every intermediate file when the render fails', function () {
     $ffmpeg->failAfterScenes = true;
     $render = renderForScenes();
 
-    expect(fn () => (new RenderProject($render))->handle($ffmpeg))
+    expect(fn () => (new RenderProject($render))->handle($ffmpeg, new HeadlessRenderService))
         ->toThrow(RuntimeException::class);
 
     expect($ffmpeg->created)->not->toBeEmpty();
@@ -162,7 +163,7 @@ it('never stores raw ffmpeg stderr on the render record', function () {
     $ffmpeg->failAfterScenes = true;
     $render = renderForScenes();
 
-    expect(fn () => (new RenderProject($render))->handle($ffmpeg))
+    expect(fn () => (new RenderProject($render))->handle($ffmpeg, new HeadlessRenderService))
         ->toThrow(RuntimeException::class);
 
     $render->refresh();
@@ -179,7 +180,7 @@ it('keeps user-actionable failures readable', function () {
     $project = Project::factory()->create(['scenes' => []]);
     $render = Render::factory()->forProject($project)->create();
 
-    expect(fn () => (new RenderProject($render))->handle(new RecordingFFmpegService))
+    expect(fn () => (new RenderProject($render))->handle(new RecordingFFmpegService, new HeadlessRenderService))
         ->toThrow(RuntimeException::class);
 
     expect($render->refresh()->error_message)->toBe('No scenes to render');

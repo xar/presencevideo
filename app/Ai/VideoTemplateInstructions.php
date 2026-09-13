@@ -11,7 +11,7 @@ class VideoTemplateInstructions
     {
         $config = config('agent_video_templates');
 
-        return self::renderQualityPresets($config)."\n\n".self::renderVideoTemplates($config)."\n\n".self::renderLockedModelPlanRules();
+        return self::renderPreferredModels($config)."\n\n".self::renderQualityPresets($config)."\n\n".self::renderVideoTemplates($config)."\n\n".self::renderLockedModelPlanRules();
     }
 
     /**
@@ -19,7 +19,7 @@ class VideoTemplateInstructions
      */
     public static function forCreatorAgent(): string
     {
-        return <<<'INSTRUCTIONS'
+        $instructions = <<<'INSTRUCTIONS'
 Locked model plan enforcement:
 - Treat the model plan passed by GenericAgent as locked production input.
 - Do not upgrade, downgrade, substitute, or browse for different models when locked model_id values are provided.
@@ -27,6 +27,48 @@ Locked model plan enforcement:
 - If a model plan is missing, use medium or lower and avoid premium/pro/top-tier models unless the brief explicitly allows high.
 - Preserve the template key, quality preset, selected model_id values, and model rationale in your tool calls and status summaries.
 INSTRUCTIONS;
+
+        return $instructions."\n\n".self::renderPreferredModels(config('agent_video_templates'));
+    }
+
+    /**
+     * Render the house default model per generation type.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    protected static function renderPreferredModels(array $config): string
+    {
+        $entries = array_filter(
+            $config['preferred_models'] ?? [],
+            fn (array $preference) => ($preference['primary'] ?? null) !== null || ($preference['alternatives'] ?? []) !== [],
+        );
+
+        if ($entries === []) {
+            return '';
+        }
+
+        $lines = [
+            'Preferred fal.ai models (house defaults):',
+            '- Use the primary model for each generation type unless the brief locks a different model_id, the user names a model, or the quality preset is low/high and the preset guidance clearly points elsewhere.',
+            '- Alternatives are acceptable swaps at the same tier; pick one only for the reason given in its note, and say why.',
+            '- These are pre-approved, so you do not need list_fal_models before using them. Call list_fal_models only when no preference covers the generation type or the preferred model is rejected.',
+        ];
+
+        foreach ($entries as $type => $preference) {
+            $line = "- {$type}: ".($preference['primary'] ?? 'no default, discover via list_fal_models');
+
+            if (($preference['alternatives'] ?? []) !== []) {
+                $line .= ' (alternatives: '.implode(', ', $preference['alternatives']).')';
+            }
+
+            $lines[] = $line;
+
+            if (($preference['note'] ?? null) !== null) {
+                $lines[] = '  '.$preference['note'];
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

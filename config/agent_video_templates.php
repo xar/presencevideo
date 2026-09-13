@@ -4,6 +4,62 @@ return [
     'default_template' => 'general_video',
     'default_quality_preset' => 'medium',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Preferred fal.ai models
+    |--------------------------------------------------------------------------
+    |
+    | The house default model for each generation type. This is the single place
+    | to change what the agents reach for; both GenericAgent (which locks the
+    | model plan) and CreatorAgent (which executes it) are prompted from this map.
+    |
+    | Keys are App\Enums\GenerationType values. Each entry accepts:
+    |   primary      - the model_id to use unless there is a reason not to
+    |   alternatives - acceptable swaps at the same tier, in preference order
+    |   note         - short rationale or "when to pick the alternative" hint
+    |
+    | Leave `primary` null to let the agent discover a model via list_fal_models.
+    |
+    */
+
+    'preferred_models' => [
+        'text_to_image' => [
+            'primary' => 'openai/gpt-image-2.5/sunburst/text-to-image',
+            'alternatives' => ['alibaba/qwen-image-3/text-to-image'],
+            'note' => 'Sunburst for prompt adherence and legible in-image text; Qwen for stylised or non-Latin typography.',
+        ],
+        'text_to_video' => [
+            'primary' => 'minimax/h3-max/text-to-video',
+            'alternatives' => [],
+            'note' => 'Use only when there is no source image; otherwise generate a still first and use image_to_video.',
+        ],
+        'image_to_video' => [
+            'primary' => 'lightricks/ltx-2.5/image-to-video/fast',
+            'alternatives' => ['alibaba/wan-3.0-prime/image-to-video'],
+            'note' => 'LTX fast is the default for speed and cost; Wan 3.0 Prime for hero shots needing stronger motion fidelity.',
+        ],
+        'text_to_speech' => [
+            'primary' => 'fal-ai/minimax/speech-2.8-turbo',
+            'alternatives' => [],
+            'note' => 'Default voiceover model for all narration and dialogue.',
+        ],
+        'text_to_music' => [
+            'primary' => 'sonilo/v1.1/text-to-music',
+            'alternatives' => [],
+            'note' => 'Default background music and score model.',
+        ],
+        'text_to_sfx' => [
+            'primary' => null,
+            'alternatives' => [],
+            'note' => 'No house default yet. Pick the cheapest suitable model from list_fal_models.',
+        ],
+        'speech_to_text' => [
+            'primary' => 'fal-ai/wizper',
+            'alternatives' => [],
+            'note' => 'Only transcription model wired up; used for subtitles.',
+        ],
+    ],
+
     'quality_presets' => [
         'low' => [
             'label' => 'Low / draft',
@@ -16,11 +72,9 @@ return [
         ],
         'medium' => [
             'label' => 'Medium / balanced',
-            'instruction' => 'Use balanced, reliable models by default for production drafts and normal user requests.',
+            'instruction' => 'Use the preferred house models listed above. This preset is the default, so the preferred model for each generation type applies as-is.',
             'model_guidance' => [
-                'text_to_image' => ['openai/gpt-image-2'],
-                'image_to_video' => ['fal-ai/creatify/aurora'],
-                'audio' => ['balanced music, speech, or SFX model from list_fal_models'],
+                'all' => ['the primary model from the preferred fal.ai models map'],
             ],
         ],
         'high' => [

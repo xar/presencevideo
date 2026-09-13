@@ -3,6 +3,7 @@ import projects from './projects'
 import assets from './assets'
 import generations from './generations'
 import renders from './renders'
+import headless from './headless'
 /**
 * @see \App\Http\Controllers\Editor\ProjectController::index
 * @see app/Http/Controllers/Editor/ProjectController.php:19
@@ -90,6 +91,7 @@ const editor = {
     assets: Object.assign(assets, assets),
     generations: Object.assign(generations, generations),
     renders: Object.assign(renders, renders),
+    headless: Object.assign(headless, headless),
 }
 
 export default editor

@@ -31,6 +31,9 @@ WORKDIR /app
 
 # Set environment to skip Wayfinder regeneration (files are pre-committed)
 ENV DOCKER_BUILD=true
+# Puppeteer is only needed at RUNTIME (see the headless-render stage below), and
+# the browser it would download here would be thrown away with this stage.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
@@ -47,7 +50,27 @@ COPY vite.config.ts tsconfig.json ./
 RUN npm run build:ssr
 
 # -----------------------------------------------------------------------------
-# Stage 3: Production Image
+# Stage 3: Headless render runtime
+#
+# The server render runs the real TypeScript compositor in headless Chrome
+# (resources/js/headless/driver.mjs), so the production image needs Puppeteer at
+# runtime. Installed in its own stage so the ~500 MB dev node_modules of the
+# frontend build never reaches production -- only puppeteer and its deps do.
+# The browser itself comes from apt below, not from Puppeteer's downloader.
+# -----------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS headless-deps
+
+WORKDIR /app
+
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
+COPY package.json package-lock.json* ./
+
+RUN npm pkg set dependencies.puppeteer="$(node -p "require('./package.json').devDependencies.puppeteer")" \
+    && npm install --omit=dev --omit=optional --no-audit --no-fund puppeteer
+
+# -----------------------------------------------------------------------------
+# Stage 4: Production Image
 # -----------------------------------------------------------------------------
 FROM ubuntu:24.04 AS production
 
@@ -111,6 +134,32 @@ RUN apt-get update && apt-get upgrade -y \
     fonts-dejavu-core \
     fonts-noto-color-emoji \
     fontconfig \
+    # Chrome's own runtime libraries. Chrome renders the server-side video, so
+    # missing any of these turns every render into a launch failure.
+    libnss3 \
+    libatk1.0-0t64 \
+    libatk-bridge2.0-0t64 \
+    libcups2t64 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2t64 \
+    libpango-1.0-0 \
+    libcairo2 \
+    # Google Chrome, for the headless server render.
+    #
+    # Deliberately Chrome and not Chromium: a Chromium built without
+    # ffmpeg_branding=Chrome has no H.264 decoder, so every uploaded or
+    # AI-generated mp4 in a project would decode to nothing and the render would
+    # come out blank -- silently, because a decode miss is not an error in the
+    # compositor's synchronous lookup. Chrome is published for amd64 only, so a
+    # render container must be amd64.
+    && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     # Add Caddy repository
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
@@ -120,6 +169,8 @@ RUN apt-get update && apt-get upgrade -y \
     && apt-get update \
     # Install Caddy
     && apt-get install -y caddy \
+    # Install Chrome (headless server render)
+    && apt-get install -y google-chrome-stable \
     # Install PHP and extensions
     && apt-get install -y \
     php8.5-cli \
@@ -167,8 +218,12 @@ COPY --chown=www:www . /var/www/html
 # Copy composer dependencies from build stage
 COPY --from=composer-deps --chown=www:www /app/vendor /var/www/html/vendor
 
-# Copy Node.js runtime for Inertia SSR
+# Copy Node.js runtime for Inertia SSR and the headless render driver
 COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
+
+# Puppeteer runtime for the headless server render. The driver resolves it from
+# the application root, so it must land in /var/www/html/node_modules.
+COPY --from=headless-deps --chown=www:www /app/node_modules /var/www/html/node_modules
 
 # Copy built frontend and SSR assets from build stage
 COPY --from=frontend-build --chown=www:www /app/public/build /var/www/html/public/build

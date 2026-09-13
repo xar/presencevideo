@@ -9,6 +9,7 @@ use App\Models\Asset;
 use App\Models\Project;
 use App\Models\Render;
 use App\Services\FFmpegService;
+use App\Services\HeadlessRenderService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -61,7 +62,7 @@ class RenderProject implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(FFmpegService $ffmpeg): void
+    public function handle(FFmpegService $ffmpeg, HeadlessRenderService $headless): void
     {
         $this->render->update([
             'status' => RenderStatus::Processing,
@@ -86,6 +87,12 @@ class RenderProject implements ShouldQueue
                 'status' => RenderStatus::Compositing,
                 'progress' => 10,
             ]);
+
+            if ($this->usesHeadlessDriver()) {
+                $this->publish($this->renderWithHeadlessChrome($headless, $project));
+
+                return;
+            }
 
             $sceneVideos = [];
             $totalScenes = count($scenes);
@@ -154,21 +161,7 @@ class RenderProject implements ShouldQueue
 
             $tempPaths[] = $finalOutput;
 
-            // Move final output to permanent storage. Streamed rather than read
-            // into a string: a long render easily exceeds the worker's PHP
-            // memory_limit, and OOM-ing here would throw away all the encoding
-            // work at the very last step.
-            $storagePath = 'renders/final_'.Str::uuid().'.mp4';
-            $this->storeFinalOutput($finalOutput, $storagePath);
-
-            $this->render->update([
-                'status' => RenderStatus::Completed,
-                'progress' => 100,
-                'output_path' => $storagePath,
-                'completed_at' => now(),
-            ]);
-
-            $this->updateAgentActivity('completed');
+            $this->publish($finalOutput);
         } catch (\Throwable $e) {
             // The raw message can be ffmpeg stderr containing absolute server
             // paths; keep it in the log and hand the client a safe summary.
@@ -189,7 +182,11 @@ class RenderProject implements ShouldQueue
 
             throw $e;
         } finally {
-            foreach ($tempPaths as $tempPath) {
+            // The headless service names its own intermediates, and it creates
+            // them before it can fail, so they are collected here rather than
+            // at the call site -- otherwise a browser that crashed mid-encode
+            // would leave its partial mp4 behind.
+            foreach (array_merge($tempPaths, $headless->tempPaths()) as $tempPath) {
                 @unlink($tempPath);
             }
 
@@ -199,7 +196,75 @@ class RenderProject implements ShouldQueue
     }
 
     /**
+     * Whether this render uses headless Chrome instead of the ffmpeg filtergraph.
+     */
+    protected function usesHeadlessDriver(): bool
+    {
+        return config('render.driver') === 'headless';
+    }
+
+    /**
+     * Render the project with the REAL compositor, in headless Chrome.
+     *
+     * This path is the browser export run server-side: one call produces the
+     * finished MP4 with video and audio already muxed, because the page mixes
+     * the project's audio itself with the same planProjectAudio() gain staging
+     * the preview uses. Nothing downstream of here touches ffmpeg.
+     */
+    protected function renderWithHeadlessChrome(HeadlessRenderService $headless, Project $project): string
+    {
+        $result = $headless->render(
+            $project,
+            $this->render->id,
+            function (int $percent, string $phase): void {
+                // The browser reports 0-100 over the whole export; map it onto
+                // the 10-95 band the polling UI already expects between
+                // "compositing started" and "stored".
+                $this->render->update([
+                    'status' => $phase === 'audio' ? RenderStatus::Mixing : RenderStatus::Compositing,
+                    'progress' => 10 + (int) round($percent * 0.85),
+                ]);
+            },
+        );
+
+        if ($result['warnings'] !== []) {
+            Log::warning('Headless render completed with warnings', [
+                'render_id' => $this->render->id,
+                'warnings' => $result['warnings'],
+            ]);
+        }
+
+        return $result['path'];
+    }
+
+    /**
+     * Store the finished file and mark the render complete.
+     *
+     * Shared by both drivers so the status, progress and agent-notification
+     * semantics cannot drift between them -- get_render_status and the polling
+     * UI see exactly the same sequence whichever compositor produced the file.
+     */
+    protected function publish(string $finalOutput): void
+    {
+        $storagePath = 'renders/final_'.Str::uuid().'.mp4';
+        $this->storeFinalOutput($finalOutput, $storagePath);
+
+        $this->render->update([
+            'status' => RenderStatus::Completed,
+            'progress' => 100,
+            'output_path' => $storagePath,
+            'completed_at' => now(),
+        ]);
+
+        $this->updateAgentActivity('completed');
+    }
+
+    /**
      * Stream the finished render into permanent storage.
+     *
+     * Streamed rather than read into a string: a long render easily exceeds the
+     * worker's PHP memory_limit, and OOM-ing here would throw away all the
+     * encoding work at the very last step.
      */
     protected function storeFinalOutput(string $finalOutput, string $storagePath): void
     {

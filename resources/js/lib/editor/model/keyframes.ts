@@ -1,5 +1,5 @@
-import { applyEasing  } from './easing';
-import type {Easing} from './easing';
+import { applyEasing } from './easing';
+import type { Easing } from './easing';
 
 /**
  * A single authored value on a property track.
@@ -71,7 +71,13 @@ export function sampleKeyframes(
     keyframes: readonly Keyframe[] | undefined,
     localTimeMs: number,
 ): number | null {
-    if (!keyframes || keyframes.length === 0) {
+    // Production data is not guaranteed to match the type. A project that
+    // stores `keyframes` as an ARRAY rather than a property map makes
+    // `Object.entries` hand this function a single keyframe object, which is
+    // not iterable and used to throw here -- taking down the preview and both
+    // exports for the whole project. An unusable track samples to null, which
+    // is already the signal to fall back to the element's static property.
+    if (!Array.isArray(keyframes) || keyframes.length === 0) {
         return null;
     }
 

@@ -1,4 +1,5 @@
 import type {
+    AudioClip,
     AudioTrack,
     Layer,
     Project,
@@ -168,13 +169,75 @@ export function normalizeVideoClip(
     return normalizeElement(clip, canvas);
 }
 
-export function normalizeAudioTrack(
-    track: AudioTrack,
-    index = 0,
-): AudioTrack {
+export function normalizeAudioTrack(track: AudioTrack, index = 0): AudioTrack {
     track.name ||= `Track ${index + 1}`;
-    track.clips ??= [];
+    track.clips = (track.clips ?? []).map(normalizeAudioClip);
     return track;
+}
+
+/** Duration used when a clip carries no usable timing at all. */
+const FALLBACK_AUDIO_CLIP_DURATION_MS = 5000;
+
+/**
+ * Fill an audio clip's timing so both spellings of it agree.
+ *
+ * Audio clips are the one part of the timeline that never moved to absolute
+ * `start_ms`/`end_ms`: the inspector, the drag gesture, the split, the audio
+ * plan and the PHP renderer all read `duration_ms`. The AI agent, meanwhile,
+ * composes audio clips through the same tool that documents every element as
+ * `start_ms`/`end_ms`, so it writes `end_ms` and no `duration_ms` at all —
+ * which read back as `undefined`, surfaced as a `NaN:NaN.NaN` duration, made
+ * the clip undraggable (the gesture spans `NaN` milliseconds) and dropped the
+ * clip from the audio plan entirely.
+ *
+ * Rather than pick a winner, both are kept in step, exactly as scene layers
+ * keep a compatibility mirror of their absolute timing. `end_ms` stays exclusive
+ * and is always `start_ms + duration_ms`.
+ */
+export function normalizeAudioClip(clip: AudioClip): AudioClip {
+    clip.start_ms = finiteOr(clip.start_ms, 0);
+    clip.volume ??= 1;
+    clip.trim_start_ms ??= 0;
+
+    return syncAudioClipTiming(clip);
+}
+
+/**
+ * Reconcile `duration_ms` and `end_ms` on a clip that already has a start.
+ *
+ * `prefer` decides which side is authoritative when both are present, so a
+ * caller that just wrote one of them does not get it overwritten by the other's
+ * stale value.
+ */
+export function syncAudioClipTiming(
+    clip: AudioClip,
+    prefer: 'duration' | 'end' = 'duration',
+): AudioClip {
+    const start = finiteOr(clip.start_ms, 0);
+    const duration = positiveOrNull(clip.duration_ms);
+    const fromEnd = positiveOrNull(
+        typeof clip.end_ms === 'number' ? clip.end_ms - start : null,
+    );
+
+    const resolved =
+        prefer === 'end' ? (fromEnd ?? duration) : (duration ?? fromEnd);
+
+    clip.duration_ms = resolved ?? FALLBACK_AUDIO_CLIP_DURATION_MS;
+    clip.end_ms = start + clip.duration_ms;
+
+    return clip;
+}
+
+function finiteOr(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value)
+        ? value
+        : fallback;
+}
+
+function positiveOrNull(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+        ? value
+        : null;
 }
 
 export function normalizeSubtitleTrack(

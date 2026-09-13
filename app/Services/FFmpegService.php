@@ -6,6 +6,7 @@ use App\Enums\TransitionType;
 use App\Models\Asset;
 use App\Models\Project;
 use App\Services\Subtitles\AssSubtitleBuilder;
+use App\Video\Composition\KeyframeFlattener;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
@@ -142,7 +143,13 @@ class FFmpegService
 
         $durationSec = ($scene['duration_ms'] ?? 5000) / 1000;
 
-        $layers = $scene['layers'] ?? [];
+        // TEMPORARY BRIDGE: ffmpeg filters take constant parameters, so every
+        // animated property is flattened to a single midpoint sample before any
+        // filter reads it. See KeyframeFlattener.
+        $layers = array_map(
+            static fn (mixed $layer): mixed => is_array($layer) ? KeyframeFlattener::flatten($layer) : $layer,
+            $scene['layers'] ?? []
+        );
 
         // Sort layers by z_index so lower values are rendered first (background)
         usort($layers, fn ($a, $b) => ($a['z_index'] ?? 0) <=> ($b['z_index'] ?? 0));
@@ -312,10 +319,10 @@ class FFmpegService
                 $chain[] = 'tpad=stop=-1:stop_mode=clone';
             }
 
-            $chain[] = sprintf('scale=%d:%d', $width, $height);
+            $chain = array_merge($chain, $this->buildFitScaleFilters($element, $width, $height));
             $chain[] = 'setpts=PTS-STARTPTS';
         } else {
-            $chain[] = sprintf('scale=%d:%d', $width, $height);
+            $chain = array_merge($chain, $this->buildFitScaleFilters($element, $width, $height));
             $chain[] = 'loop=loop=-1:size=1:start=0';
             if (! $padTail) {
                 $chain[] = 'setpts=PTS-STARTPTS';
@@ -327,9 +334,97 @@ class FFmpegService
             $chain[] = $eq;
         }
 
-        $this->appendOpacityRotationFilters($chain, $element, $width, $height, $x, $y);
+        $this->appendOpacityRotationFilters(
+            $chain,
+            $element,
+            $width,
+            $height,
+            $x,
+            $y,
+            alphaReady: $this->normalizeFit($element['fit'] ?? null) === 'contain',
+        );
 
         return $chain;
+    }
+
+    /**
+     * Scale a media element into its layer box honouring the element's `fit`.
+     *
+     * This is the server-side twin of `computeFitRects()` in the TypeScript
+     * compositor: `cover` centre-crops, `contain` letterboxes onto transparency
+     * and only `fill` is the anamorphic stretch that a bare `scale` performs.
+     * A bare `scale` here is what made every non-matching aspect ratio render
+     * squashed while the preview showed it correctly.
+     *
+     * `setsar=1` keeps a non-square-pixel source (DVCPRO, some phone captures)
+     * from re-introducing the distortion downstream of the crop.
+     *
+     * @param  array<string, mixed>  $element
+     * @return array<int, string>
+     */
+    /**
+     * Resolve an audio clip's length in milliseconds.
+     *
+     * Audio clips carry their length as `duration_ms`, but the AI compose tool
+     * writes every element with absolute `start_ms`/`end_ms` and no duration at
+     * all. Falling straight through to the asset's own length then plays the
+     * whole source file instead of the window the clip actually describes — a
+     * 20s music bed became the full 90s track. `end_ms` is exclusive, so the
+     * length is simply the gap, and the asset stays the last resort.
+     *
+     * The TypeScript twin of this rule is `syncAudioClipTiming()` in
+     * `resources/js/lib/editor/normalize.ts`.
+     *
+     * @param  array<string, mixed>  $clip
+     * @param  array{path: string, duration_ms?: int|null}|null  $asset
+     */
+    protected function audioClipDurationMs(array $clip, ?array $asset): int
+    {
+        $duration = $clip['duration_ms'] ?? null;
+
+        if (is_numeric($duration) && (int) $duration > 0) {
+            return (int) $duration;
+        }
+
+        $startMs = is_numeric($clip['start_ms'] ?? null) ? (int) $clip['start_ms'] : 0;
+        $endMs = $clip['end_ms'] ?? null;
+
+        if (is_numeric($endMs) && (int) $endMs > $startMs) {
+            return (int) $endMs - $startMs;
+        }
+
+        $assetDuration = $asset['duration_ms'] ?? null;
+
+        return is_numeric($assetDuration) && (int) $assetDuration > 0 ? (int) $assetDuration : 10000;
+    }
+
+    protected function buildFitScaleFilters(array $element, int $width, int $height): array
+    {
+        return match ($this->normalizeFit($element['fit'] ?? null)) {
+            'fill' => [sprintf('scale=%d:%d', $width, $height)],
+            'contain' => [
+                sprintf('scale=%d:%d:force_original_aspect_ratio=decrease', $width, $height),
+                'setsar=1',
+                'format=rgba',
+                sprintf('pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=#00000000', $width, $height),
+            ],
+            default => [
+                sprintf('scale=%d:%d:force_original_aspect_ratio=increase', $width, $height),
+                'setsar=1',
+                sprintf('crop=%d:%d', $width, $height),
+            ],
+        };
+    }
+
+    /**
+     * Resolve a stored `fit` value, defaulting to `cover` exactly as
+     * `Project::normalizeElement()` and the TypeScript `normalizeElement()` do.
+     * Unknown values fall back to the default rather than throwing: production
+     * data carries non-canonical values.
+     */
+    protected function normalizeFit(mixed $fit): string
+    {
+        return in_array($fit, ['cover', 'contain', 'fill'], true) ? $fit : 'cover';
     }
 
     /**
@@ -1445,6 +1540,8 @@ class FFmpegService
             $trackVolume = (float) ($track['volume'] ?? 1.0);
 
             foreach ($track['clips'] ?? [] as $clip) {
+                $clip = KeyframeFlattener::flatten($clip);
+
                 $assetId = $clip['asset_id'] ?? null;
                 if (! $assetId) {
                     continue;
@@ -1458,7 +1555,7 @@ class FFmpegService
                 $inputs[] = $asset['path'];
 
                 $delayMs = $this->mapTimelineMs($scenes, (float) ($clip['start_ms'] ?? 0), $fps);
-                $clipDurationMs = (int) ($clip['duration_ms'] ?? ($asset['duration_ms'] ?? 10000));
+                $clipDurationMs = $this->audioClipDurationMs($clip, $asset);
                 $trimStartMs = (int) ($clip['trim_start_ms'] ?? 0);
                 $volume = (float) ($clip['volume'] ?? 1.0) * $trackVolume;
                 $outputLabel = '[a'.$inputIndex.']';
@@ -1737,6 +1834,8 @@ class FFmpegService
             }
 
             foreach ($track['clips'] ?? [] as $clip) {
+                $clip = KeyframeFlattener::flatten($clip);
+
                 $clipStartMs = (float) ($clip['start_ms'] ?? 0);
                 $startSec = $this->mapTimelineMs($scenes, $clipStartMs, $fps) / 1000;
                 $endSec = $this->mapTimelineMs($scenes, $clipStartMs + ($clip['duration_ms'] ?? 5000), $fps) / 1000;
@@ -2014,6 +2113,8 @@ class FFmpegService
             $fadeOutMs = $transitions[$sceneIndex]['duration_ms'] ?? 0;
 
             foreach ($scene['layers'] ?? [] as $layer) {
+                $layer = KeyframeFlattener::flatten($layer);
+
                 if (($layer['type'] ?? null) !== 'video' || empty($layer['asset_id'])) {
                     continue;
                 }

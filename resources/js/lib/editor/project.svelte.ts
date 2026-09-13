@@ -14,7 +14,12 @@ import type {
     SubtitleEntry,
     Asset,
 } from '@/types';
-import { normalizeElement, normalizeProject } from './normalize';
+import {
+    normalizeAudioClip,
+    normalizeElement,
+    normalizeProject,
+    syncAudioClipTiming,
+} from './normalize';
 
 /** Z-order operations available on a scene layer. */
 export type LayerZMove = 'forward' | 'backward' | 'front' | 'back';
@@ -40,11 +45,7 @@ export type ProjectStore = {
         updates: Partial<Layer>,
     ) => void;
     deleteLayer: (sceneId: string, layerId: string) => void;
-    reorderLayer: (
-        sceneId: string,
-        layerId: string,
-        move: LayerZMove,
-    ) => void;
+    reorderLayer: (sceneId: string, layerId: string, move: LayerZMove) => void;
     addAudioTrack: (track?: Partial<AudioTrack>) => AudioTrack;
     updateAudioTrack: (trackId: string, updates: Partial<AudioTrack>) => void;
     deleteAudioTrack: (trackId: string) => void;
@@ -249,9 +250,10 @@ function addLayer(sceneId: string, layerData: Partial<Layer>): Layer {
 
     beforeMutate();
 
-    const maxZ = scene.layers.length > 0
-        ? Math.max(...scene.layers.map((l) => l.z_index))
-        : -1;
+    const maxZ =
+        scene.layers.length > 0
+            ? Math.max(...scene.layers.map((l) => l.z_index))
+            : -1;
 
     const layer = {
         id: uuid(),
@@ -386,14 +388,14 @@ function addAudioClip(
 
     beforeMutate();
 
-    const clip: AudioClip = {
+    const clip: AudioClip = normalizeAudioClip({
         id: uuid(),
         asset_id: 0,
         start_ms: 0,
         duration_ms: 5000,
         volume: 1.0,
         ...clipData,
-    };
+    });
 
     track.clips.push(clip);
     markDirty();
@@ -414,6 +416,13 @@ function updateAudioClip(
 
     beforeMutate();
     Object.assign(clip, updates);
+    // `duration_ms` and `end_ms` are two spellings of one fact. The gesture and
+    // the inspector write duration; the agent writes end. Whichever this caller
+    // set wins, and the other is rewritten from it rather than left stale.
+    syncAudioClipTiming(
+        clip,
+        'end_ms' in updates && !('duration_ms' in updates) ? 'end' : 'duration',
+    );
     markDirty();
 }
 
@@ -481,7 +490,11 @@ function moveAudioTrack(trackId: string, delta: -1 | 1): void {
     moveWithin(project.audio_tracks, trackId, delta);
 }
 
-function moveWithin<T extends { id: string }>(list: T[], id: string, delta: -1 | 1): void {
+function moveWithin<T extends { id: string }>(
+    list: T[],
+    id: string,
+    delta: -1 | 1,
+): void {
     const from = list.findIndex((item) => item.id === id);
     const to = from + delta;
     if (from === -1 || to < 0 || to >= list.length) return;
@@ -792,9 +805,12 @@ async function save(): Promise<void> {
                 // payload is JSON either way, so the cast buys back the nested
                 // lists without weakening any type the editor actually uses.
                 scenes: project!.scenes as unknown as FormDataConvertible,
-                audio_tracks: project!.audio_tracks as unknown as FormDataConvertible,
-                video_tracks: project!.video_tracks as unknown as FormDataConvertible,
-                subtitle_tracks: project!.subtitle_tracks as unknown as FormDataConvertible,
+                audio_tracks: project!
+                    .audio_tracks as unknown as FormDataConvertible,
+                video_tracks: project!
+                    .video_tracks as unknown as FormDataConvertible,
+                subtitle_tracks: project!
+                    .subtitle_tracks as unknown as FormDataConvertible,
             },
             {
                 preserveScroll: true,

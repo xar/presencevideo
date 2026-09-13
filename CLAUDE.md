@@ -7,11 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AI-powered video editor application built with Laravel 12, Inertia.js v2, and Svelte 5. Users create scene-based video compositions, generate assets via AI (fal.ai), arrange them on a timeline with overlays, and export to MP4 via server-side FFmpeg.
 
 **Key Features:**
-- Scene-based video composition (not frame-accurate NLE)
+- Timeline composition: every element has absolute `start_ms`/`end_ms` and
+  optional keyframe animation; scenes are a derived view for editing convenience
+- One canvas compositor shared by the live preview and the browser export
 - AI generation: text-to-image, image-to-video, text-to-music, text-to-speech
-- Drag-and-drop layers with resize handles
-- Multi-track audio timeline
-- FFmpeg-based server-side rendering
+- Drag-and-drop elements with resize handles, snapping and undo per gesture
+- Multi-track audio on a Web Audio master clock
+- Browser export (WebCodecs) and legacy FFmpeg server-side rendering
 
 ## Development Commands
 
@@ -19,8 +21,10 @@ AI-powered video editor application built with Laravel 12, Inertia.js v2, and Sv
 # Start development (server + queue + logs + vite)
 composer run dev
 
-# Run all tests
+# Run all tests (both suites must pass)
 php artisan test --compact
+npm test              # Vitest: model, compositor, stores, hooks — all headless
+npm run check         # svelte-check; expected to be 0 errors
 
 # Run specific test file or filter
 php artisan test --compact --filter=AuthenticationTest
@@ -63,6 +67,53 @@ npm run build
 - **Jobs**: `ProcessAssetUpload`, `RunGeneration`, `RenderProject` (queued)
 - **Policies**: `ProjectPolicy`, `AssetPolicy` for authorization
 
+### Server render pipeline — rules that are easy to break
+
+- `RenderProject` runs on the **`renders`** queue. Local dev scripts must pass
+  `--queue=default,renders,generations` or renders are never picked up.
+- **`retry_after` MUST exceed the job timeout, which must not exceed the worker
+  `--timeout`.** Violating this re-dispatches a long render to a second worker
+  mid-encode; both then write the same temp files. A test pins the relationship
+  so it cannot regress silently.
+- Every temp file is uuid-named and tracked, and cleaned on BOTH the success and
+  failure paths. Never name a temp file after a domain id.
+- Audio intermediates are **WAV (`pcm_s24le`), never MP3** — MP3 added ~26ms of
+  encoder delay padding per generation, which defeats the sample-exactness that
+  `adelay` positioning assumes.
+- Audio is summed **verbatim with `normalize=0` plus `alimiter=limit=0.95`**.
+  Never let `amix` divide by input count: loudness would depend on clip count and
+  would contradict the volumes the user set. The browser export and the preview
+  engine deliberately match this gain staging.
+- The **pure timeline math** (`resolveTransitions`, `totalOutputDurationMs`,
+  `sceneOutputStartTimes`, `mapTimelineMs`, `shiftSubtitleTracks`) is a contract
+  shared with the TypeScript port in `model/timeline.ts`. Change one, change both.
+- **The server render now has TWO drivers, chosen by `config('render.driver')`.**
+  - `headless` runs the REAL compositor: headless Chrome loads a bare page
+    (`resources/js/headless/render.ts`) that calls `exportProjectVideo()` — the
+    same `resolveFrame()` + `drawFrame()` + `planProjectAudio()` pipeline as the
+    preview and the browser export — and hands the MP4 back in chunks.
+    `HeadlessRenderService` (PHP) drives `resources/js/headless/driver.mjs`
+    (Puppeteer) over an NDJSON line protocol. **On this path the page owns audio
+    end to end**; no ffmpeg audio stage runs.
+  - `ffmpeg` is the LEGACY filtergraph renderer (`buildSceneFilterGraph`,
+    `drawtext`, `geq` shape masks, `xfade`), kept only as a fallback. Do not
+    invest in it; do not add features there that the compositor cannot express
+    (e.g. keyframes, which FFmpeg's constant-parameter filters structurally
+    cannot do, and which the headless path renders correctly).
+- **WebCodecs is gated on a SECURE CONTEXT.** `RENDER_HEADLESS_BASE_URL` must be
+  https or a `localhost`/`127.0.0.1` origin, or the page has no `VideoEncoder`
+  at all. Chrome (not Chromium) is installed in the image because a Chromium
+  built without `ffmpeg_branding=Chrome` cannot DECODE the project's own H.264
+  assets, and a decode miss is silent — the render would come out blank.
+- Headless Chrome renders without a session, so `RenderAccessToken` mints a
+  short-lived, single-project capability and the payload rewrites every asset
+  URL onto `editor.headless.*`. Never widen the ordinary asset routes instead.
+- `buildSceneAudioFilter` **does** honour `trim_start_ms` (before the `atempo`
+  chain, test-covered). A stale note once claimed otherwise — do not "fix" it.
+- Fonts: the Docker image installs `fonts-liberation` + `fonts-dejavu-core`
+  because `findFontFile()` resolves its family map onto those exact directories.
+  Removing them makes all rendered text silently fall back.
+
 ### Frontend (Svelte 5 + Inertia)
 - **Entry**: `resources/js/app.ts`
 - **Pages**: `resources/js/pages/` - Inertia pages
@@ -72,27 +123,126 @@ npm run build
 - **Utilities**: `resources/js/lib/` - `cn()` helper, theme, etc.
 
 ### Video Editor Frontend
-- **Page**: `resources/js/pages/editor/Show.svelte` - Main editor page
-- **Components**: `resources/js/components/editor/`
-  - `SceneStrip.svelte` - Horizontal scene timeline with drag-to-reorder
-  - `SceneCard.svelte` - Scene thumbnail with playback indicator
-  - `SceneEditor.svelte` - WYSIWYG canvas for layer editing
-  - `CanvasElement.svelte` - Single renderer for anything on the canvas (scene layers and overlay clips)
-  - `ElementInspector.svelte` - Single properties inspector for scene layers and overlay clips
-  - `PreviewPlayer.svelte` - Playback controls and time display
-  - `AssetPanel.svelte` - Upload and asset gallery
-  - `AudioTracks.svelte` - Multi-track audio timeline
-  - `RightPanel.svelte` - Properties and AI generation tabs
-  - `EditorToolbar.svelte` - Save, export, zoom controls
+
+**The single most important rule: there is ONE renderer.** The live preview and the
+browser export both resolve a frame with `resolveFrame()` and paint it with
+`drawFrame()`. If the preview and an export could ever disagree about a pixel,
+that is a bug in the seam, not a missing feature. Never add drawing code to a
+component.
+
+The pipeline, in order:
+
+```
+Project (stored)
+  -> normalizeProject()        fills defaults + legacy timing shim (ONE place)
+  -> buildTimeline()           absolute time, global z, transition-aware duration
+  -> resolveFrame(p, timeMs)   PURE. the only thing that knows about scenes,
+                               trims, keyframes, transitions -> CompositedFrame
+  -> drawFrame(ctx, frame, media)   the only thing that knows about pixels
+```
+
+- **Page**: `resources/js/pages/editor/Show.svelte`
+- **Model** (`resources/js/lib/editor/model/`) — all pure, all unit-tested:
+  - `frame.ts` — `CompositedFrame`/`ResolvedFrame`/`ResolvedElement`. **The contract
+    between "what the project means" and "how to paint it".** Read this first.
+  - `resolve-frame.ts` — `resolveFrame(project, timeMs, { timeline? })`
+  - `timeline.ts` — `buildTimeline`, `resolveTransitions`, `mapTimelineMs`
+    (ported line-for-line from `FFmpegService` so preview and render agree)
+  - `keyframes.ts` / `easing.ts` / `motion-presets.ts` — animation. Keyframe
+    `time_ms` is ELEMENT-LOCAL so animation travels with a clip when it is moved.
+    Presets generate ordinary keyframes; they stay hand-editable.
+  - `text-layout.ts` — shared wrap/align/fit. The reason text no longer differs
+    between preview and render.
+- **Compositor** (`resources/js/lib/editor/compositor/`): `drawFrame`, plus
+  `transitions.ts`, `subtitles.ts` and the extracted pure maths in `geometry.ts`
+  (fit rects) and `color-eq.ts` (ffmpeg `eq` in YUV, NOT the CSS filter equivalent —
+  stored adjustment numbers must keep meaning what they meant).
+- **Media** (`resources/js/lib/editor/`):
+  - `media-provider.ts` — refcounted, frame-accurate decode per asset URL. Two
+    lanes: DEMAND (`getCanvas`, seek+decode+flush, coalesced to the newest scrub
+    position) and READ-AHEAD (an open `canvases()` run, playing only). Preview
+    decodes downscaled to the canvas; **export stays full-resolution via
+    `VideoSampleSink`.**
+  - `media-lookup.ts` — bridges async decode to the compositor's SYNCHRONOUS
+    `MediaLookup`. A miss is normal and transient: it returns the held frame and
+    schedules a decode. Never await in the paint path.
+  - `audio-engine.ts` — Web Audio master clock. The AudioContext drives the
+    timeline via `timelineStore.syncToClock()`, with the rAF clock as fallback
+    for silent projects. `audio-decode.ts` and `planProjectAudio()` are shared
+    with the export so the two cannot disagree.
+- **Components**: `SceneEditor.svelte` (one `<canvas>` + a transparent
+  interaction overlay), `SceneStrip.svelte`, `SceneCard.svelte`,
+  `ElementInspector.svelte` (one inspector for every element),
+  `PreviewPlayer.svelte`, `AssetPanel.svelte`, `AudioTracks.svelte`,
+  `RightPanel.svelte`, `EditorToolbar.svelte`, `AudioPlayback.svelte` (thin
+  wiring over `audio-engine`).
 - **Stores**: `resources/js/lib/editor/`
   - `project.svelte.ts` - Project state, scene/layer/audio CRUD; `onAfterMutate` hook
-  - `timeline.svelte.ts` - Playback state, current time; `onCurrentSceneChange` hook
-  - `selection.svelte.ts` - Selected scene/layer/clip; rules live in `selection-rules.ts` (pure, tested)
+  - `timeline.svelte.ts` - Playback clock; `syncToClock()`, `setClockSource()`, `onCurrentSceneChange`
+  - `selection.svelte.ts` - rules live in `selection-rules.ts` (pure, tested)
   - `history.svelte.ts` - Undo/redo; use `transaction()` / `beginTransaction()` (never raw begin/endBatch)
   - `normalize.ts` - `normalizeProject()` — the one place payload defaults are filled
+  - `selectors.ts` - `getTotalDurationMs`, `getSceneStartsMs`, … Use these; do NOT
+    re-derive scene starts with a prefix sum (that mistake existed in 7 places once).
 - **Gesture hooks**: `usePointerGesture` (core) → `useTimelineGesture` (move/trim any timeline block) and `useDragResize` (canvas move/resize). Never attach mousemove/mouseup listeners in components.
-- **Frontend tests**: `npm test` (Vitest, `resources/js/**/*.test.ts`); stores and hooks are tested headless.
-- **Types**: `resources/js/types/editor.ts` - Project, Scene, Layer, AudioTrack interfaces
+- **Limits and flags**: `editor-features.ts` is the ONLY place for feature flags,
+  media limits and decode sizing policy. Do not inline a constant elsewhere.
+- **Frontend tests**: `npm test` (Vitest, `resources/js/**/*.test.ts`); stores, hooks,
+  model and compositor are tested headless.
+  `__tests__/real-project.test.ts` pins a REAL project dumped from the dev DB —
+  it catches shim gaps that synthetic fixtures miss. Add to it when a real
+  project breaks.
+- **Types**: `resources/js/types/editor.ts`. Every element is
+  `Layer & ClipTiming` with absolute `start_ms`/`end_ms` + optional `keyframes`.
+  Scenes are a DERIVED VIEW, not the storage primitive; legacy scene-only
+  projects are upgraded lazily in `normalizeElement()` on both the TS and PHP
+  sides (never write a data migration for this — see the deliberately empty
+  `2026_09_01_065314_backfill_canvas_element_defaults.php`).
+
+## Debugging
+
+### Read the browser's own logs — do this FIRST for any UI bug
+Laravel Boost's `browser-logs` tool surfaces real console output from the user's
+session. It has solved every hard frontend bug in this project faster than
+reading code. Look for:
+
+- `[perf] playback fps=… janky=… dropped=… longTasks=…` — main-thread health.
+- `[perf] decode hit=… starved=… decoded=… (…/s, prefetched=…) latency=… worst=…`
+  — the decode pipeline (`perf-monitor.ts`, the ONLY profiler; extend it, never
+  add a second one).
+
+**How to read them together.** High fps + zero long tasks + high `starved`/low
+`hit` means the compositor is fine and the picture simply is not updating —
+that is decode starvation, not rendering cost. `prefetched` falling to 0 during
+playback means the read-ahead run died, and playback will freeze until the next
+seek.
+
+### Symptom → cause table (all of these have actually happened here)
+
+| Symptom | Likely cause |
+|---|---|
+| Preview is a black box, thumbnails fine | Vite HMR wedged. Deleting a `.svelte` file while `composer run dev` runs breaks the module graph (`Failed to reload …`, `Cannot read properties of undefined (reading 'default')`). Restart the dev server + hard reload. |
+| Video plays then freezes until the next scene | Read-ahead livelock or cache pathology — check `prefetched=0` in the decode line. |
+| Frame never appears at all | Decode. Check the range-fetch diagnostics; `/editor/assets/{id}/stream` must return `206` with `Content-Range`. |
+| Element missing from the canvas | Resolve, not paint. Run `resolveFrame` over the real project in a test before suspecting the compositor. |
+| Export differs from preview | A seam bug by definition. Both call the same two functions. |
+
+### Verify against real data, not fixtures
+Dump a real project and run the pure model over it — this separates "model bug"
+from "rendering bug" in seconds:
+
+```bash
+php artisan tinker --execute '$p=App\Models\Project::with("assets")->find(1); echo json_encode([...]);'
+npx vitest run resources/js/lib/editor/__tests__/real-project.test.ts --reporter=verbose
+```
+
+### Known environment gotchas
+- **Prettier cannot format `.svelte` files here** (`getVisitorKeys is not a function`,
+  reproduces on untouched files). Format `.ts` with prettier; hand-format Svelte
+  to the 4-space house style.
+- Deleting a component during a dev session wedges HMR (see table above).
+- Two pre-existing eslint errors (`prefer-svelte-reactivity`, Map vs SvelteMap) in
+  `canvas-snapping.svelte.ts` and `generations.svelte.ts` are not yours.
 
 ### Path Aliases
 - `@/` maps to `resources/js/`
@@ -135,8 +285,17 @@ Models are configured in `app/Services/FalAI/ModelConfig.php`:
 - Svelte 5 runes: `$props()`, `$state()`, `$derived()`
 - Layouts use snippets: `{@render children?.()}`
 - Editor stores use singleton pattern with `$state` for reactivity
-- Layer types: `video`, `image`, `text` - each with specific properties
-- Scene durations in milliseconds (`duration_ms`)
+- Element types: `video`, `image`, `text`, `shape`. Production data also contains
+  unknown types (e.g. `effect`) and non-canonical values (`shape:"rect"`,
+  `font_weight:"600"`): normalization must PASS THESE THROUGH untouched and never
+  throw. Rewriting stored user data is a separate, deliberate decision.
+- All times in milliseconds. Element timing is absolute (`start_ms`/`end_ms`);
+  keyframe `time_ms` is element-local.
+- **Extend the primitive, never copy per component.** Duplicated logic drifting is
+  historically the #1 source of bugs here — it caused the three-renderer problem,
+  seven copies of the scene prefix sum, and two copies of the audio decoder.
+- Anything that could make the preview and the export disagree belongs in a
+  shared pure function, not in two places that "should" match.
 
 <laravel-boost-guidelines>
 === foundation rules ===

@@ -53,6 +53,7 @@ class GenerateFalAsset implements Tool
         }
 
         $parameters = $this->decodeParameters($request['parameters_json'] ?? '{}');
+        $parameters = $this->applyProjectAspectRatio($parameters, $project, $type);
         $model = $request['model_id'] ?? $request['model_key'] ?? null;
 
         if ($model !== null) {
@@ -143,6 +144,60 @@ class GenerateFalAsset implements Tool
         AgentActivityUpdated::dispatch($activity);
 
         return $activity;
+    }
+
+    /**
+     * Default a visual generation's aspect ratio to the project's own canvas.
+     *
+     * Without this the model uses its schema default, which is landscape for
+     * most image endpoints, and a vertical project silently fills up with
+     * landscape assets that then have to be cropped.
+     *
+     * @param  array<string, mixed>  $parameters
+     * @return array<string, mixed>
+     */
+    protected function applyProjectAspectRatio(array $parameters, Project $project, GenerationType $type): array
+    {
+        $visualTypes = [GenerationType::TextToImage, GenerationType::TextToVideo, GenerationType::ImageToVideo];
+
+        if (! in_array($type, $visualTypes, true) || isset($parameters['aspect_ratio']) || isset($parameters['image_size'])) {
+            return $parameters;
+        }
+
+        $aspectRatio = $this->aspectRatioFor($project->resolution_width, $project->resolution_height);
+
+        if ($aspectRatio !== null) {
+            $parameters['aspect_ratio'] = $aspectRatio;
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * Snap a pixel resolution to the nearest aspect ratio fal.ai understands.
+     */
+    protected function aspectRatioFor(?int $width, ?int $height): ?string
+    {
+        if (! is_int($width) || ! is_int($height) || $width <= 0 || $height <= 0) {
+            return null;
+        }
+
+        $ratio = $width / $height;
+        $candidates = ['9:16' => 9 / 16, '3:4' => 3 / 4, '1:1' => 1.0, '4:3' => 4 / 3, '16:9' => 16 / 9];
+
+        $best = null;
+        $bestDistance = null;
+
+        foreach ($candidates as $label => $value) {
+            $distance = abs($ratio - $value);
+
+            if ($bestDistance === null || $distance < $bestDistance) {
+                $best = $label;
+                $bestDistance = $distance;
+            }
+        }
+
+        return $best;
     }
 
     protected function project(int $projectId): Project

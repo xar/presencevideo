@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\FFmpegService;
+use App\Video\Composition\KeyframeFlattener;
 
 /**
  * Resolver stub so the filtergraph builders never touch the database.
@@ -93,7 +94,7 @@ it('orders layers by z_index', function () {
     expect(strpos($graph, 'Bottom'))->toBeLessThan(strpos($graph, 'Top'));
 });
 
-it('scales and overlays an image layer without extra filters by default', function () {
+it('cover-scales and overlays an image layer by default', function () {
     $graph = sceneGraph(scene([[
         'type' => 'image',
         'asset_id' => 7,
@@ -103,7 +104,7 @@ it('scales and overlays an image layer without extra filters by default', functi
         'height' => 360,
     ]]));
 
-    expect($graph)->toContain('[0:v]scale=640:360,loop=loop=-1:size=1:start=0[layer0]')
+    expect($graph)->toContain('[0:v]scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360,loop=loop=-1:size=1:start=0[layer0]')
         ->and($graph)->toContain('[base][layer0]overlay=10:20:shortest=1[stage0]')
         ->and($graph)->not->toContain('colorchannelmixer')
         ->and($graph)->not->toContain('rotate=');
@@ -161,7 +162,7 @@ it('trims a video layer before scaling', function () {
         'trim_end_ms' => 4000,
     ]]));
 
-    expect($graph)->toContain('[0:v]trim=start=1.500000:end=4.000000,setpts=PTS-STARTPTS,tpad=stop=-1:stop_mode=clone,scale=320:180,setpts=PTS-STARTPTS[layer0]');
+    expect($graph)->toContain('[0:v]trim=start=1.500000:end=4.000000,setpts=PTS-STARTPTS,tpad=stop=-1:stop_mode=clone,scale=320:180:force_original_aspect_ratio=increase,setsar=1,crop=320:180,setpts=PTS-STARTPTS[layer0]');
 });
 
 it('omits the trim end when trim_end_ms is null', function () {
@@ -174,7 +175,7 @@ it('omits the trim end when trim_end_ms is null', function () {
         'trim_end_ms' => null,
     ]]));
 
-    expect($graph)->toContain('[0:v]trim=start=2.000000,setpts=PTS-STARTPTS,tpad=stop=-1:stop_mode=clone,scale=320:180')
+    expect($graph)->toContain('[0:v]trim=start=2.000000,setpts=PTS-STARTPTS,tpad=stop=-1:stop_mode=clone,scale=320:180:force_original_aspect_ratio=increase,setsar=1,crop=320:180')
         ->and($graph)->not->toContain('end=');
 });
 
@@ -496,7 +497,7 @@ it('trims overlay video clips and applies opacity', function () {
 
     expect($graph['inputs'])->toBe(['/media/asset-4.mp4'])
         ->and($graph['filters'][0])->toBe(
-            '[1:v]trim=start=3.000000,setpts=PTS-STARTPTS,scale=320:180,setpts=PTS-STARTPTS,'
+            '[1:v]trim=start=3.000000,setpts=PTS-STARTPTS,scale=320:180:force_original_aspect_ratio=increase,setsar=1,crop=320:180,setpts=PTS-STARTPTS,'
             .'format=rgba,colorchannelmixer=aa=0.800000[scaled1]'
         )
         ->and($graph['filters'][1])->toBe("[0:v][scaled1]overlay=40:50:enable='between(t,1.000000,3.000000)'[out1]")
@@ -560,7 +561,7 @@ it('emits no speed filters for a scene video layer at the default speed', functi
         'height' => 360,
     ]]));
 
-    expect($graph)->toContain('[0:v]tpad=stop=-1:stop_mode=clone,scale=640:360,setpts=PTS-STARTPTS[layer0]')
+    expect($graph)->toContain('[0:v]tpad=stop=-1:stop_mode=clone,scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360,setpts=PTS-STARTPTS[layer0]')
         ->and($graph)->not->toContain('setpts=PTS/');
 });
 
@@ -596,7 +597,7 @@ it('speeds up a scene video layer after the trim and holds the last frame', func
 
     expect($graph)->toContain(
         '[0:v]trim=start=2.000000,setpts=PTS-STARTPTS,setpts=PTS/2.000000,'
-        .'tpad=stop=-1:stop_mode=clone,scale=640:360,setpts=PTS-STARTPTS[layer0]'
+        .'tpad=stop=-1:stop_mode=clone,scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360,setpts=PTS-STARTPTS[layer0]'
     );
 });
 
@@ -610,7 +611,7 @@ it('slows a scene video layer down and still pads the tail', function () {
     ]]));
 
     expect($graph)->toContain(
-        '[0:v]setpts=PTS/0.500000,tpad=stop=-1:stop_mode=clone,scale=640:360,setpts=PTS-STARTPTS[layer0]'
+        '[0:v]setpts=PTS/0.500000,tpad=stop=-1:stop_mode=clone,scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360,setpts=PTS-STARTPTS[layer0]'
     );
 });
 
@@ -646,7 +647,7 @@ it('retimes overlay clip video after the trim while keeping the enable window', 
 
     expect($graph['filters'][0])->toBe(
         '[1:v]trim=start=3.000000,setpts=PTS-STARTPTS,setpts=PTS/2.000000,'
-        .'scale=320:180,setpts=PTS-STARTPTS[scaled1]'
+        .'scale=320:180:force_original_aspect_ratio=increase,setsar=1,crop=320:180,setpts=PTS-STARTPTS[scaled1]'
     )
         ->and($graph['filters'][1])->toContain("enable='between(t,1.000000,3.000000)'");
 });
@@ -811,7 +812,7 @@ it('applies colour adjustments to an image layer after the scale', function () {
     ]]));
 
     expect($graph)->toContain(
-        '[0:v]scale=100:100,loop=loop=-1:size=1:start=0,'
+        '[0:v]scale=100:100:force_original_aspect_ratio=increase,setsar=1,crop=100:100,loop=loop=-1:size=1:start=0,'
         .'eq=brightness=0.200000:contrast=1.300000:saturation=0.500000[layer0]'
     );
 });
@@ -1041,7 +1042,7 @@ it('loops overlay image clips for the whole enable window', function () {
 
     expect($graph['inputs'])->toBe(['/media/asset-4.mp4'])
         ->and($graph['filters'][0])->toBe(
-            '[1:v]scale=200:100,loop=loop=-1:size=1:start=0,setpts=PTS-STARTPTS[scaled1]'
+            '[1:v]scale=200:100:force_original_aspect_ratio=increase,setsar=1,crop=200:100,loop=loop=-1:size=1:start=0,setpts=PTS-STARTPTS[scaled1]'
         )
         ->and($graph['filters'][1])->toBe("[0:v][scaled1]overlay=10:20:enable='between(t,0.500000,2.000000)'[out1]")
         ->and($graph['output'])->toBe('[out1]');
@@ -1104,7 +1105,7 @@ it('applies colour adjustments, trim end and rotation to overlay clips like scen
     ]]);
 
     expect($graph['filters'][0])->toBe(
-        '[1:v]trim=start=1.000000:end=3.000000,setpts=PTS-STARTPTS,scale=200:100,setpts=PTS-STARTPTS,'
+        '[1:v]trim=start=1.000000:end=3.000000,setpts=PTS-STARTPTS,scale=200:100:force_original_aspect_ratio=increase,setsar=1,crop=200:100,setpts=PTS-STARTPTS,'
         .'eq=brightness=0.200000:contrast=1.000000:saturation=1.000000[scaled1]'
     )->and($graph['filters'][0])->not->toContain('tpad=');
 });
@@ -1115,4 +1116,324 @@ it('lets an overlay text clip drop its background box', function () {
     ]]);
 
     expect($graph['filters'][0])->not->toContain('box=1');
+});
+
+it('centre-crops a mismatched aspect ratio instead of stretching it', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'x' => 0,
+        'y' => 0,
+        'width' => 1080,
+        'height' => 1920,
+        'fit' => 'cover',
+    ]]));
+
+    expect($graph)->toContain('scale=1080:1920:force_original_aspect_ratio=increase,setsar=1,crop=1080:1920')
+        ->and($graph)->not->toContain('scale=1080:1920,');
+});
+
+it('defaults a media element with no fit to cover', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'image',
+        'asset_id' => 1,
+        'width' => 640,
+        'height' => 360,
+    ]]));
+
+    expect($graph)->toContain('scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360');
+});
+
+it('letterboxes a contain element onto transparency', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'width' => 640,
+        'height' => 360,
+        'fit' => 'contain',
+    ]]));
+
+    expect($graph)->toContain(
+        'scale=640:360:force_original_aspect_ratio=decrease,setsar=1,format=rgba,pad=640:360:(ow-iw)/2:(oh-ih)/2:color=#00000000'
+    );
+});
+
+it('keeps fill as an explicit anamorphic stretch', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'width' => 640,
+        'height' => 360,
+        'fit' => 'fill',
+    ]]));
+
+    expect($graph)->toContain('scale=640:360,')
+        ->and($graph)->not->toContain('force_original_aspect_ratio');
+});
+
+it('falls back to cover for a non-canonical stored fit value', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'width' => 640,
+        'height' => 360,
+        'fit' => 'scale-down',
+    ]]));
+
+    expect($graph)->toContain('scale=640:360:force_original_aspect_ratio=increase,setsar=1,crop=640:360');
+});
+
+it('does not emit a second alpha format for a contain element with opacity', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'width' => 640,
+        'height' => 360,
+        'fit' => 'contain',
+        'opacity' => 0.5,
+    ]]));
+
+    expect(substr_count($graph, 'format=rgba'))->toBe(1)
+        ->and($graph)->toContain('colorchannelmixer=aa=0.500000');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Keyframe flattening (temporary bridge — see KeyframeFlattener)
+|--------------------------------------------------------------------------
+|
+| ffmpeg filters take constant parameters, so animated properties are sampled
+| once at the element's temporal midpoint before any filter reads them.
+|
+*/
+
+it('renders an agent-authored fade-in text layer visible instead of fully transparent', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'text',
+        'text' => 'In a storm',
+        'start_ms' => 0,
+        'end_ms' => 4000,
+        'opacity' => 0,
+        'keyframes' => [
+            'opacity' => [
+                ['time_ms' => 450, 'value' => 0, 'easing' => 'ease-out'],
+                ['time_ms' => 900, 'value' => 1],
+                ['time_ms' => 3200, 'value' => 1],
+                ['time_ms' => 3900, 'value' => 0, 'easing' => 'ease-in'],
+            ],
+        ],
+    ]]));
+
+    // Midpoint (2000ms) lands on the hold, so the layer is fully opaque and
+    // drawtext emits no alpha parameter at all.
+    expect($graph)->toContain("text='In a storm'")
+        ->and($graph)->not->toContain('alpha=');
+});
+
+it('samples a keyframed property at the element midpoint with linear interpolation', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'start_ms' => 1000,
+        'end_ms' => 5000,
+        'opacity' => 0,
+        'keyframes' => [
+            'opacity' => [
+                ['time_ms' => 0, 'value' => 0],
+                ['time_ms' => 4000, 'value' => 1],
+            ],
+        ],
+    ]]));
+
+    expect($graph)->toContain('colorchannelmixer=aa=0.500000');
+});
+
+it('holds the earlier value through a hold-eased keyframe segment', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'start_ms' => 0,
+        'end_ms' => 4000,
+        'keyframes' => [
+            'opacity' => [
+                ['time_ms' => 0, 'value' => 0.25, 'easing' => 'hold'],
+                ['time_ms' => 4000, 'value' => 1],
+            ],
+        ],
+    ]]));
+
+    expect($graph)->toContain('colorchannelmixer=aa=0.250000');
+});
+
+it('flattens dotted adjustment keyframe paths onto the nested adjustments array', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'start_ms' => 0,
+        'end_ms' => 4000,
+        'keyframes' => [
+            'adjustments.saturation' => [
+                ['time_ms' => 0, 'value' => 1],
+                ['time_ms' => 4000, 'value' => 2],
+            ],
+        ],
+    ]]));
+
+    expect($graph)->toContain('eq=brightness=0.000000:contrast=1.000000:saturation=1.500000');
+});
+
+it('keeps an existing adjustment while flattening a sibling adjustment track', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'start_ms' => 0,
+        'end_ms' => 4000,
+        'adjustments' => ['contrast' => 1.5],
+        'keyframes' => [
+            'adjustments.brightness' => [
+                ['time_ms' => 0, 'value' => 0],
+                ['time_ms' => 4000, 'value' => 0.4],
+            ],
+        ],
+    ]]));
+
+    expect($graph)->toContain('eq=brightness=0.200000:contrast=1.500000:saturation=1.000000');
+});
+
+it('falls back to the track midpoint when the element carries no timing', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'keyframes' => [
+            'opacity' => [
+                ['time_ms' => 0, 'value' => 0],
+                ['time_ms' => 1000, 'value' => 1],
+            ],
+        ],
+    ]]));
+
+    expect($graph)->toContain('colorchannelmixer=aa=0.500000');
+});
+
+it('leaves the base value intact for empty or malformed keyframe tracks', function () {
+    $graph = sceneGraph(scene([[
+        'type' => 'video',
+        'asset_id' => 1,
+        'start_ms' => 0,
+        'end_ms' => 4000,
+        'opacity' => 0.5,
+        'rotation' => 0,
+        'keyframes' => [
+            'opacity' => [],
+            'x' => 'not-a-track',
+            'rotation' => [['value' => 90], ['time_ms' => 'later', 'value' => 45]],
+            'unknown_property' => [['time_ms' => 0, 'value' => 7]],
+        ],
+    ]]));
+
+    expect($graph)->toContain('colorchannelmixer=aa=0.500000')
+        ->and($graph)->not->toContain('rotate=');
+});
+
+it('does not throw on unknown element types carrying keyframes', function () {
+    $graph = sceneGraph(scene([
+        ['type' => 'effect', 'keyframes' => ['opacity' => [['time_ms' => 0, 'value' => 0]]]],
+        ['type' => 'text', 'text' => 'still here'],
+    ]));
+
+    expect($graph)->toContain("text='still here'");
+});
+
+it('flattens a volume track for scene audio extraction', function () {
+    $graph = (new FFmpegService)->buildSceneAudioFilter(
+        [scene([[
+            'type' => 'video',
+            'asset_id' => 1,
+            'start_ms' => 0,
+            'end_ms' => 4000,
+            'volume' => 0,
+            'keyframes' => [
+                'volume' => [
+                    ['time_ms' => 0, 'value' => 0],
+                    ['time_ms' => 4000, 'value' => 1],
+                ],
+            ],
+        ]])],
+        30,
+        assetResolverStub(),
+    );
+
+    expect(implode(';', $graph['filters']))->toContain('volume=0.500000');
+});
+
+it('leaves an element without keyframes byte-identical', function () {
+    $element = [
+        'type' => 'video',
+        'asset_id' => 1,
+        'x' => 10,
+        'opacity' => 0.85,
+        'adjustments' => ['contrast' => 1.2],
+    ];
+
+    expect(KeyframeFlattener::flatten($element))->toBe($element)
+        ->and(KeyframeFlattener::flatten($element + ['keyframes' => []]))
+        ->toBe($element + ['keyframes' => []]);
+});
+
+it('derives an audio clip length from end_ms when duration_ms is absent', function () {
+    // The exact shape compose_video_project writes. Falling through to the
+    // asset's own length played a 90s track where 20s was intended.
+    $filter = (new FFmpegService)->buildAudioMixFilter(
+        [['id' => 't1', 'volume' => 1, 'clips' => [[
+            'id' => 'c1',
+            'asset_id' => 96,
+            'start_ms' => 0,
+            'end_ms' => 20000,
+        ]]]],
+        fn (mixed $id): array => ['path' => "/media/{$id}.mp3", 'duration_ms' => 90023],
+    );
+
+    expect($filter['filters'][0] ?? '')->toContain('atrim=start=0.000000:duration=20.000000');
+});
+
+it('prefers an explicit audio clip duration_ms over end_ms', function () {
+    $filter = (new FFmpegService)->buildAudioMixFilter(
+        [['id' => 't1', 'volume' => 1, 'clips' => [[
+            'id' => 'c1',
+            'asset_id' => 96,
+            'start_ms' => 0,
+            'duration_ms' => 5000,
+            'end_ms' => 20000,
+        ]]]],
+        fn (mixed $id): array => ['path' => "/media/{$id}.mp3", 'duration_ms' => 90023],
+    );
+
+    expect($filter['filters'][0] ?? '')->toContain('duration=5.000000');
+});
+
+it('falls back to the asset length when a clip carries no timing', function () {
+    $filter = (new FFmpegService)->buildAudioMixFilter(
+        [['id' => 't1', 'volume' => 1, 'clips' => [[
+            'id' => 'c1',
+            'asset_id' => 96,
+            'start_ms' => 0,
+        ]]]],
+        fn (mixed $id): array => ['path' => "/media/{$id}.mp3", 'duration_ms' => 90023],
+    );
+
+    expect($filter['filters'][0] ?? '')->toContain('duration=90.023000');
+});
+
+it('ignores an audio end_ms that precedes the clip start', function () {
+    $filter = (new FFmpegService)->buildAudioMixFilter(
+        [['id' => 't1', 'volume' => 1, 'clips' => [[
+            'id' => 'c1',
+            'asset_id' => 96,
+            'start_ms' => 8000,
+            'end_ms' => 2000,
+        ]]]],
+        fn (mixed $id): array => ['path' => "/media/{$id}.mp3", 'duration_ms' => 90023],
+    );
+
+    expect($filter['filters'][0] ?? '')->toContain('duration=90.023000');
 });

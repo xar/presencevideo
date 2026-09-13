@@ -207,10 +207,20 @@ export type AudioClip = {
     asset_id: number;
     start_ms: number;
     duration_ms: number;
+    /**
+     * Exclusive end, mirroring `start_ms + duration_ms`.
+     *
+     * Audio clips are read through `duration_ms` everywhere, but the AI
+     * composition tool writes every element as `start_ms`/`end_ms`. Both are
+     * kept in step by `syncAudioClipTiming()`; never write one alone.
+     */
+    end_ms?: number;
     trim_start_ms?: number;
+    trim_end_ms?: number;
     volume: number;
     fade_in_ms?: number;
     fade_out_ms?: number;
+    keyframes?: KeyframeTracks;
 };
 
 // Video Track Types
@@ -371,7 +381,14 @@ export type Render = {
 export type Tool = 'select' | 'pan';
 
 export type Selection = {
-    type: 'scene' | 'layer' | 'audio_clip' | 'video_clip' | 'audio_track' | 'video_track' | null;
+    type:
+        | 'scene'
+        | 'layer'
+        | 'audio_clip'
+        | 'video_clip'
+        | 'audio_track'
+        | 'video_track'
+        | null;
     sceneId: string | null;
     layerId: string | null;
     audioTrackId: string | null;
