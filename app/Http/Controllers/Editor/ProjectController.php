@@ -45,10 +45,11 @@ class ProjectController extends Controller
     {
         $this->authorize('view', $project);
 
-        $project->load(['assets']);
+        $project->load(['assets', 'brandKit']);
 
         return Inertia::render('editor/Show', [
             'project' => $project,
+            'brandKits' => $request->user()->brandKits()->orderBy('name')->get(),
             'activeGenerations' => $project->generations()
                 ->whereIn('status', ['pending', 'processing'])
                 ->orderByDesc('created_at')

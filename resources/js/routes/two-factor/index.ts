@@ -83,7 +83,7 @@ login.form = loginForm
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::enable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:21
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:22
 * @route '/user/two-factor-authentication'
 */
 export const enable = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -98,7 +98,7 @@ enable.definition = {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::enable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:21
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:22
 * @route '/user/two-factor-authentication'
 */
 enable.url = (options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ enable.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::enable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:21
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:22
 * @route '/user/two-factor-authentication'
 */
 enable.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ enable.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::enable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:21
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:22
 * @route '/user/two-factor-authentication'
 */
 const enableForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -127,7 +127,7 @@ const enableForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> =>
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::enable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:21
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:22
 * @route '/user/two-factor-authentication'
 */
 enableForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -195,7 +195,7 @@ confirm.form = confirmForm
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::disable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:35
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:44
 * @route '/user/two-factor-authentication'
 */
 export const disable = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -210,7 +210,7 @@ disable.definition = {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::disable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:35
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:44
 * @route '/user/two-factor-authentication'
 */
 disable.url = (options?: RouteQueryOptions) => {
@@ -219,7 +219,7 @@ disable.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::disable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:35
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:44
 * @route '/user/two-factor-authentication'
 */
 disable.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -229,7 +229,7 @@ disable.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::disable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:35
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:44
 * @route '/user/two-factor-authentication'
 */
 const disableForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -244,7 +244,7 @@ const disableForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> =
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController::disable
-* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:35
+* @see vendor/laravel/fortify/src/Http/Controllers/TwoFactorAuthenticationController.php:44
 * @route '/user/two-factor-authentication'
 */
 disableForm.delete = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

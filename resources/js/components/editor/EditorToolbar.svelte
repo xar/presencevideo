@@ -33,7 +33,8 @@
     import { projectStore, selectionStore, timelineStore } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
     import { downloadProjectJson, readProjectFile } from '@/lib/editor/project-json';
-    import type { ShapeKind, ShapeLayer } from '@/types';
+    import type { BrandKit, ShapeKind, ShapeLayer } from '@/types';
+    import BrandKitPicker from './BrandKitPicker.svelte';
     import ExportDialog from './ExportDialog.svelte';
     import JsonEditorDialog from './JsonEditorDialog.svelte';
     import ResolutionPicker from './ResolutionPicker.svelte';
@@ -41,9 +42,12 @@
     let {
         jsonEditorOpen = $bindable(false),
         shortcutsOpen = $bindable(false),
+        brandKits = [],
     }: {
         jsonEditorOpen?: boolean;
         shortcutsOpen?: boolean;
+        /** The user's brand kits, for the picker. */
+        brandKits?: BrandKit[];
     } = $props();
 
     let showSavedMessage = $state(false);
@@ -351,6 +355,7 @@
 
         <Separator orientation="vertical" class="h-6" />
 
+        <BrandKitPicker {brandKits} />
         <ResolutionPicker />
 
         <Separator orientation="vertical" class="h-6" />

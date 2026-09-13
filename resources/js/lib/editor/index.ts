@@ -31,3 +31,15 @@ export {
     type MediaProvider,
     type MediaReadiness,
 } from './media-provider';
+export {
+    isBrandToken,
+    resolveBrandColor,
+    resolveBrandFont,
+    resolveProjectBrand,
+} from './model/brand';
+export { lintProject, type LintIssue, type LintReport } from './model/lint';
+export {
+    applyRecipe,
+    listRecipes,
+    validateBrandKitForRecipe,
+} from './model/recipes';

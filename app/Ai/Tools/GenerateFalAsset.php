@@ -10,6 +10,8 @@ use App\Models\AgentActivity;
 use App\Models\Asset;
 use App\Models\Generation;
 use App\Models\Project;
+use App\Services\FalAI\DraftQuality;
+use App\Services\FalAIService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -54,6 +56,12 @@ class GenerateFalAsset implements Tool
 
         $parameters = $this->decodeParameters($request['parameters_json'] ?? '{}');
         $parameters = $this->applyProjectAspectRatio($parameters, $project, $type);
+        $qualityTier = $this->resolveQualityTier($request['quality_tier'] ?? null);
+
+        if ($qualityTier !== null) {
+            $parameters['quality_tier'] = $qualityTier;
+        }
+
         $model = $request['model_id'] ?? $request['model_key'] ?? null;
 
         if ($model !== null) {
@@ -87,11 +95,14 @@ class GenerateFalAsset implements Tool
         RunGeneration::dispatch($generation);
 
         $activity?->update([
-            'payload' => array_merge($activity->payload ?? [], ['generation_id' => $generation->id]),
+            'payload' => array_merge($activity->payload ?? [], [
+                'generation_id' => $generation->id,
+                'quality_tier' => $qualityTier ?? 'final',
+            ]),
         ]);
 
         if ($activity !== null) {
-            AgentActivityUpdated::dispatch($activity);
+            AgentActivityUpdated::dispatchQuietly($activity);
         }
 
         return json_encode([
@@ -100,7 +111,8 @@ class GenerateFalAsset implements Tool
             'project_id' => $project->id,
             'type' => $generation->type->value,
             'status' => $generation->status->value,
-            'message' => 'Generation queued. Progress is now visible in the chat activity panel; use get_generation_status with this generation_id to retrieve the output asset when complete.',
+            'quality_tier' => $qualityTier ?? 'final',
+            'message' => $this->queuedMessage($qualityTier),
         ], JSON_THROW_ON_ERROR);
     }
 
@@ -113,10 +125,43 @@ class GenerateFalAsset implements Tool
             'input_asset_id' => $schema->integer(),
             'model_key' => $schema->string(),
             'model_id' => $schema->string(),
+            'quality_tier' => $schema->string(),
             'parameters_json' => $schema->string(),
             'scene_id' => $schema->string(),
             'step_index' => $schema->integer(),
         ];
+    }
+
+    /**
+     * Decide whether this generation runs as a cheap draft or at full quality.
+     *
+     * Agent runs draft by default while draft generations are enabled, because
+     * the agent iterates: scripts get rewritten, compositions get relaid out and
+     * bugs get chased, and none of that is worth a full-quality generation. The
+     * agent opts out per call with quality_tier=final once a draft is approved.
+     */
+    protected function resolveQualityTier(mixed $requested): ?string
+    {
+        if (is_string($requested) && strtolower($requested) === 'final') {
+            return null;
+        }
+
+        if (is_string($requested) && strtolower($requested) === FalAIService::DRAFT_QUALITY_TIER) {
+            return FalAIService::DRAFT_QUALITY_TIER;
+        }
+
+        return DraftQuality::enabled() ? FalAIService::DRAFT_QUALITY_TIER : null;
+    }
+
+    protected function queuedMessage(?string $qualityTier): string
+    {
+        $base = 'Generation queued. Progress is now visible in the chat activity panel; use get_generation_status with this generation_id to retrieve the output asset when complete.';
+
+        if ($qualityTier !== FalAIService::DRAFT_QUALITY_TIER) {
+            return $base;
+        }
+
+        return $base.' This is a DRAFT: the same model and prompt at the cheapest resolution it offers. Once the user approves the shot, re-run it with regenerate_at_full_quality to get the full-resolution version.';
     }
 
     protected function createActivity(Project $project, GenerationType $type, Request $request): ?AgentActivity
@@ -141,7 +186,7 @@ class GenerateFalAsset implements Tool
             'started_at' => now(),
         ]);
 
-        AgentActivityUpdated::dispatch($activity);
+        AgentActivityUpdated::dispatchQuietly($activity);
 
         return $activity;
     }

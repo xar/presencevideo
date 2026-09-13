@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 * @see app/Http/Controllers/Editor/AssetController.php:20
 * @route '/editor/projects/{project}/assets'
 */
-export const store = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ store.definition = {
 * @see app/Http/Controllers/Editor/AssetController.php:20
 * @route '/editor/projects/{project}/assets'
 */
-store.url = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+store.url = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { project: args }
     }
@@ -52,7 +52,7 @@ store.url = (args: { project: number | { id: number } } | [project: number | { i
 * @see app/Http/Controllers/Editor/AssetController.php:20
 * @route '/editor/projects/{project}/assets'
 */
-store.post = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ store.post = (args: { project: number | { id: number } } | [project: number | { 
 * @see app/Http/Controllers/Editor/AssetController.php:20
 * @route '/editor/projects/{project}/assets'
 */
-const storeForm = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const storeForm = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -72,7 +72,7 @@ const storeForm = (args: { project: number | { id: number } } | [project: number
 * @see app/Http/Controllers/Editor/AssetController.php:20
 * @route '/editor/projects/{project}/assets'
 */
-storeForm.post = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+storeForm.post = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -84,7 +84,7 @@ store.form = storeForm
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-export const stream = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const stream = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: stream.url(args, options),
     method: 'get',
 })
@@ -99,7 +99,7 @@ stream.definition = {
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-stream.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+stream.url = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { asset: args }
     }
@@ -132,7 +132,7 @@ stream.url = (args: { asset: number | { id: number } } | [asset: number | { id: 
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-stream.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+stream.get = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: stream.url(args, options),
     method: 'get',
 })
@@ -142,7 +142,7 @@ stream.get = (args: { asset: number | { id: number } } | [asset: number | { id: 
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-stream.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+stream.head = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: stream.url(args, options),
     method: 'head',
 })
@@ -152,7 +152,7 @@ stream.head = (args: { asset: number | { id: number } } | [asset: number | { id:
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-const streamForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const streamForm = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: stream.url(args, options),
     method: 'get',
 })
@@ -162,7 +162,7 @@ const streamForm = (args: { asset: number | { id: number } } | [asset: number | 
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-streamForm.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+streamForm.get = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: stream.url(args, options),
     method: 'get',
 })
@@ -172,7 +172,7 @@ streamForm.get = (args: { asset: number | { id: number } } | [asset: number | { 
 * @see app/Http/Controllers/Editor/AssetStreamController.php:15
 * @route '/editor/assets/{asset}/stream'
 */
-streamForm.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+streamForm.head = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: stream.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -189,7 +189,7 @@ stream.form = streamForm
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-export const thumbnail = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const thumbnail = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: thumbnail.url(args, options),
     method: 'get',
 })
@@ -204,7 +204,7 @@ thumbnail.definition = {
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+thumbnail.url = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { asset: args }
     }
@@ -237,7 +237,7 @@ thumbnail.url = (args: { asset: number | { id: number } } | [asset: number | { i
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+thumbnail.get = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: thumbnail.url(args, options),
     method: 'get',
 })
@@ -247,7 +247,7 @@ thumbnail.get = (args: { asset: number | { id: number } } | [asset: number | { i
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+thumbnail.head = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: thumbnail.url(args, options),
     method: 'head',
 })
@@ -257,7 +257,7 @@ thumbnail.head = (args: { asset: number | { id: number } } | [asset: number | { 
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const thumbnailForm = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, options),
     method: 'get',
 })
@@ -267,7 +267,7 @@ const thumbnailForm = (args: { asset: number | { id: number } } | [asset: number
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+thumbnailForm.get = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, options),
     method: 'get',
 })
@@ -277,7 +277,7 @@ thumbnailForm.get = (args: { asset: number | { id: number } } | [asset: number |
 * @see app/Http/Controllers/Editor/AssetStreamController.php:40
 * @route '/editor/assets/{asset}/thumbnail'
 */
-thumbnailForm.head = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+thumbnailForm.head = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -294,7 +294,7 @@ thumbnail.form = thumbnailForm
 * @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
-export const destroy = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -309,7 +309,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
-destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { asset: args }
     }
@@ -342,7 +342,7 @@ destroy.url = (args: { asset: number | { id: number } } | [asset: number | { id:
 * @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
-destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -352,7 +352,7 @@ destroy.delete = (args: { asset: number | { id: number } } | [asset: number | { 
 * @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
-const destroyForm = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const destroyForm = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
@@ -367,7 +367,7 @@ const destroyForm = (args: { asset: number | { id: number } } | [asset: number |
 * @see app/Http/Controllers/Editor/AssetController.php:72
 * @route '/editor/assets/{asset}'
 */
-destroyForm.delete = (args: { asset: number | { id: number } } | [asset: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+destroyForm.delete = (args: { asset: string | number | { id: string | number } } | [asset: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',

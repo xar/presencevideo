@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { tick } from 'svelte';
+    import { tick, untrack } from 'svelte';
+    import { v4 as uuidv4 } from 'uuid';
     import { Link, router } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
@@ -9,6 +10,16 @@
     import ChatMessageBubble from '@/components/agent/ChatMessageBubble.svelte';
     import StreamingAssistantMessage from '@/components/agent/StreamingAssistantMessage.svelte';
     import type { ChatMessage, ToolActivity } from '@/components/agent/types';
+    import {
+        applyServerState,
+        applyStreamEvent,
+        createStreamState,
+        isStreaming,
+        startInvocation,
+        type InvocationState,
+        type StreamState
+    } from '@/lib/agent/stream-state';
+    import { createStreamClient, type StreamClient } from '@/lib/agent/stream-client';
     import { PenLine, Send, Sparkles } from 'lucide-svelte';
 
     type Conversation = {
@@ -23,13 +34,17 @@
         messages,
         activities = [],
         pendingMessage = null,
-        broadcastChannel = null
+        broadcastChannel = null,
+        invocation = null,
+        watchdogSeconds = 20
     }: {
         conversation: Conversation | null;
         messages: ChatMessage[];
         activities?: ToolActivity[];
         pendingMessage?: string | null;
         broadcastChannel?: string | null;
+        invocation?: InvocationState | null;
+        watchdogSeconds?: number;
     } = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -40,93 +55,223 @@
     ];
 
     let message = $state('');
-    let localMessages = $state<ChatMessage[]>([]);
-    let streamedResponse = $state('');
-    let streamedConversationId = $state<string | null>(null);
-    let streamedToolActivities = $state<ToolActivity[]>([]);
-    let isStreaming = $state(false);
-    let shouldReserveLatestMessageSpace = $state(false);
+    let stream = $state<StreamState>(createStreamState());
+    /** Shown the instant the user hits send, before the server has answered. */
+    let pendingPrompt = $state<string | null>(null);
     let error = $state<string | null>(null);
-    let activeConversationId = $state<string | null | undefined>(undefined);
-    let serverMessagesSignature = $state('');
     let messagesContainer: HTMLDivElement | null = $state(null);
-    let pendingMessageAddedForConversation = $state<string | null>(null);
-    let activeChannel: string | null = null;
-    let seenStreamEventIds = $state<Set<string>>(new Set());
+    let activeConversationId: string | null | undefined = undefined;
+    let client: StreamClient | null = null;
+    let reconciling = false;
+
+    const streaming = $derived(isStreaming(stream));
+    const optimisticPrompt = $derived(pendingPrompt ?? stream.prompt ?? pendingMessage);
+
+    /**
+     * The transcript as rendered.
+     *
+     * The user's own message is not persisted until the agent run reaches it,
+     * so it is carried by the invocation record until the real row shows up.
+     * That is what stops a message disappearing when a send is interrupted.
+     */
+    const renderedMessages = $derived.by(() => {
+        const list = [...messages];
+        const last = list.at(-1);
+
+        if (!optimisticPrompt || (last?.role === 'user' && last.content === optimisticPrompt)) {
+            return list;
+        }
+
+        return [
+            ...list,
+            {
+                id: `pending-${stream.invocationId ?? 'local'}`,
+                role: 'user',
+                content: optimisticPrompt,
+                created_at: new Date().toISOString()
+            }
+        ];
+    });
+
+    const latestUserMessageId = $derived(renderedMessages.filter((item) => item.role === 'user').at(-1)?.id);
 
     $effect(() => {
-        if (broadcastChannel && activeChannel !== broadcastChannel) {
-            void subscribeToBroadcast(broadcastChannel);
+        client = createStreamClient({
+            onEvent: handleEvent,
+            onReconcile: () => void reconcile(),
+            watchdogSeconds
+        });
+
+        return () => {
+            client?.destroy();
+            client = null;
+        };
+    });
+
+    $effect(() => {
+        const id = conversation?.id ?? null;
+
+        if (activeConversationId === id) {
+            return;
+        }
+
+        activeConversationId = id;
+        pendingPrompt = null;
+        error = null;
+        stream = invocation ? startInvocation(invocation) : createStreamState();
+        stream = applyServerState(stream, { invocation: null, activities });
+
+        if (broadcastChannel) {
+            void join(broadcastChannel);
+        }
+
+        client?.setStreaming(isStreaming(stream));
+
+        // A run already in flight when this page rendered may have moved on
+        // since; pick up whatever happened in between.
+        if (isStreaming(stream)) {
+            void reconcile();
         }
     });
 
     $effect(() => {
-        const nextSignature = messages.map((item) => `${item.id}:${item.role}:${item.content}`).join('|');
+        // The server only reports a run that is still going. Once it stops
+        // reporting one, the reply has landed in the transcript and the live
+        // copy must be retired or it would be rendered twice. Tracking only the
+        // prop keeps this from re-entering on its own write.
+        const active = invocation;
 
-        if (activeConversationId !== conversation?.id) {
-            activeConversationId = conversation?.id;
-            serverMessagesSignature = nextSignature;
-            pendingMessageAddedForConversation = null;
-            localMessages = withPendingMessage(messages);
-            streamedResponse = '';
-            streamedToolActivities = [];
-            seenStreamEventIds = new Set();
-            shouldReserveLatestMessageSpace = false;
-
-            return;
-        }
-
-        if (serverMessagesSignature !== nextSignature && !isStreaming) {
-            serverMessagesSignature = nextSignature;
-            localMessages = withPendingMessage(messages);
-        }
+        untrack(() => {
+            if (active === null && stream.invocationId !== null && !isStreaming(stream)) {
+                stream = createStreamState();
+            }
+        });
     });
 
     async function submit() {
         const prompt = message.trim();
 
-        if (!prompt || isStreaming) {
+        if (!prompt || streaming) {
             return;
         }
 
         message = '';
         error = null;
-        streamedResponse = '';
-        streamedConversationId = null;
-        streamedToolActivities = [];
-        seenStreamEventIds = new Set();
-        isStreaming = true;
-        shouldReserveLatestMessageSpace = true;
-        localMessages = [
-            ...localMessages,
-            {
-                id: `user-${Date.now()}`,
-                role: 'user',
-                content: prompt,
-                created_at: new Date().toISOString()
-            }
-        ];
+        pendingPrompt = prompt;
 
         await scrollLatestUserMessageToTop();
 
         try {
-            const prepared = await postJson(agent.chat.prepare().url, {
+            const started = await postJson(agent.chat.send().url, {
                 message: prompt,
-                conversation_id: conversation?.id ?? null
+                conversation_id: conversation?.id ?? null,
+                // Makes the retry above safe: a send the server already accepted
+                // returns the same invocation instead of running the agent twice.
+                idempotency_key: uuidv4()
             });
 
-            streamedConversationId = prepared.conversation_id ?? null;
-            await subscribeToBroadcast(prepared.channel);
+            stream = startInvocation(started.invocation);
+            pendingPrompt = null;
+            client?.setStreaming(true);
 
-            await postJson(agent.chat.broadcast().url, {
-                message: prompt,
-                conversation_id: prepared.conversation_id
-            });
+            await client?.subscribe(started.channel);
+
+            if (conversation?.id !== started.conversation_id) {
+                // The new conversation's page resumes this run from its own
+                // invocation record, so nothing is lost by navigating mid-stream.
+                router.visit(agent.chat.show(started.conversation_id).url, {
+                    replace: true,
+                    preserveScroll: true
+                });
+
+                return;
+            }
+
+            // Whether or not the subscription landed, anything the agent emitted
+            // before it did is still waiting in the invocation record.
+            void reconcile();
         } catch {
-            error = 'The agent could not start. Please try again.';
-            isStreaming = false;
-            shouldReserveLatestMessageSpace = false;
+            // Nothing was lost: put the message back so it can be sent again.
+            message = prompt;
+            pendingPrompt = null;
+            error = 'The agent could not start. Your message was not sent — try again.';
+            client?.setStreaming(false);
         }
+    }
+
+    async function join(channel: string) {
+        const joined = await client?.subscribe(channel);
+
+        if (!joined) {
+            void reconcile();
+        }
+    }
+
+    function handleEvent(event: Record<string, unknown>) {
+        const wasStreaming = isStreaming(stream);
+
+        stream = applyStreamEvent(stream, event);
+
+        if (wasStreaming && !isStreaming(stream)) {
+            finishStreaming();
+        }
+
+        // The library's end-of-stream marker is a hint, not a verdict — only the
+        // invocation record decides that a run is over.
+        if (event.type === 'stream_end') {
+            void reconcile();
+        }
+    }
+
+    /**
+     * Replace local state with the server's record of the run.
+     *
+     * Called on reconnect, on tab focus, after a silent stretch, and whenever a
+     * subscription could not be established — every case in which events may
+     * have been missed.
+     */
+    async function reconcile() {
+        const conversationId = conversation?.id;
+
+        if (!conversationId || reconciling) {
+            return;
+        }
+
+        reconciling = true;
+
+        try {
+            const state = await getJson(
+                agent.chat.state(conversationId, {
+                    query: stream.invocationId ? { invocation: stream.invocationId } : {}
+                }).url
+            );
+
+            const wasStreaming = isStreaming(stream);
+
+            stream = applyServerState(stream, {
+                invocation: state.invocation,
+                activities: state.activities ?? []
+            });
+
+            if (wasStreaming && !isStreaming(stream)) {
+                finishStreaming();
+            }
+        } catch {
+            // The server is unreachable; the watchdog will try again.
+        } finally {
+            reconciling = false;
+        }
+    }
+
+    function finishStreaming() {
+        client?.setStreaming(false);
+        error = stream.error;
+
+        router.reload({
+            only: ['messages', 'activities', 'conversation', 'conversations', 'invocation', 'agentConversations']
+        });
+
+        void scrollLatestUserMessageToTop('instant');
     }
 
     async function scrollLatestUserMessageToTop(behavior: ScrollBehavior = 'smooth') {
@@ -141,19 +286,17 @@
 
         container.scrollTo({
             top: latestUserMessage.offsetTop - container.offsetTop,
-            behavior,
+            behavior
         });
     }
 
-    async function postJson(url: string, body: Record<string, unknown>) {
+    function csrfToken(): string {
+        return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    }
+
+    async function getJson(url: string) {
         const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
-            },
-            body: JSON.stringify(body)
+            headers: { Accept: 'application/json' }
         });
 
         if (!response.ok) {
@@ -163,144 +306,42 @@
         return await response.json();
     }
 
-    function subscribeToBroadcast(channel: string): Promise<void> {
-        if (activeChannel === channel) {
-            return Promise.resolve();
-        }
+    /**
+     * POST with one retry.
+     *
+     * Safe because every send carries an idempotency key: a request that reached
+     * the server but whose response was lost resolves to the same invocation.
+     */
+    async function postJson(url: string, body: Record<string, unknown>, attempt = 0): Promise<any> {
+        let response: Response;
 
-        if (activeChannel) {
-            window.Echo.leave(activeChannel);
-        }
-
-        activeChannel = channel;
-        const subscription = window.Echo.private(channel);
-
-        ['text_delta', 'tool_call', 'tool_result', 'activity_updated', 'stream_end', 'stream_failed', 'error'].forEach((eventName) => {
-            subscription.listen(`.${eventName}`, (data: Record<string, any>) => handleBroadcastEvent(data, eventName));
-        });
-
-        subscription.listenToAll((eventName: string, data: Record<string, any>) => {
-            handleBroadcastEvent(data, eventName.replace(/^\./, ''));
-        });
-
-        return new Promise((resolve) => {
-            subscription.subscribed(() => resolve());
-            setTimeout(resolve, 1500);
-        });
-    }
-
-    function handleBroadcastEvent(data: Record<string, any>, eventName?: string) {
-        const type = data.type ?? eventName;
-        const eventId = typeof data.id === 'string' ? data.id : null;
-
-        if (eventId && seenStreamEventIds.has(eventId)) {
-            return;
-        }
-
-        if (eventId) {
-            seenStreamEventIds = new Set([...seenStreamEventIds, eventId]);
-        }
-
-        if (type === 'text_delta') {
-            streamedResponse += data.delta ?? '';
-        }
-
-        if (type === 'tool_call') {
-            upsertToolActivity({
-                id: data.tool_id ?? data.id,
-                name: data.tool_name ?? 'Action',
-                arguments: data.arguments,
-                status: 'running',
-                timestamp: data.timestamp
+        try {
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken()
+                },
+                body: JSON.stringify(body)
             });
+        } catch (exception) {
+            // The request never completed, so the server may or may not have
+            // accepted it. Retrying is safe only because of the idempotency key.
+            if (attempt >= 1) {
+                throw exception;
+            }
+
+            return await postJson(url, body, attempt + 1);
         }
 
-        if (type === 'tool_result') {
-            upsertToolActivity({
-                id: data.tool_id ?? data.id,
-                name: data.tool_name ?? 'Action',
-                result: data.result,
-                successful: data.successful,
-                error: data.error,
-                status: data.successful === false ? 'failed' : 'completed',
-                timestamp: data.timestamp
-            });
+        // A response that arrived and was rejected is a real answer; retrying it
+        // would only fail the same way.
+        if (!response.ok) {
+            throw new Error('Request failed.');
         }
 
-        if (type === 'activity_updated' && data.activity) {
-            upsertToolActivity({
-                ...data.activity,
-                status: data.activity.status ?? 'running'
-            });
-        }
-
-        if (type === 'stream_failed' || type === 'error') {
-            error = data.message ?? 'The agent stream failed.';
-            finishStreaming();
-        }
-
-        if (type === 'stream_end') {
-            finishStreaming();
-        }
-    }
-
-    function finishStreaming() {
-        isStreaming = false;
-        shouldReserveLatestMessageSpace = false;
-        void refreshConversation();
-        void scrollLatestUserMessageToTop('instant');
-    }
-
-    function withPendingMessage(serverMessages: ChatMessage[]) {
-        if (!pendingMessage || !conversation?.id || pendingMessageAddedForConversation === conversation.id) {
-            return serverMessages;
-        }
-
-        const alreadyStored = serverMessages.some((item) => item.role === 'user' && item.content === pendingMessage);
-
-        pendingMessageAddedForConversation = conversation.id;
-
-        return alreadyStored
-            ? serverMessages
-            : [
-                ...serverMessages,
-                {
-                    id: `pending-user-${Date.now()}`,
-                    role: 'user',
-                    content: pendingMessage,
-                    created_at: new Date().toISOString()
-                }
-            ];
-    }
-
-    function hasPendingAssistantResponse() {
-        if (isStreaming || streamedResponse || streamedToolActivities.length > 0) {
-            return false;
-        }
-
-        const latestMessage = localMessages.at(-1);
-
-        return latestMessage?.role === 'user' || activities.length > 0;
-    }
-
-    function upsertToolActivity(activity: ToolActivity) {
-        const existing = streamedToolActivities.find((item) => item.id === activity.id);
-
-        streamedToolActivities = existing
-            ? streamedToolActivities.map((item) => item.id === activity.id ? { ...item, ...activity, arguments: activity.arguments ?? item.arguments } : item)
-            : [...streamedToolActivities, activity];
-    }
-
-    async function refreshConversation() {
-        if (conversation?.id) {
-            router.reload({ only: ['messages', 'activities', 'conversation', 'conversations', 'agentConversations'] });
-
-            return;
-        }
-
-        if (streamedConversationId) {
-            router.visit(agent.chat.show(streamedConversationId).url, { replace: true, preserveScroll: true });
-        }
+        return await response.json();
     }
 
     function onKeydown(event: KeyboardEvent) {
@@ -333,7 +374,7 @@
         <div
             class="flex min-h-0 flex-1 flex-col overflow-hidden border border-border/50 border-b-0 bg-card shadow-lg shadow-black/[0.04] dark:shadow-black/20">
             <div bind:this={messagesContainer} class="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-                {#if localMessages.length === 0 && !streamedResponse && !isStreaming}
+                {#if renderedMessages.length === 0 && !stream.text && !streaming}
                     <div class="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
                         <div class="mb-6 flex size-16 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-inner">
                             <Sparkles class="size-8" />
@@ -345,17 +386,15 @@
                         </p>
                     </div>
                 {:else}
-                    <div class="mx-auto flex max-w-4xl flex-col gap-5 {shouldReserveLatestMessageSpace ? 'pb-[65vh]' : 'pb-6'}">
-                        {#each localMessages as message (message.id)}
+                    <div class="mx-auto flex max-w-4xl flex-col gap-5 {streaming ? 'pb-[65vh]' : 'pb-6'}">
+                        {#each renderedMessages as message (message.id)}
                             <ChatMessageBubble
                                 {message}
-                                latestUserMessage={message.role === 'user' && message.id === localMessages.filter((item) => item.role === 'user').at(-1)?.id}
+                                latestUserMessage={message.role === 'user' && message.id === latestUserMessageId}
                             />
                         {/each}
-                        {#if streamedResponse || isStreaming || streamedToolActivities.length > 0}
-                            <StreamingAssistantMessage content={streamedResponse} activities={streamedToolActivities} />
-                        {:else if hasPendingAssistantResponse()}
-                            <StreamingAssistantMessage activities={activities} />
+                        {#if streaming || stream.text || stream.activities.length > 0}
+                            <StreamingAssistantMessage content={stream.text} activities={stream.activities} />
                         {/if}
                     </div>
                 {/if}
@@ -377,7 +416,7 @@
                     <Button type="submit"
                             size="icon"
                             class="size-12 rounded-2xl"
-                            disabled={isStreaming || !message.trim()}>
+                            disabled={streaming || !message.trim()}>
                         <Send class="size-4" />
                     </Button>
                 </div>

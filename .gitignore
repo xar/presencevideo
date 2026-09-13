@@ -3,6 +3,8 @@
 /node_modules
 /public/build
 /public/hot
+# esbuild output of the model CLI (npm run build:model-cli)
+/resources/js/headless/dist
 /public/storage
 /storage/*.key
 /storage/pail

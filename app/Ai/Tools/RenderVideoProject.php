@@ -77,7 +77,7 @@ class RenderVideoProject implements Tool
             'started_at' => now(),
         ]);
 
-        AgentActivityUpdated::dispatch($activity);
+        AgentActivityUpdated::dispatchQuietly($activity);
 
         return $activity;
     }

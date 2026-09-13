@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import raw from './__real-project1.json';
-import { normalizeProject } from '../normalize';
+import type { Project } from '@/types/editor';
 import { resolveFrame } from '../model/resolve-frame';
 import { buildTimeline } from '../model/timeline';
-import type { Project } from '@/types/editor';
+import { normalizeProject } from '../normalize';
+import raw from './__real-project1.json';
 
 /** Real project 1 pulled from the dev database, to catch shim gaps fixtures miss. */
 const project = normalizeProject(structuredClone(raw) as unknown as Project);
@@ -49,6 +49,17 @@ describe('real project 1', () => {
             if (element.kind === 'video' || element.kind === 'image') {
                 expect(element.url, `${element.kind} ${element.id}`).toBeTruthy();
             }
+        }
+    });
+});
+
+describe('real project 1 lint', () => {
+    it('lints without throwing under every profile', async () => {
+        const { lintProject } = await import('../model/lint');
+        for (const profile of ['tiktok', 'reels', 'shorts', 'generic'] as const) {
+            const report = lintProject(project, { profile });
+            expect(report.score).toBeGreaterThanOrEqual(0);
+            expect(report.score).toBeLessThanOrEqual(100);
         }
     });
 });

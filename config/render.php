@@ -66,4 +66,22 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Model CLI
+    |--------------------------------------------------------------------------
+    |
+    | The pure TypeScript model (lint, recipes, brand token resolution) is the
+    | single implementation of those rules. PHP agents reach it by running an
+    | esbuild bundle under Node instead of porting the rules, so the editor's
+    | readiness panel and the agents' lint tool cannot drift apart. Build it
+    | with `npm run build:model-cli` (part of `npm run build`).
+    |
+    */
+
+    'model_cli' => [
+        'bundle_path' => env('RENDER_MODEL_CLI_BUNDLE', resource_path('js/headless/dist/model-cli.mjs')),
+        'timeout' => (int) env('RENDER_MODEL_CLI_TIMEOUT', 60),
+    ],
+
 ];

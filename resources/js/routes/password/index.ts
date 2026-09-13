@@ -83,7 +83,7 @@ request.form = requestForm
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 export const reset = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -98,7 +98,7 @@ reset.definition = {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 reset.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -125,7 +125,7 @@ reset.url = (args: { token: string | number } | [token: string | number ] | stri
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 reset.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -135,7 +135,7 @@ reset.get = (args: { token: string | number } | [token: string | number ] | stri
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 reset.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -145,7 +145,7 @@ reset.head = (args: { token: string | number } | [token: string | number ] | str
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 const resetForm = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -155,7 +155,7 @@ const resetForm = (args: { token: string | number } | [token: string | number ] 
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 resetForm.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -165,7 +165,7 @@ resetForm.get = (args: { token: string | number } | [token: string | number ] | 
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::reset
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:44
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:45
 * @route '/reset-password/{token}'
 */
 resetForm.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -238,7 +238,7 @@ email.form = emailForm
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::update
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:55
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:56
 * @route '/reset-password'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -253,7 +253,7 @@ update.definition = {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::update
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:55
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:56
 * @route '/reset-password'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -262,7 +262,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::update
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:55
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:56
 * @route '/reset-password'
 */
 update.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -272,7 +272,7 @@ update.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::update
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:55
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:56
 * @route '/reset-password'
 */
 const updateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -282,7 +282,7 @@ const updateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> =>
 
 /**
 * @see \Laravel\Fortify\Http\Controllers\NewPasswordController::update
-* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:55
+* @see vendor/laravel/fortify/src/Http/Controllers/NewPasswordController.php:56
 * @route '/reset-password'
 */
 updateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

@@ -1,5 +1,6 @@
 import type {
     Asset,
+    BrandKit,
     ImageLayer,
     MediaFit,
     Project,
@@ -10,15 +11,15 @@ import type {
     VideoLayer,
 } from '@/types/editor';
 import { clampSpeed, clampVolume, resolveAdjustments } from '../clip-effects';
-import {
-    emptyFrame
-    
-    
-    
-    
-    
+import { resolveBrandColor, resolveBrandFont } from './brand';
+import { emptyFrame } from './frame';
+import type {
+    CompositedFrame,
+    ResolvedElement,
+    ResolvedFrame,
+    ResolvedSubtitle,
+    ResolvedSubtitleWord,
 } from './frame';
-import type {CompositedFrame, ResolvedElement, ResolvedFrame, ResolvedSubtitle, ResolvedSubtitleWord} from './frame';
 import { applyKeyframes } from './keyframes';
 import { DEFAULT_LINE_HEIGHT } from './text-layout';
 import {
@@ -26,11 +27,9 @@ import {
     elementsAt,
     mapTimelineMs,
     sceneIndexAt,
-    transitionAt
-    
-    
+    transitionAt,
 } from './timeline';
-import type {Timeline, TimelineEntry} from './timeline';
+import type { Timeline, TimelineEntry } from './timeline';
 
 /**
  * Resolve a project into a paintable frame.
@@ -131,11 +130,12 @@ function resolveSceneFrame(
     sceneId: string | null,
 ): ResolvedFrame {
     const scene = timeline.scenes.find((candidate) => candidate.id === sceneId);
+    const kit = project.brand_kit ?? null;
     const frame = emptyFrame(
         timeMs,
         project.resolution_width,
         project.resolution_height,
-        scene?.backgroundColor ?? DEFAULT_BACKGROUND,
+        resolveBrandColor(scene?.backgroundColor, kit) ?? DEFAULT_BACKGROUND,
     );
 
     const assets = new Map<number, Asset>(
@@ -147,7 +147,7 @@ function resolveSceneFrame(
             continue;
         }
 
-        const resolved = resolveElement(entry, timeMs, assets);
+        const resolved = resolveElement(entry, timeMs, assets, kit);
         if (resolved) {
             frame.elements.push(resolved);
         }
@@ -171,6 +171,7 @@ function resolveElement(
     entry: TimelineEntry,
     timeMs: number,
     assets: Map<number, Asset>,
+    kit: BrandKit | null,
 ): ResolvedElement | null {
     const localTimeMs = timeMs - entry.start_ms;
     const animated = applyKeyframes(entry, entry.keyframes, localTimeMs);
@@ -229,10 +230,12 @@ function resolveElement(
                 ...base,
                 kind: 'text',
                 text: text.text ?? '',
-                fontFamily: text.font_family ?? DEFAULT_FONT_FAMILY,
+                fontFamily:
+                    resolveBrandFont(text.font_family, kit) ??
+                    DEFAULT_FONT_FAMILY,
                 fontSize: numberOr(text.font_size, 48),
                 fontWeight: text.font_weight === 'bold' ? 'bold' : 'normal',
-                color: text.font_color ?? '#ffffff',
+                color: resolveBrandColor(text.font_color, kit) ?? '#ffffff',
                 align: text.text_align ?? 'center',
                 // The inspector's box is vertically centred (`items-center`),
                 // so centring is the behaviour users have already composed to.
@@ -240,9 +243,13 @@ function resolveElement(
                 padding: numberOr(text.padding, 0),
                 lineHeight: DEFAULT_LINE_HEIGHT,
                 letterSpacing: 0,
-                backgroundColor: paintColor(text.background_color),
+                backgroundColor: paintColor(
+                    resolveBrandColor(text.background_color, kit),
+                ),
                 backgroundRadius: 0,
-                strokeColor: paintColor(text.stroke_color),
+                strokeColor: paintColor(
+                    resolveBrandColor(text.stroke_color, kit),
+                ),
                 strokeWidth: Math.max(0, numberOr(text.stroke_width, 0)),
             };
         }
@@ -254,8 +261,10 @@ function resolveElement(
                 ...base,
                 kind: 'shape',
                 shape: shape.shape,
-                fillColor: paintColor(shape.fill_color),
-                borderColor: paintColor(shape.border_color),
+                fillColor: paintColor(resolveBrandColor(shape.fill_color, kit)),
+                borderColor: paintColor(
+                    resolveBrandColor(shape.border_color, kit),
+                ),
                 borderWidth: Math.max(0, numberOr(shape.border_width, 0)),
                 cornerRadius: Math.max(0, numberOr(shape.corner_radius, 0)),
             };
@@ -345,6 +354,7 @@ function resolveSubtitle(
     const style = track.style ?? ({} as SubtitleTrack['style']);
     const uppercase = style.text_transform === 'uppercase';
     const scenes = project.scenes ?? [];
+    const kit = project.brand_kit ?? null;
 
     const words: ResolvedSubtitleWord[] = (entry.words ?? []).map((word) => {
         const startMs = mapTimelineMs(scenes, word.start_ms ?? 0, fps);
@@ -365,12 +375,17 @@ function resolveSubtitle(
         id: entry.id,
         text,
         words,
-        fontFamily: style.font_family ?? 'Arial, sans-serif',
+        fontFamily:
+            resolveBrandFont(style.font_family, kit) ?? 'Arial, sans-serif',
         fontSize: numberOr(style.font_size, 48),
-        color: style.font_color ?? '#ffffff',
-        highlightColor: paintColor(style.highlight_color),
-        backgroundColor: paintColor(style.background_color),
-        strokeColor: paintColor(style.stroke_color),
+        color: resolveBrandColor(style.font_color, kit) ?? '#ffffff',
+        highlightColor: paintColor(
+            resolveBrandColor(style.highlight_color, kit),
+        ),
+        backgroundColor: paintColor(
+            resolveBrandColor(style.background_color, kit),
+        ),
+        strokeColor: paintColor(resolveBrandColor(style.stroke_color, kit)),
         strokeWidth: Math.max(0, numberOr(style.stroke_width, 0)),
         position: style.position === 'top' ? 'top' : 'bottom',
         // Proportional margins keep captions in the same relative place at any

@@ -20,6 +20,7 @@
     import { Label } from '@/components/ui/label';
     import { Separator } from '@/components/ui/separator';
     import { Slider } from '@/components/ui/slider';
+    import { projectStore } from '@/lib/editor';
     import {
         clampVolume,
         elementTypeLabel,
@@ -28,9 +29,11 @@
         videoLayerContentEndMs,
     } from '@/lib/editor/clip-effects';
     import { formatSeconds, formatTimelineTime, parseTimelineTime } from '@/lib/editor/formatting';
+    import { BRAND_FONT_ROLES, brandToken, isBrandToken } from '@/lib/editor/model/brand';
     import type { LayerZMove } from '@/lib/editor/project.svelte';
     import type { Asset, ClipTiming, Layer, LayerAdjustments, ShapeKind } from '@/types';
     import AdjustControls from './AdjustControls.svelte';
+    import BrandColorInput from './BrandColorInput.svelte';
     import SpeedControl from './SpeedControl.svelte';
 
     /**
@@ -131,6 +134,8 @@
         if (element.type !== 'video') return null;
         return videoLayerContentEndMs(element, asset?.duration_ms);
     });
+
+    let brandKit = $derived(projectStore.project?.brand_kit ?? null);
 
     let hasFill = $derived(
         element.type === 'shape'
@@ -412,6 +417,20 @@
                     onchange={(e) => set('font_family', stringFrom(e))}
                     class="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
                 >
+                    {#if brandKit}
+                        <optgroup label="Brand">
+                            {#each BRAND_FONT_ROLES as role (role)}
+                                {#if brandKit.fonts?.[role]}
+                                    <option value={brandToken(role)} style:font-family={brandKit.fonts[role]}>
+                                        {role} · {brandKit.fonts[role]}
+                                    </option>
+                                {/if}
+                            {/each}
+                        </optgroup>
+                    {/if}
+                    {#if element.font_family && isBrandToken(element.font_family) && !brandKit}
+                        <option value={element.font_family}>{element.font_family}</option>
+                    {/if}
                     {#each FONT_FAMILIES as font (font.value)}
                         <option value={font.value} style:font-family={font.value}>{font.label}</option>
                     {/each}
@@ -425,15 +444,7 @@
                 </div>
                 <div>
                     <Label class="text-xs">Color</Label>
-                    <div class="flex gap-1">
-                        <input
-                            type="color"
-                            value={element.font_color}
-                            oninput={(e) => set('font_color', stringFrom(e))}
-                            class="h-8 w-8 rounded border cursor-pointer"
-                        />
-                        <Input value={element.font_color} oninput={(e) => set('font_color', stringFrom(e))} class="h-8 flex-1" />
-                    </div>
+                    <BrandColorInput value={element.font_color} onchange={(value) => set('font_color', value)} />
                 </div>
             </div>
 
@@ -472,17 +483,12 @@
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <Label class="text-xs">Background</Label>
-                    <div class="flex gap-1">
-                        <input
-                            type="color"
-                            value={(element.background_color ?? '#000000').slice(0, 7)}
-                            oninput={(e) => set('background_color', stringFrom(e))}
-                            class="h-8 w-8 rounded border cursor-pointer"
-                        />
-                        <Button variant="outline" size="sm" class="h-8 flex-1 text-xs" onclick={() => set('background_color', 'transparent')}>
-                            None
-                        </Button>
-                    </div>
+                    <BrandColorInput
+                        value={element.background_color}
+                        onchange={(value) => set('background_color', value)}
+                        allowNone
+                        placeholder="None"
+                    />
                 </div>
                 <div>
                     <Label class="text-xs">Padding</Label>
@@ -497,15 +503,7 @@
                 </div>
                 <div>
                     <Label class="text-xs">Stroke Color</Label>
-                    <div class="flex gap-1">
-                        <input
-                            type="color"
-                            value={element.stroke_color ?? '#000000'}
-                            oninput={(e) => set('stroke_color', stringFrom(e))}
-                            class="h-8 w-8 rounded border cursor-pointer"
-                        />
-                        <Input value={element.stroke_color ?? '#000000'} oninput={(e) => set('stroke_color', stringFrom(e))} class="h-8 flex-1" />
-                    </div>
+                    <BrandColorInput value={element.stroke_color ?? '#000000'} onchange={(value) => set('stroke_color', value)} />
                 </div>
             </div>
         {/if}
@@ -528,23 +526,12 @@
 
             <div>
                 <Label class="text-xs">Fill</Label>
-                <div class="flex gap-1">
-                    <input
-                        type="color"
-                        value={hasFill ? element.fill_color.slice(0, 7) : '#ffffff'}
-                        oninput={(e) => set('fill_color', stringFrom(e))}
-                        class="h-8 w-8 rounded border cursor-pointer"
-                    />
-                    <Input
-                        value={hasFill ? element.fill_color : ''}
-                        placeholder="None"
-                        oninput={(e) => set('fill_color', stringFrom(e))}
-                        class="h-8 flex-1"
-                    />
-                    <Button variant={hasFill ? 'outline' : 'default'} size="sm" class="h-8 text-xs" onclick={() => set('fill_color', 'transparent')}>
-                        None
-                    </Button>
-                </div>
+                <BrandColorInput
+                    value={hasFill ? element.fill_color : 'transparent'}
+                    onchange={(value) => set('fill_color', value)}
+                    allowNone
+                    placeholder="None"
+                />
             </div>
 
             <div class="grid grid-cols-2 gap-2">
@@ -554,15 +541,7 @@
                 </div>
                 <div>
                     <Label class="text-xs">Border Color</Label>
-                    <div class="flex gap-1">
-                        <input
-                            type="color"
-                            value={element.border_color ?? '#000000'}
-                            oninput={(e) => set('border_color', stringFrom(e))}
-                            class="h-8 w-8 rounded border cursor-pointer"
-                        />
-                        <Input value={element.border_color ?? '#000000'} oninput={(e) => set('border_color', stringFrom(e))} class="h-8 flex-1" />
-                    </div>
+                    <BrandColorInput value={element.border_color ?? '#000000'} onchange={(value) => set('border_color', value)} />
                 </div>
             </div>
 

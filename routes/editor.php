@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Editor\AssetController;
 use App\Http\Controllers\Editor\AssetStreamController;
+use App\Http\Controllers\Editor\BrandKitController;
 use App\Http\Controllers\Editor\GenerationController;
 use App\Http\Controllers\Editor\HeadlessRenderController;
 use App\Http\Controllers\Editor\ProjectController;
@@ -15,6 +16,12 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
     Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('editor.projects.show');
     Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('editor.projects.update');
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('editor.projects.destroy');
+
+    // Brand kits
+    Route::get('/brand-kits', [BrandKitController::class, 'index'])->name('editor.brand-kits.index');
+    Route::post('/brand-kits', [BrandKitController::class, 'store'])->name('editor.brand-kits.store');
+    Route::put('/brand-kits/{brandKit}', [BrandKitController::class, 'update'])->name('editor.brand-kits.update');
+    Route::delete('/brand-kits/{brandKit}', [BrandKitController::class, 'destroy'])->name('editor.brand-kits.destroy');
 
     // Assets
     Route::post('/projects/{project}/assets', [AssetController::class, 'store'])->name('editor.assets.store');

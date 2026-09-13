@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { Settings, Sparkles, Captions } from 'lucide-svelte';
+    import { Settings, Sparkles, Captions, ShieldCheck } from 'lucide-svelte';
     import { Button } from '@/components/ui/button';
-    import { selectionStore } from '@/lib/editor';
     import PipelinePanel from './PipelinePanel.svelte';
     import PropertiesPanel from './PropertiesPanel.svelte';
+    import ReadinessPanel from './ReadinessPanel.svelte';
     import SubtitlePanel from './SubtitlePanel.svelte';
 
-    let activeTab = $state<'properties' | 'generate' | 'subtitles'>('properties');
+    let activeTab = $state<'properties' | 'generate' | 'subtitles' | 'ready'>('properties');
 </script>
 
 <div class="flex w-[420px] max-w-4/12 flex-col border-l bg-background">
@@ -35,12 +35,22 @@
             <Captions class="mr-2 h-4 w-4" />
             Subtitles
         </Button>
+        <Button
+            variant={activeTab === 'ready' ? 'secondary' : 'ghost'}
+            class="flex-1 rounded-none"
+            onclick={() => (activeTab = 'ready')}
+        >
+            <ShieldCheck class="mr-2 h-4 w-4" />
+            Ready
+        </Button>
     </div>
 
     {#if activeTab === 'properties'}
         <PropertiesPanel />
     {:else if activeTab === 'generate'}
         <PipelinePanel />
+    {:else if activeTab === 'ready'}
+        <ReadinessPanel />
     {:else}
         <SubtitlePanel />
     {/if}

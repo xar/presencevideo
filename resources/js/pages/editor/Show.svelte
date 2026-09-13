@@ -14,9 +14,14 @@
     import VideoTracks from '@/components/editor/VideoTracks.svelte';
     import { projectStore, timelineStore, selectionStore, generationTracker } from '@/lib/editor';
     import { historyStore } from '@/lib/editor/history.svelte';
-    import type { Project, Generation } from '@/types';
+    import type { Project, Generation, BrandKit } from '@/types';
 
-    let { project, activeGenerations = [] }: { project: Project; activeGenerations?: Generation[] } = $props();
+    let {
+        project,
+        activeGenerations = [],
+        brandKits = [],
+    }: { project: Project; activeGenerations?: Generation[]; brandKits?: BrandKit[] } = $props();
+
 
     let jsonEditorOpen = $state(false);
     let shortcutsOpen = $state(false);
@@ -288,7 +293,7 @@
 <AppHead title={project.name} />
 
 <div class="flex h-screen flex-col bg-background">
-    <EditorToolbar bind:jsonEditorOpen bind:shortcutsOpen />
+    <EditorToolbar bind:jsonEditorOpen bind:shortcutsOpen {brandKits} />
 
     <div class="flex flex-1 overflow-hidden">
         <AssetPanel />

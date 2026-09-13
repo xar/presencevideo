@@ -103,7 +103,7 @@ page.form = pageForm
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-export const asset = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const asset = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: asset.url(args, options),
     method: 'get',
 })
@@ -118,7 +118,7 @@ asset.definition = {
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-asset.url = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions) => {
+asset.url = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             token: args[0],
@@ -146,7 +146,7 @@ asset.url = (args: { token: string | number, asset: number | { id: number } } | 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-asset.get = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+asset.get = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: asset.url(args, options),
     method: 'get',
 })
@@ -156,7 +156,7 @@ asset.get = (args: { token: string | number, asset: number | { id: number } } | 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-asset.head = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+asset.head = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: asset.url(args, options),
     method: 'head',
 })
@@ -166,7 +166,7 @@ asset.head = (args: { token: string | number, asset: number | { id: number } } |
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-const assetForm = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const assetForm = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: asset.url(args, options),
     method: 'get',
 })
@@ -176,7 +176,7 @@ const assetForm = (args: { token: string | number, asset: number | { id: number 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-assetForm.get = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+assetForm.get = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: asset.url(args, options),
     method: 'get',
 })
@@ -186,7 +186,7 @@ assetForm.get = (args: { token: string | number, asset: number | { id: number } 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:43
 * @route '/editor/headless/{token}/assets/{asset}'
 */
-assetForm.head = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+assetForm.head = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: asset.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -203,7 +203,7 @@ asset.form = assetForm
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-export const thumbnail = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const thumbnail = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: thumbnail.url(args, options),
     method: 'get',
 })
@@ -218,7 +218,7 @@ thumbnail.definition = {
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-thumbnail.url = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions) => {
+thumbnail.url = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             token: args[0],
@@ -246,7 +246,7 @@ thumbnail.url = (args: { token: string | number, asset: number | { id: number } 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-thumbnail.get = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+thumbnail.get = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: thumbnail.url(args, options),
     method: 'get',
 })
@@ -256,7 +256,7 @@ thumbnail.get = (args: { token: string | number, asset: number | { id: number } 
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-thumbnail.head = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+thumbnail.head = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: thumbnail.url(args, options),
     method: 'head',
 })
@@ -266,7 +266,7 @@ thumbnail.head = (args: { token: string | number, asset: number | { id: number }
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-const thumbnailForm = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const thumbnailForm = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, options),
     method: 'get',
 })
@@ -276,7 +276,7 @@ const thumbnailForm = (args: { token: string | number, asset: number | { id: num
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-thumbnailForm.get = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+thumbnailForm.get = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, options),
     method: 'get',
 })
@@ -286,7 +286,7 @@ thumbnailForm.get = (args: { token: string | number, asset: number | { id: numbe
 * @see app/Http/Controllers/Editor/HeadlessRenderController.php:65
 * @route '/editor/headless/{token}/assets/{asset}/thumbnail'
 */
-thumbnailForm.head = (args: { token: string | number, asset: number | { id: number } } | [token: string | number, asset: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+thumbnailForm.head = (args: { token: string | number, asset: string | number | { id: string | number } } | [token: string | number, asset: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: thumbnail.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',

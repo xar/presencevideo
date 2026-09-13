@@ -15,10 +15,93 @@ export type Project = {
     video_tracks: VideoTrack[];
     subtitle_tracks: SubtitleTrack[];
     status: ProjectStatus;
+    /** The brand kit this project is styled with; `brand.*` tokens resolve against it. */
+    brand_kit_id?: number | null;
+    /** Loaded alongside the project so token resolution never needs a fetch. */
+    brand_kit?: BrandKit | null;
     created_at: string;
     updated_at: string;
     assets?: Asset[];
 };
+
+// Brand Kit Types
+/**
+ * Colour roles a brand kit defines. Elements reference them as `brand.<role>`
+ * tokens (e.g. `font_color: "brand.primary"`) so swapping the kit restyles the
+ * whole project; resolution happens in `resolveFrame()`, never in storage.
+ */
+export type BrandColorRole =
+    | 'primary'
+    | 'secondary'
+    | 'accent'
+    | 'background'
+    | 'text'
+    | 'caption_highlight';
+
+export type BrandFontRole = 'display' | 'body' | 'caption';
+
+export type BrandColors = Partial<Record<BrandColorRole, string>>;
+
+/** CSS font-family stacks per role; `brand.display` etc. resolve to these. */
+export type BrandFonts = Partial<Record<BrandFontRole, string>>;
+
+export type BrandLogos = {
+    /** Full wordmark. */
+    full?: number | null;
+    /** Compact mark for small placements. */
+    mark?: number | null;
+    /** Variants for light / dark backgrounds. */
+    light?: number | null;
+    dark?: number | null;
+};
+
+export type BrandWatermark = {
+    asset_id?: number | null;
+    position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    /** 0..1 */
+    opacity?: number;
+    /** Fraction of canvas width, 0..1. */
+    size?: number;
+};
+
+export type BrandVoice = {
+    model_id?: string | null;
+    voice_id?: string | null;
+};
+
+export type BrandMusic = {
+    mood?: string | null;
+    asset_ids?: number[];
+};
+
+export type BrandKit = {
+    id: number;
+    user_id: number;
+    name: string;
+    colors: BrandColors;
+    fonts: BrandFonts;
+    logos: BrandLogos;
+    watermark: BrandWatermark | null;
+    intro_asset_id: number | null;
+    outro_asset_id: number | null;
+    voice: BrandVoice | null;
+    music: BrandMusic | null;
+    caption_preset: string | null;
+    motion_preset: string | null;
+    tone: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Prefix every brand token carries, e.g. `brand.primary`, `brand.display`. */
+export const BRAND_TOKEN_PREFIX = 'brand.';
+
+/**
+ * What a brand-aware element is FOR. Lint uses it to check that a logo is
+ * present, large enough and outside the platform safe zone; the compositor
+ * ignores it.
+ */
+export type BrandRole = 'logo' | 'watermark' | 'intro' | 'outro';
 
 // Transition Types
 /** Every value maps 1:1 to an ffmpeg `xfade` transition name. */
@@ -91,6 +174,8 @@ export type BaseLayer = {
      * element when it is moved or retimed.
      */
     keyframes?: KeyframeTracks;
+    /** Marks an element placed on behalf of the brand kit (logo, watermark…). */
+    brand_role?: BrandRole;
 };
 
 /**

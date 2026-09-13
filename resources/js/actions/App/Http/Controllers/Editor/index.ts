@@ -1,4 +1,5 @@
 import ProjectController from './ProjectController'
+import BrandKitController from './BrandKitController'
 import AssetController from './AssetController'
 import AssetStreamController from './AssetStreamController'
 import GenerationController from './GenerationController'
@@ -7,6 +8,7 @@ import HeadlessRenderController from './HeadlessRenderController'
 
 const Editor = {
     ProjectController: Object.assign(ProjectController, ProjectController),
+    BrandKitController: Object.assign(BrandKitController, BrandKitController),
     AssetController: Object.assign(AssetController, AssetController),
     AssetStreamController: Object.assign(AssetStreamController, AssetStreamController),
     GenerationController: Object.assign(GenerationController, GenerationController),

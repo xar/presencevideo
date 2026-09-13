@@ -6,6 +6,7 @@ use App\Enums\TransitionType;
 use App\Models\Asset;
 use App\Models\Project;
 use App\Services\Subtitles\AssSubtitleBuilder;
+use App\Support\BrandTokens;
 use App\Video\Composition\KeyframeFlattener;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -58,6 +59,11 @@ class FFmpegService
      */
     public function renderScene(Project $project, array $scene): string
     {
+        // Brand tokens (`brand.primary`, `brand.display`) are resolved here, at
+        // render time, mirroring what `resolveFrame()` does on the headless path;
+        // the stored scene keeps its tokens so swapping the kit restyles it.
+        $scene = BrandTokens::resolveScene($scene, $project->brandKit);
+
         // The filename must be unique per *render*, not per scene: two concurrent
         // renders of the same project would otherwise write to the same path and
         // corrupt each other's intermediates.
@@ -1948,6 +1954,8 @@ class FFmpegService
      */
     public function burnSubtitles(string $inputPath, array $subtitleTracks, Project $project): string
     {
+        $subtitleTracks = BrandTokens::resolveSubtitleTracks($subtitleTracks, $project->brandKit);
+
         $assContent = (new AssSubtitleBuilder)->build(
             $this->shiftSubtitleTracks($subtitleTracks, $project->scenes ?? [], $project->fps),
             $project->resolution_width,

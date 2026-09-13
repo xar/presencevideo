@@ -114,7 +114,7 @@ case "$CONTAINER_MODE" in
         log "Starting queue worker..."
 
         QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-        QUEUE_NAME=${QUEUE_NAME:-default,renders,generations}
+        QUEUE_NAME=${QUEUE_NAME:-default,agents,renders,generations}
         QUEUE_TIMEOUT=${QUEUE_TIMEOUT:-900}
         QUEUE_TRIES=${QUEUE_TRIES:-3}
         QUEUE_MAX_JOBS=${QUEUE_MAX_JOBS:-1000}

@@ -34,9 +34,9 @@ return [
             'note' => 'Use only when there is no source image; otherwise generate a still first and use image_to_video.',
         ],
         'image_to_video' => [
-            'primary' => 'lightricks/ltx-2.5/image-to-video/fast',
-            'alternatives' => ['alibaba/wan-3.0-prime/image-to-video'],
-            'note' => 'LTX fast is the default for speed and cost; Wan 3.0 Prime for hero shots needing stronger motion fidelity.',
+            'primary' => 'minimax/h3-max/image-to-video',
+            'alternatives' => ['minimax/h3-max-turbo/image-to-video', 'lightricks/ltx-2.5/image-to-video/fast'],
+            'note' => 'H3 Max is the house default for motion and prompt adherence; H3 Max Turbo when throughput matters more than fidelity, LTX fast only for throwaway drafts.',
         ],
         'text_to_speech' => [
             'primary' => 'fal-ai/minimax/speech-2.8-turbo',
@@ -57,6 +57,32 @@ return [
             'primary' => 'fal-ai/wizper',
             'alternatives' => [],
             'note' => 'Only transcription model wired up; used for subtitles.',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Draft generations
+    |--------------------------------------------------------------------------
+    |
+    | Agent-queued generations run at the cheapest resolution the chosen model
+    | offers, so iterating on a script, a composition or a bug does not cost
+    | full-quality generations. The model itself is NOT swapped: a draft is the
+    | same model, same prompt and same duration as the final, only smaller, so
+    | approving a draft and re-running it at full quality is a like-for-like
+    | upgrade (see the regenerate_at_full_quality tool).
+    |
+    | `parameter_ladders` maps a model input to the values worth trying, cheapest
+    | first. A ladder value is only sent when the model's own schema exposes that
+    | parameter and offers the value, so a model without the knob is untouched.
+    |
+    */
+
+    'draft_generations' => [
+        'enabled' => env('AGENT_DRAFT_GENERATIONS', true),
+        'parameter_ladders' => [
+            'resolution' => ['360p', '480p', '512p', '540p', '576p', '580p', '720p', '768p'],
+            'quality' => ['low', 'medium', 'standard'],
         ],
     ],
 
@@ -88,12 +114,26 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Templates
+    |--------------------------------------------------------------------------
+    |
+    | `recipe` names the deterministic TypeScript recipe (see
+    | resources/js/lib/editor/model/recipes) ComposerAgent applies for the
+    | template, and `brand_slots` lists which brand kit slots that recipe
+    | consumes so the producer can tell the user what is missing up front.
+    |
+    */
+
     'templates' => [
         'general_video' => [
             'name' => 'General Video',
             'quality_preset' => 'medium',
             'aspect_ratio' => '9:16',
             'duration_seconds' => 20,
+            'recipe' => 'tiktok-hook-body-cta',
+            'brand_slots' => ['colors', 'fonts', 'logo'],
             'structure' => [
                 'Clarify the goal and audience.',
                 'Create a clear hook, 3-5 visual beats, and a concise ending.',
@@ -106,6 +146,8 @@ return [
             'quality_preset' => 'medium',
             'aspect_ratio' => '9:16',
             'duration_seconds' => 25,
+            'recipe' => 'tiktok-talking-caption',
+            'brand_slots' => ['colors', 'fonts', 'logo', 'outro', 'voice'],
             'structure' => [
                 'Hook with a relatable problem in the first 2 seconds.',
                 'Show product or offer as the simple solution.',
@@ -119,6 +161,8 @@ return [
             'quality_preset' => 'high',
             'aspect_ratio' => '9:16',
             'duration_seconds' => 45,
+            'recipe' => 'tiktok-hook-body-cta',
+            'brand_slots' => ['fonts', 'music'],
             'structure' => [
                 'Open with conflict or mystery immediately.',
                 'Build 4-6 cinematic beats with escalating emotion.',
@@ -132,6 +176,8 @@ return [
             'quality_preset' => 'medium',
             'aspect_ratio' => '9:16',
             'duration_seconds' => 35,
+            'recipe' => 'tiktok-listicle',
+            'brand_slots' => ['colors', 'fonts', 'logo', 'voice'],
             'structure' => [
                 'Start with the learning promise or misconception.',
                 'Explain 3 concise teaching points with clear visual examples.',

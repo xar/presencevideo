@@ -113,7 +113,7 @@ class RunGeneration implements ShouldQueue
             'finished_at' => now(),
         ]);
 
-        AgentActivityUpdated::dispatch($activity);
+        AgentActivityUpdated::dispatchQuietly($activity);
     }
 
     protected function continueAgentConversation(string $status, ?int $assetId = null): void

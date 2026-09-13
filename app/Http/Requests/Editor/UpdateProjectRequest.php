@@ -24,6 +24,9 @@ class UpdateProjectRequest extends FormRequest
             'resolution_width' => ['sometimes', 'integer', 'min:100', 'max:7680'],
             'resolution_height' => ['sometimes', 'integer', 'min:100', 'max:7680'],
             'fps' => ['sometimes', 'integer', 'min:1', 'max:120'],
+            // Only the user's own kits may style a project; the id is nullable
+            // so the editor can detach a kit again.
+            'brand_kit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('brand_kits', 'id')->where('user_id', $this->user()?->id)],
             'scenes' => ['sometimes', 'array'],
             'scenes.*.id' => ['required_with:scenes', 'string', 'uuid'],
             // Scenes are becoming a derived view over absolute element timing,

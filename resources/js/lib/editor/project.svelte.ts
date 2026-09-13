@@ -13,6 +13,7 @@ import type {
     SubtitleTrack,
     SubtitleEntry,
     Asset,
+    BrandKit,
 } from '@/types';
 import {
     normalizeAudioClip,
@@ -34,6 +35,12 @@ export type ProjectStore = {
     setProject: (project: Project) => void;
     syncAssets: (assets: Asset[]) => void;
     updateProject: (updates: Partial<Project>) => void;
+    /**
+     * Attach (or detach, with null) a brand kit. Sets both `brand_kit_id` (what
+     * is saved) and `brand_kit` (what `resolveFrame()` resolves tokens against)
+     * so the canvas restyles immediately.
+     */
+    setBrandKit: (kit: BrandKit | null) => void;
     addScene: (scene?: Partial<Scene>) => Scene;
     updateScene: (sceneId: string, updates: Partial<Scene>) => void;
     deleteScene: (sceneId: string) => void;
@@ -169,6 +176,15 @@ function updateProject(updates: Partial<Project>): void {
 
     beforeMutate();
     Object.assign(project, updates);
+    markDirty();
+}
+
+function setBrandKit(kit: BrandKit | null): void {
+    if (!project) return;
+
+    beforeMutate();
+    project.brand_kit_id = kit?.id ?? null;
+    project.brand_kit = kit;
     markDirty();
 }
 
@@ -800,6 +816,7 @@ async function save(): Promise<void> {
                 resolution_width: project!.resolution_width,
                 resolution_height: project!.resolution_height,
                 fps: project!.fps,
+                brand_kit_id: project!.brand_kit_id ?? null,
                 // Inertia's FormDataConvertible cannot express a readonly tuple,
                 // which is what a cubic-bezier easing on a keyframe is. The
                 // payload is JSON either way, so the cast buys back the nested
@@ -878,6 +895,7 @@ export function createProjectStore(): ProjectStore {
         setProject,
         syncAssets,
         updateProject,
+        setBrandKit,
         addScene,
         updateScene,
         deleteScene,

@@ -11,7 +11,48 @@ class VideoTemplateInstructions
     {
         $config = config('agent_video_templates');
 
-        return self::renderPreferredModels($config)."\n\n".self::renderQualityPresets($config)."\n\n".self::renderVideoTemplates($config)."\n\n".self::renderLockedModelPlanRules();
+        return self::renderPreferredModels($config)."\n\n".self::renderDraftGenerations($config)."\n\n".self::renderQualityPresets($config)."\n\n".self::renderVideoTemplates($config)."\n\n".self::renderRecipeMap($config)."\n\n".self::renderLockedModelPlanRules();
+    }
+
+    /**
+     * Template pacing and recipe hints for the scriptwriter.
+     */
+    public static function forScriptAgent(): string
+    {
+        $config = config('agent_video_templates');
+        $lines = ['Template pacing (use the template the brief names; default '.($config['default_template'] ?? 'general_video').'):'];
+
+        foreach ($config['templates'] ?? [] as $key => $template) {
+            $lines[] = "- {$key} ({$template['name']}): ~{$template['duration_seconds']}s, recipe ".($template['recipe'] ?? 'none').'. '.implode(' ', $template['structure'] ?? []);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Recipe and brand slot map for the compositor.
+     */
+    public static function forComposerAgent(): string
+    {
+        return self::renderRecipeMap(config('agent_video_templates'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    protected static function renderRecipeMap(array $config): string
+    {
+        $lines = [
+            'Template to recipe map:',
+            '- Apply the recipe named for the template unless the brief names another recipe from list_video_recipes.',
+            '- brand_slots lists the brand kit slots the recipe consumes; a kit missing one of them still works, the slot is simply skipped.',
+        ];
+
+        foreach ($config['templates'] ?? [] as $key => $template) {
+            $lines[] = "- {$key}: recipe ".($template['recipe'] ?? 'none').', brand_slots '.implode(', ', $template['brand_slots'] ?? []).'.';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -28,7 +69,9 @@ Locked model plan enforcement:
 - Preserve the template key, quality preset, selected model_id values, and model rationale in your tool calls and status summaries.
 INSTRUCTIONS;
 
-        return $instructions."\n\n".self::renderPreferredModels(config('agent_video_templates'));
+        $config = config('agent_video_templates');
+
+        return $instructions."\n\n".self::renderPreferredModels($config)."\n\n".self::renderDraftGenerations($config);
     }
 
     /**
@@ -72,6 +115,31 @@ INSTRUCTIONS;
     }
 
     /**
+     * Explain the draft tier: what it changes, and how to get the full version.
+     *
+     * Quality presets choose a MODEL; the draft tier only caps the resolution of
+     * whichever model was chosen, so the two are independent and the agent has
+     * to be told not to confuse them.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    protected static function renderDraftGenerations(array $config): string
+    {
+        if (! ($config['draft_generations']['enabled'] ?? false)) {
+            return 'Draft generations: disabled. Every generation runs at the model\'s full quality, so queue deliberately.';
+        }
+
+        return implode("\n", [
+            'Draft generations (enabled):',
+            '- Every generation queued through generate_fal_asset is a DRAFT by default: the same model, prompt, duration and aspect ratio, run at the cheapest resolution that model offers.',
+            '- This is independent of the quality preset. The preset picks the model; the draft tier only caps its resolution, so a draft is a faithful cheap preview of the final shot.',
+            '- Treat drafts as the normal way to iterate: scripts, compositions and fixes all cost a fraction this way.',
+            '- Show drafts to the user and ask which shots are keepers. Once a shot is approved, call regenerate_at_full_quality with its generation_id to get the full-resolution version, then swap in the new output_asset_id.',
+            '- Pass quality_tier="final" to generate_fal_asset only when the user explicitly asks for full quality up front.',
+        ]);
+    }
+
+    /**
      * @param  array<string, mixed>  $config
      */
     protected static function renderQualityPresets(array $config): string
@@ -104,7 +172,8 @@ INSTRUCTIONS;
             'Video template system:',
             "- Default template: {$defaultTemplate}.",
             '- Infer the best template from the user request when obvious; otherwise ask one concise question or use the default.',
-            '- When delegating to CreatorAgent, include template_key, quality_preset, aspect_ratio, duration_seconds, locked_model_plan, and scene structure.',
+            '- When delegating to CreatorAgent, include template_key, quality_preset, aspect_ratio, duration_seconds, locked_model_plan, and the beats.',
+            '- When delegating to ComposerAgent, include template_key (it maps to a recipe), brand_kit_id, and the beats with their asset ids.',
         ];
 
         foreach ($config['templates'] ?? [] as $key => $template) {

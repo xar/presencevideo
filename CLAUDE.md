@@ -14,6 +14,9 @@ AI-powered video editor application built with Laravel 12, Inertia.js v2, and Sv
 - Drag-and-drop elements with resize handles, snapping and undo per gesture
 - Multi-track audio on a Web Audio master clock
 - Browser export (WebCodecs) and legacy FFmpeg server-side rendering
+- Brand kits: colour/font tokens resolved at render time, lint-enforced compliance
+- Agent crew (producer, script, creator, composer, reviewer) that builds
+  projects from recipes and patches them until `lintProject()` passes
 
 ## Development Commands
 
@@ -25,6 +28,7 @@ composer run dev
 php artisan test --compact
 npm test              # Vitest: model, compositor, stores, hooks — all headless
 npm run check         # svelte-check; expected to be 0 errors
+npm run build:model-cli   # esbuild bundle the agents call for lint/recipes (see "Model CLI")
 
 # Run specific test file or filter
 php artisan test --compact --filter=AuthenticationTest
@@ -58,14 +62,103 @@ npm run build
   - `Asset` - uploaded/generated media files with metadata
   - `Generation` - AI generation requests (text-to-image, image-to-video, etc.)
   - `Render` - FFmpeg render jobs with progress tracking
+  - `BrandKit` - colour roles, font roles, logos, watermark, intro/outro, voice,
+    music, tone. `projects.brand_kit_id` attaches one. Serialised shape must
+    equal the TS `BrandKit` type exactly (nulls included).
 - **Enums**: `app/Enums/` - AssetType, AssetSource, GenerationType, GenerationStatus, ProjectStatus, RenderStatus
 - **Services**:
   - `FalAIService` - fal.ai API integration for AI generation
   - `FalAI/FalClient` - Low-level HTTP client for fal.ai queue API
   - `FalAI/ModelConfig` - Model configurations with parameters and defaults
   - `FFmpegService` - Video rendering, concatenation, audio mixing
+  - `ModelCliService` - runs the TS model (lint, recipes) under Node for the agents
+  - `Support/BrandTokens` - PHP half of brand-token resolution (legacy ffmpeg path only)
 - **Jobs**: `ProcessAssetUpload`, `RunGeneration`, `RenderProject` (queued)
-- **Policies**: `ProjectPolicy`, `AssetPolicy` for authorization
+- **Policies**: `ProjectPolicy`, `AssetPolicy`, `BrandKitPolicy` for authorization
+
+### Agent crew (`app/Ai/`)
+
+Chat runs a crew of laravel/ai agents, each a narrow tool set with a typed hand-off:
+
+```
+GenericAgent (PRODUCER: routes only, never touches assets)
+  -> script_agent    brief + brand tone -> beats JSON (RecipeBeat[]), structured output
+  -> creator_agent   media generation (fal), one generate call per beat, parallel
+  -> composer_agent  apply_video_recipe / patch_video_project / lint_video_project loop
+  -> reviewer_agent  scored list of concrete patch ops (structured output), max 2 rounds
+  -> render (creator_agent: render_video_project / get_render_status)
+```
+
+- **Composition goes through recipes and patches, not one giant JSON.**
+  `compose_video_project` still exists for legacy flows; new work uses
+  `apply_video_recipe` (template as code) then `patch_video_project`
+  (`App\Ai\Composition\ProjectPatcher`, pure, unit-tested operations:
+  `set_project`, `set_scene`, `add_scene`, `remove_scene`, `add_element`,
+  `update_element`, `remove_element`, `set_subtitle_style`,
+  `add_subtitle_entries`, `add_audio_clip`).
+- **Lint is the definition of done.** The composer patches until
+  `lint_video_project` has zero errors and score >= 80. It is the same
+  `lintProject()` the editor's Ready tab shows; never write a PHP copy.
+- **Model CLI.** `resources/js/headless/model-cli.ts` is bundled by esbuild to
+  `resources/js/headless/dist/model-cli.mjs` (gitignored; `npm run build`
+  builds it first). One JSON request on stdin, one JSON line on stdout, ops:
+  `lint`, `apply_recipe`, `list_recipes`, `validate_brand_kit`. Path in
+  `config('render.model_cli.bundle_path')`. This is how PHP runs TS model code
+  without a second implementation — extend it rather than porting to PHP.
+- **Templates** in `config/agent_video_templates.php` map to a `recipe` id and
+  list `brand_slots`; prose there is guidance, the recipe is the structure.
+- **Vision reviewer is not built.** laravel/ai accepts image attachments on
+  `prompt()` only, not in tool results, so a contact-sheet review must be a
+  direct prompt from PHP, not a tool return.
+- Tests: `tests/Feature/AgentCrewTest.php` (tool wiring + instructions),
+  `tests/Unit/ProjectPatcherTest.php`, `tests/Feature/ModelCliServiceTest.php`
+  (runs the real bundle; builds it if missing).
+
+### Chat streaming — the websocket is NOT the source of truth
+
+Chat used to lose messages because Reverb was the only path the output ever
+took. Reverb and SSE are equally lossy — neither replays — so durability comes
+from making the run *resumable*, not from the transport.
+
+```
+POST /agent/messages/send   ONE round trip: creates the agent_invocations row,
+                            THEN dispatches. (Two calls meant the client had to
+                            subscribe in the gap, and anything emitted first was
+                            gone. Never split this again.)
+App\Jobs\RunAgentInvocation persists each event to the row, THEN broadcasts
+GET  …/{conversation}/state the client re-reads the row whenever it may have
+                            missed events — reconnect, tab focus, watchdog,
+                            failed subscribe
+```
+
+- **`agent_invocations` is the source of truth**, not the socket. `partial_text`
+  and `last_seq` are written together in one row update, so they are always
+  coherent: events with `seq > last_seq` are exactly the ones not yet in
+  `partial_text`. Reconcile takes whichever side is further along, except a
+  terminal record which always wins.
+- `RunAgentInvocation` runs on the **`agents`** queue. Worker command lines must
+  list it (`composer run dev`, `QUEUE_NAME`) or chat silently never answers.
+- **`tries` is 1 and must stay 1.** The producer agent dispatches billable,
+  externally visible side effects (fal.ai generations, renders); replaying a
+  half-finished run would duplicate them. Recovery is by sweeping, never by
+  retrying. Its `timeout` sits below the worker `--timeout` (so `failed()` gets
+  to mark the row) and below `retry_after`. A test pins both.
+- **A killed worker never runs `failed()`.** `agent:sweep-invocations` (scheduled
+  every minute) is the only thing that unsticks those clients — the scheduler
+  container is load-bearing for chat, not just for renders.
+- **Broadcasting must never fail the work.** Everything broadcast is already
+  persisted, so send it through `QuietBroadcast::attempt()` /
+  `AgentActivityUpdated::dispatchQuietly()`. `AgentActivityUpdated` stays
+  `ShouldBroadcastNow` on purpose: it is dispatched from inside long queued
+  work, and queueing it would hold it behind the very job that produced it.
+- Every send carries an **idempotency key**, so the client can retry a POST
+  whose response was lost without starting a second agent run.
+- The pure reduction of events and server state lives in
+  `resources/js/lib/agent/stream-state.ts` (unit-tested). Live events and a
+  reconcile reduce through the SAME functions — that is why a reconnect and a
+  delta can never disagree about what is on screen. Transport wiring is in
+  `stream-client.ts`; it reports a failed subscription honestly rather than
+  resolving on a timeout, which is how events used to vanish unnoticed.
 
 ### Server render pipeline — rules that are easy to break
 
@@ -153,6 +246,21 @@ Project (stored)
     Presets generate ordinary keyframes; they stay hand-editable.
   - `text-layout.ts` — shared wrap/align/fit. The reason text no longer differs
     between preview and render.
+  - `brand.ts` — brand TOKEN resolution (`brand.primary`, `brand.display`).
+    Tokens stay in storage; `resolveFrame()` resolves them inline on every
+    colour/font read, so swapping the kit restyles the project. Unresolvable
+    tokens fall back to `#ffffff` / `Arial, sans-serif`, literals pass through.
+  - `lint.ts` + `lint-profiles.ts` — `lintProject(project, { profile })`, pure.
+    Profiles `tiktok | reels | shorts | generic`; safe zones are canvas
+    FRACTIONS so any resolution works. Score = 100 - 20·errors - 7·warnings
+    - 2·infos. Consumed by `ReadinessPanel.svelte` (Ready tab) and by the agents
+    through the model CLI — one implementation, two consumers.
+  - `recipes/` — templates as code. `applyRecipe(id, { beats, canvas, fps,
+    brand })` returns a composition; each recipe declares `slots` and
+    `validateBrandKitForRecipe()` reports what a kit is missing. Every recipe
+    MUST lint with zero errors and zero safe-zone warnings at 1080x1920 (tested).
+    Output ids are deterministic strings; the PHP tool re-ids them to UUIDs and
+    rewrites `track_id` references.
 - **Compositor** (`resources/js/lib/editor/compositor/`): `drawFrame`, plus
   `transitions.ts`, `subtitles.ts` and the extracted pure maths in `geometry.ts`
   (fit rects) and `color-eq.ts` (ffmpeg `eq` in YUV, NOT the CSS filter equivalent —
@@ -185,6 +293,11 @@ Project (stored)
   - `selectors.ts` - `getTotalDurationMs`, `getSceneStartsMs`, … Use these; do NOT
     re-derive scene starts with a prefix sum (that mistake existed in 7 places once).
 - **Gesture hooks**: `usePointerGesture` (core) → `useTimelineGesture` (move/trim any timeline block) and `useDragResize` (canvas move/resize). Never attach mousemove/mouseup listeners in components.
+- **Brand UI**: `BrandKitPicker.svelte` (toolbar, PUTs `brand_kit_id`),
+  `BrandColorInput.svelte` (every inspector colour field: native picker plus a
+  token select when the project has a kit), `pages/brand-kits/Index.svelte`
+  (kit CRUD). `BaseLayer.brand_role` (`logo | watermark | intro | outro`) is
+  read by lint only; the compositor ignores it.
 - **Limits and flags**: `editor-features.ts` is the ONLY place for feature flags,
   media limits and decode sizing policy. Do not inline a constant elsewhere.
 - **Frontend tests**: `npm test` (Vitest, `resources/js/**/*.test.ts`); stores, hooks,
@@ -296,6 +409,12 @@ Models are configured in `app/Services/FalAI/ModelConfig.php`:
   seven copies of the scene prefix sum, and two copies of the audio decoder.
 - Anything that could make the preview and the export disagree belongs in a
   shared pure function, not in two places that "should" match.
+- Colour and font fields may hold a `brand.<role>` token. Never write a
+  resolved literal back into storage on behalf of a token, and never validate
+  those fields as strict hex.
+- "Production-ready" has an objective definition here: `lintProject()` under
+  the target platform profile. New platform rules go into `lint.ts`, not into
+  agent prose or a component.
 
 <laravel-boost-guidelines>
 === foundation rules ===
@@ -306,31 +425,11 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 
 ## Foundational Context
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+This application is a Laravel application running on PHP 8.4. You are an expert with the Laravel ecosystem. Always use the APIs that match the installed major version of each package — do not assume a version.
 
-- php - 8.4
-- inertiajs/inertia-laravel (INERTIA_LARAVEL) - v2
-- laravel/ai (AI) - v0
-- laravel/fortify (FORTIFY) - v1
-- laravel/framework (LARAVEL) - v12
-- laravel/octane (OCTANE) - v2
-- laravel/prompts (PROMPTS) - v0
-- laravel/reverb (REVERB) - v1
-- laravel/telescope (TELESCOPE) - v5
-- laravel/wayfinder (WAYFINDER) - v0
-- laravel/boost (BOOST) - v2
-- laravel/mcp (MCP) - v0
-- laravel/pail (PAIL) - v1
-- laravel/pint (PINT) - v1
-- laravel/sail (SAIL) - v1
-- pestphp/pest (PEST) - v4
-- phpunit/phpunit (PHPUNIT) - v12
-- @inertiajs/svelte (INERTIA_SVELTE) - v2
-- tailwindcss (TAILWINDCSS) - v4
-- @laravel/vite-plugin-wayfinder (WAYFINDER_VITE) - v0
-- eslint (ESLINT) - v9
-- laravel-echo (ECHO) - v2
-- prettier (PRETTIER) - v3
+Before relying on a package's API, confirm its installed version:
+- PHP packages: run `composer show --direct` to list direct dependencies with versions, or `composer show <vendor/package>` for a single package.
+- JS packages: check `package.json` for the installed versions.
 
 ## Skills Activation
 
@@ -377,7 +476,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Searching Documentation (IMPORTANT)
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
+- Use `search-docs` before changes that depend on Laravel ecosystem APIs, behavior, configuration, or version-specific syntax. Skip it for copy-only edits and other changes where package documentation is irrelevant. Reuse sufficient results already in context instead of searching again.
 - Pass a `packages` array to scope results when you know which packages are relevant.
 - Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
 - Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
@@ -388,6 +487,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
 3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
 4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
+
+## Project Rules
+
+- This project contains committed, area-grouped rules in `.ai/rules` when that directory exists (settled decisions, non-obvious traps, standing constraints). Framework and package guidelines that only apply to specific paths (testing, frontend, components) also live there, under `.ai/rules/boost` — this is not just recorded decisions, it is load-bearing guidance you have not seen inline. Before you enter plan mode or create/edit any file, you MUST first: open @.ai/rules/index.md (it maps file globs to rule files), read every rule file whose globs cover the path(s) in scope, and run `grep -rin 'keyword' .ai/rules` to catch what a path match alone misses. Do not write code until you have read and are following every matching rule. If `.ai/rules` does not exist, continue without it.
+- Record a rule with `record-rule` only when the user explicitly asks for one. Instructions for the work at hand are not rules, no matter how emphatic: "remove this typo", "use X here" are work to do, not rules to record. Never record a rule on your own initiative, as a byproduct of a change, or to summarize what you just did. When the user does ask, pass a `glob` (e.g. `app/Http/Controllers/**`), a short `title`, and a few-line `note`. Use `record-rule` rather than your native memory or notes tool, because native memory is personal and session-scoped, while only `.ai/rules` is shared with the team and persists in the repo.
 
 ## Artisan
 
@@ -417,6 +521,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Deployment
 
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
+- Activate the `deploying-to-cloud` skill whenever deploying to Laravel Cloud, configuring Cloud environments or resources, using the Cloud CLI, or troubleshooting Cloud deployments.
 
 === herd rules ===
 
@@ -429,8 +534,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 # Test Enforcement
 
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+- Add or update tests for behavior and logic changes when a test provides meaningful regression coverage.
+- Pure copy, styling, and layout-only changes do not require new or updated tests.
+- When test coverage applies, run the affected tests and ensure they pass.
+- Test the changed behavior and its important failure modes, but do not add tests beyond them.
+- Read the `testing-best-practices` skill before writing tests.
 
 === inertia-laravel/core rules ===
 
@@ -496,29 +604,24 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 ## Database
 
 - When modifying a column, the migration must include all of the attributes that were previously defined on the column. Otherwise, they will be dropped and lost.
+
 - Laravel 12 allows limiting eagerly loaded records natively, without external packages: `$query->latest()->limit(10);`.
 
 ### Models
 
 - Casts can and likely should be set in a `casts()` method on a model rather than the `$casts` property. Follow existing conventions from other models.
 
-=== octane/core rules ===
+=== laravel-octane/core rules ===
 
-# Octane
+# Laravel Octane
 
-- Octane boots the application once and reuses it across requests, so singletons persist between requests.
-- The Laravel container's `scoped` method may be used as a safe alternative to `singleton`.
-- Never inject the container, request, or config repository into a singleton's constructor; use a resolver closure or `bind()` instead:
+This application uses Laravel Octane, a long-running PHP server. The application bootstraps once and handles many requests within the same process.
 
-```php
-// Bad
-$this->app->singleton(Service::class, fn (Application $app) => new Service($app['request']));
+- Never store request-specific state in singletons or static properties, because it can leak across requests.
+- Use `config('octane.server')` to detect the active driver (`swoole`, `roadrunner`, or `frankenphp`).
+- Prefer scoped bindings (`$this->app->scoped()`) over singletons for per-request services.
 
-// Good
-$this->app->singleton(Service::class, fn () => new Service(fn () => request()));
-```
-
-- Never append to static properties, as they accumulate in memory across requests.
+When working on Octane-specific features (concurrency, shared tables, memory, driver configuration, testing), invoke `octane-development` for detailed rules.
 
 === wayfinder/core rules ===
 
@@ -535,12 +638,19 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 
 === pest/core rules ===
 
-## Pest
+# Pest
 
-- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
-- The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
-- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
-- Do NOT delete tests without approval.
+- This project uses Pest. Create tests with `php artisan make:test --pest {name}`.
+- Do not include the test suite directory in `{name}`. Use `SomeFeatureTest`, not `Feature/SomeFeatureTest`.
+- Read the `testing-best-practices` skill for guidance on coverage, naming, structure, dependency isolation, and review.
+- Do not delete tests or test files without approval. They are part of the application.
+
+## Running Tests
+
+- Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
+- Rerun a test after each change to it.
+- Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
+- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
 
 === inertia-svelte/core rules ===
 

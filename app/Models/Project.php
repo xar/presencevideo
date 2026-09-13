@@ -77,6 +77,7 @@ class Project extends Model
         'video_tracks',
         'subtitle_tracks',
         'status',
+        'brand_kit_id',
     ];
 
     /**
@@ -89,6 +90,7 @@ class Project extends Model
             'resolution_height' => 'integer',
             'fps' => 'integer',
             'status' => ProjectStatus::class,
+            'brand_kit_id' => 'integer',
         ];
     }
 
@@ -360,6 +362,16 @@ class Project extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The brand kit `brand.*` tokens in this project resolve against.
+     *
+     * @return BelongsTo<BrandKit, $this>
+     */
+    public function brandKit(): BelongsTo
+    {
+        return $this->belongsTo(BrandKit::class);
     }
 
     /**

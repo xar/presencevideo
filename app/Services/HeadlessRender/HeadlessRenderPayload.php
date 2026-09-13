@@ -13,6 +13,10 @@ use App\Models\Project;
  * route. Chrome renders without a session, so the ordinary
  * `editor.assets.stream` URLs would come back as redirects to the login page
  * and every clip would silently decode to nothing.
+ *
+ * The project's brand kit rides along as `brand_kit`: the page's `resolveFrame()`
+ * resolves `brand.*` tokens itself, exactly as the preview does, so no PHP-side
+ * resolution happens on this path.
  */
 class HeadlessRenderPayload
 {
@@ -23,7 +27,7 @@ class HeadlessRenderPayload
      */
     public static function forProject(Project $project, string $token): array
     {
-        $project->loadMissing('assets');
+        $project->loadMissing(['assets', 'brandKit']);
 
         $payload = $project->toArray();
         $payload['assets'] = $project->assets

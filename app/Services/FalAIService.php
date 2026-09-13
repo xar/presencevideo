@@ -8,6 +8,7 @@ use App\Enums\GenerationType;
 use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\Generation;
+use App\Services\FalAI\DraftQuality;
 use App\Services\FalAI\FalClient;
 use App\Services\FalAI\ModelRegistry;
 use Illuminate\Support\Arr;
@@ -95,11 +96,18 @@ class FalAIService
      */
     protected const INTERNAL_PARAMETER_KEYS = [
         'model_key',
+        'quality_tier',
         'agent_activity_id',
         'agent_conversation_id',
         'transcription_text',
         'transcription_chunks',
     ];
+
+    /**
+     * `Generation::$parameters['quality_tier']` value that runs the model at the
+     * cheapest resolution it offers.
+     */
+    public const DRAFT_QUALITY_TIER = 'draft';
 
     /**
      * `aspect_ratio` request -> fal.ai `image_size` enum bucket.
@@ -528,6 +536,8 @@ class FalAIService
      * - Internal bookkeeping we stash on `parameters` (the agent conversation
      *   and activity ids, the resolved model key, transcription results written
      *   back after a run) is NOT model input and must not be POSTed.
+     * - A draft generation is run at the cheapest resolution the model offers,
+     *   after the aspect ratio is resolved so the two cannot fight.
      * - A requested aspect ratio is translated onto whatever parameter the
      *   model actually exposes. Passing `aspect_ratio` to a model that only
      *   takes `image_size` is silently ignored by fal, which is how a project
@@ -551,7 +561,22 @@ class FalAIService
             Arr::except($generation->parameters ?? [], self::INTERNAL_PARAMETER_KEYS),
         );
 
-        return $this->applyAspectRatio($input, $modelConfig);
+        $input = $this->applyAspectRatio($input, $modelConfig);
+
+        if (($generation->parameters['quality_tier'] ?? null) === self::DRAFT_QUALITY_TIER) {
+            $downgraded = DraftQuality::downgrade($input, $modelConfig['parameters'] ?? []);
+
+            if ($downgraded === $input) {
+                Log::info('Draft generation could not be downgraded; the model exposes no cheaper tier we know of.', [
+                    'generation_id' => $generation->id,
+                    'model' => $modelConfig['id'] ?? null,
+                ]);
+            }
+
+            $input = $downgraded;
+        }
+
+        return $input;
     }
 
     /**

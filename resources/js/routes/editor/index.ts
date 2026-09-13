@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import projects from './projects'
+import brandKits from './brand-kits'
 import assets from './assets'
 import generations from './generations'
 import renders from './renders'
@@ -88,6 +89,7 @@ index.form = indexForm
 const editor = {
     index: Object.assign(index, index),
     projects: Object.assign(projects, projects),
+    brandKits: Object.assign(brandKits, brandKits),
     assets: Object.assign(assets, assets),
     generations: Object.assign(generations, generations),
     renders: Object.assign(renders, renders),

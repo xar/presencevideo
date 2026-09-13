@@ -25,6 +25,10 @@ class SendMessageRequest extends FormRequest
         return [
             'message' => ['required', 'string', 'max:8000'],
             'conversation_id' => ['nullable', 'string', 'exists:agent_conversations,id'],
+            // Lets the client safely retry a send that may already have been
+            // accepted, without starting the agent — and its billable tool
+            // calls — a second time.
+            'idempotency_key' => ['nullable', 'string', 'max:64'],
         ];
     }
 

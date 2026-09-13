@@ -62,6 +62,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<BrandKit, $this>
+     */
+    public function brandKits(): HasMany
+    {
+        return $this->hasMany(BrandKit::class);
+    }
+
+    /**
      * @return HasMany<Asset, $this>
      */
     public function assets(): HasMany

@@ -166,7 +166,7 @@ latest.form = latestForm
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-export const show = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -181,7 +181,7 @@ show.definition = {
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-show.url = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
+show.url = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { conversation: args }
     }
@@ -214,7 +214,7 @@ show.url = (args: { conversation: string | { id: string } } | [conversation: str
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-show.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -224,7 +224,7 @@ show.get = (args: { conversation: string | { id: string } } | [conversation: str
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-show.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -234,7 +234,7 @@ show.head = (args: { conversation: string | { id: string } } | [conversation: st
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-const showForm = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const showForm = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -244,7 +244,7 @@ const showForm = (args: { conversation: string | { id: string } } | [conversatio
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-showForm.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -254,7 +254,7 @@ showForm.get = (args: { conversation: string | { id: string } } | [conversation:
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-showForm.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',

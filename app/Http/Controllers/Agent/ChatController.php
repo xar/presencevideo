@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Ai\Agents\GenericAgent;
+use App\Enums\AgentInvocationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Agent\SendMessageRequest;
+use App\Jobs\RunAgentInvocation;
 use App\Models\AgentActivity;
-use Illuminate\Broadcasting\PrivateChannel;
+use App\Models\AgentInvocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,12 +32,7 @@ class ChatController extends Controller
             ->latest('updated_at')
             ->get(['id', 'title', 'updated_at', 'created_at']);
 
-        $messages = $conversation?->messages()
-            ->orderBy('created_at')
-            ->orderByRaw("case when role = 'user' then 0 else 1 end")
-            ->orderBy('id')
-            ->get(['id', 'role', 'content', 'tool_calls', 'tool_results', 'created_at'])
-            ->values() ?? collect();
+        $messages = $this->messages($conversation);
 
         return Inertia::render('agent/Chat', [
             'conversations' => $conversations,
@@ -44,8 +42,145 @@ class ChatController extends Controller
                 : $this->broadcastChannelName($request->user()->id, $conversation->id),
             'messages' => $messages,
             'activities' => $this->activities($request, $conversation),
+            'invocation' => $this->activeInvocation($request->user()->id, $conversation?->id)?->toClientState(),
+            'watchdogSeconds' => (int) config('agent.stream.client_watchdog_seconds', 20),
             'pendingMessage' => session('pending_agent_message'),
         ]);
+    }
+
+    /**
+     * Start an agent run and return everything the client needs to follow it.
+     *
+     * This is deliberately a single round trip. Splitting conversation creation
+     * from dispatch meant the client had to subscribe in the gap between two
+     * requests, and anything the agent emitted before that subscription landed
+     * was lost with no way to recover it. The invocation row now exists before
+     * the job is dispatched, so a client can join — or rejoin — at any point
+     * and read back everything it missed.
+     */
+    public function send(SendMessageRequest $request): JsonResponse
+    {
+        $message = $request->validated('message');
+        $idempotencyKey = $request->validated('idempotency_key');
+        $userId = $request->user()->id;
+
+        if ($idempotencyKey !== null) {
+            $existing = AgentInvocation::query()
+                ->where('user_id', $userId)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existing !== null) {
+                return response()->json($this->sendPayload($existing));
+            }
+        }
+
+        $conversationId = $request->validated('conversation_id') ?? $this->createConversation($request, $message);
+
+        $this->authorizeConversation($request, $conversationId);
+        $this->updateConversationTitleForUser($userId, $conversationId, $message);
+
+        $invocation = AgentInvocation::create([
+            'id' => (string) Str::uuid(),
+            'conversation_id' => $conversationId,
+            'user_id' => $userId,
+            'status' => AgentInvocationStatus::Queued,
+            'prompt' => $message,
+            'partial_text' => '',
+            'idempotency_key' => $idempotencyKey,
+            'heartbeat_at' => now(),
+        ]);
+
+        RunAgentInvocation::dispatch($invocation->id);
+
+        return response()->json($this->sendPayload($invocation));
+    }
+
+    /**
+     * Return the authoritative state of a conversation.
+     *
+     * The client calls this whenever it may have missed events — on reconnect,
+     * on tab focus, and on a watchdog timeout — and replaces its local state
+     * with the result. It is what makes the websocket optional rather than
+     * load-bearing.
+     */
+    public function state(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->user_id === $request->user()->id, 404);
+
+        $invocationId = $request->query('invocation');
+
+        $invocation = is_string($invocationId)
+            ? AgentInvocation::query()
+                ->whereKey($invocationId)
+                ->where('user_id', $request->user()->id)
+                ->first()
+            : $this->latestInvocation($request->user()->id, $conversation->id);
+
+        return response()->json([
+            'invocation' => $invocation?->toClientState(),
+            'activities' => $this->activities($request, $conversation),
+            'messages' => $this->messages($conversation),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function sendPayload(AgentInvocation $invocation): array
+    {
+        return [
+            'conversation_id' => $invocation->conversation_id,
+            'invocation_id' => $invocation->id,
+            'channel' => $this->broadcastChannelName($invocation->user_id, $invocation->conversation_id),
+            'invocation' => $invocation->toClientState(),
+        ];
+    }
+
+    /**
+     * Get the invocation a freshly rendered page should resume following.
+     *
+     * Only unfinished runs qualify: a finished one is already represented by the
+     * assistant message in the transcript, and handing it to the client as well
+     * would render the same reply twice. It doubles as the signal the client
+     * uses to retire its live copy once the persisted message arrives.
+     */
+    protected function activeInvocation(int $userId, ?string $conversationId): ?AgentInvocation
+    {
+        $invocation = $this->latestInvocation($userId, $conversationId);
+
+        return $invocation?->isTerminal() === false ? $invocation : null;
+    }
+
+    /**
+     * Get the most recent invocation for a conversation, if any.
+     */
+    protected function latestInvocation(int $userId, ?string $conversationId): ?AgentInvocation
+    {
+        if ($conversationId === null) {
+            return null;
+        }
+
+        return AgentInvocation::query()
+            ->where('user_id', $userId)
+            ->where('conversation_id', $conversationId)
+            ->latest('created_at')
+            ->first();
+    }
+
+    /**
+     * Load a conversation's messages in the order the UI renders them.
+     *
+     * @return Collection<int, \Laravel\Ai\Models\ConversationMessage>
+     */
+    protected function messages(?Conversation $conversation): Collection
+    {
+        return $conversation?->messages()
+            ->orderBy('created_at')
+            ->orderByRaw("case when role = 'user' then 0 else 1 end")
+            ->orderBy('id')
+            ->get(['id', 'role', 'content', 'tool_calls', 'tool_results', 'created_at'])
+            ->values() ?? collect();
     }
 
     protected function activities(Request $request, ?Conversation $conversation): array
@@ -87,54 +222,6 @@ class ChatController extends Controller
 
         return to_route('agent.chat.show', $conversationId)
             ->with('pending_agent_message', $message);
-    }
-
-    public function prepare(SendMessageRequest $request): JsonResponse
-    {
-        $message = $request->validated('message');
-        $conversationId = $request->validated('conversation_id') ?? $this->createConversation($request, $message);
-
-        $this->authorizeConversation($request, $conversationId);
-
-        return response()->json([
-            'conversation_id' => $conversationId,
-            'channel' => $this->broadcastChannelName($request->user()->id, $conversationId),
-        ]);
-    }
-
-    public function broadcast(SendMessageRequest $request): JsonResponse
-    {
-        $message = $request->validated('message');
-        $conversationId = $request->validated('conversation_id');
-
-        abort_unless(is_string($conversationId), 422);
-
-        $this->authorizeConversation($request, $conversationId);
-
-        $userId = $request->user()->id;
-        $channel = $this->broadcastChannelName($userId, $conversationId);
-
-        (new GenericAgent)
-            ->continue($conversationId, as: $request->user())
-            ->broadcastOnQueue(
-                $message,
-                new PrivateChannel($channel),
-            )
-            ->then(static function ($response) use ($userId, $message): void {
-                if ($response->conversationId === null) {
-                    return;
-                }
-
-                Conversation::query()
-                    ->whereKey($response->conversationId)
-                    ->where('user_id', $userId)
-                    ->update(['title' => Str::limit($message, 60)]);
-            });
-
-        return response()->json([
-            'conversation_id' => $conversationId,
-            'channel' => $channel,
-        ]);
     }
 
     public function stream(SendMessageRequest $request): StreamedResponse

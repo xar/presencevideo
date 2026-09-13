@@ -84,7 +84,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69b.form = indexe7033dc6fe826f76bf0c7217ed1bd6
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-const index19716d293052ba253e7e3b078fe44735 = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const index19716d293052ba253e7e3b078fe44735 = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
@@ -99,7 +99,7 @@ index19716d293052ba253e7e3b078fe44735.definition = {
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
+index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { conversation: args }
     }
@@ -132,7 +132,7 @@ index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | { id
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
@@ -142,7 +142,7 @@ index19716d293052ba253e7e3b078fe44735.get = (args: { conversation: string | { id
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+index19716d293052ba253e7e3b078fe44735.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'head',
 })
@@ -152,7 +152,7 @@ index19716d293052ba253e7e3b078fe44735.head = (args: { conversation: string | { i
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-const index19716d293052ba253e7e3b078fe44735Form = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const index19716d293052ba253e7e3b078fe44735Form = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
@@ -162,7 +162,7 @@ const index19716d293052ba253e7e3b078fe44735Form = (args: { conversation: string 
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735Form.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735Form.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
@@ -172,7 +172,7 @@ index19716d293052ba253e7e3b078fe44735Form.get = (args: { conversation: string | 
 * @see app/Http/Controllers/Agent/ChatController.php:21
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735Form.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735Form.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',

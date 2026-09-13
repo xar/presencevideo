@@ -326,7 +326,7 @@ class RenderProject implements ShouldQueue
             'finished_at' => now(),
         ]);
 
-        AgentActivityUpdated::dispatch($activity);
+        AgentActivityUpdated::dispatchQuietly($activity);
         $this->continueAgentConversation($activity, $status);
     }
 

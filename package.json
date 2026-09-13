@@ -3,7 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "npm run build:model-cli && vite build",
+        "build:model-cli": "esbuild resources/js/headless/model-cli.ts --bundle --platform=node --format=esm --target=node20 --alias:@=./resources/js --outfile=resources/js/headless/dist/model-cli.mjs",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
         "reverb": "php artisan reverb:start --host=0.0.0.0 --port=8080",
