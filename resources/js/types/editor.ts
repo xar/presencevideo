@@ -78,6 +78,8 @@ export type BrandKit = {
     id: number;
     user_id: number;
     name: string;
+    /** The site the kit was derived from; seeds the AI intake prompt. */
+    website_url: string | null;
     colors: BrandColors;
     fonts: BrandFonts;
     logos: BrandLogos;

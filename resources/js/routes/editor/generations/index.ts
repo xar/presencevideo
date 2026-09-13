@@ -167,7 +167,7 @@ catalog.form = catalogForm
 * @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
-export const store = (args: { project: string | number | { id: string | number }, type: string | number } | [project: string | number | { id: string | number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -182,7 +182,7 @@ store.definition = {
 * @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
-store.url = (args: { project: string | number | { id: string | number }, type: string | number } | [project: string | number | { id: string | number }, type: string | number ], options?: RouteQueryOptions) => {
+store.url = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             project: args[0],
@@ -210,7 +210,7 @@ store.url = (args: { project: string | number | { id: string | number }, type: s
 * @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
-store.post = (args: { project: string | number | { id: string | number }, type: string | number } | [project: string | number | { id: string | number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -220,7 +220,7 @@ store.post = (args: { project: string | number | { id: string | number }, type: 
 * @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
-const storeForm = (args: { project: string | number | { id: string | number }, type: string | number } | [project: string | number | { id: string | number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const storeForm = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -230,7 +230,7 @@ const storeForm = (args: { project: string | number | { id: string | number }, t
 * @see app/Http/Controllers/Editor/GenerationController.php:260
 * @route '/editor/projects/{project}/generate/{type}'
 */
-storeForm.post = (args: { project: string | number | { id: string | number }, type: string | number } | [project: string | number | { id: string | number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+storeForm.post = (args: { project: number | { id: number }, type: string | number } | [project: number | { id: number }, type: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -242,7 +242,7 @@ store.form = storeForm
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-export const show = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -257,7 +257,7 @@ show.definition = {
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-show.url = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+show.url = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { generation: args }
     }
@@ -290,7 +290,7 @@ show.url = (args: { generation: string | number | { id: string | number } } | [g
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-show.get = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -300,7 +300,7 @@ show.get = (args: { generation: string | number | { id: string | number } } | [g
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-show.head = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -310,7 +310,7 @@ show.head = (args: { generation: string | number | { id: string | number } } | [
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-const showForm = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const showForm = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -320,7 +320,7 @@ const showForm = (args: { generation: string | number | { id: string | number } 
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-showForm.get = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.get = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -330,7 +330,7 @@ showForm.get = (args: { generation: string | number | { id: string | number } } 
 * @see app/Http/Controllers/Editor/GenerationController.php:368
 * @route '/editor/generations/{generation}'
 */
-showForm.head = (args: { generation: string | number | { id: string | number } } | [generation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.head = (args: { generation: number | { id: number } } | [generation: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',

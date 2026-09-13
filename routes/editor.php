@@ -3,6 +3,7 @@
 use App\Http\Controllers\Editor\AssetController;
 use App\Http\Controllers\Editor\AssetStreamController;
 use App\Http\Controllers\Editor\BrandKitController;
+use App\Http\Controllers\Editor\BrandKitIntakeController;
 use App\Http\Controllers\Editor\GenerationController;
 use App\Http\Controllers\Editor\HeadlessRenderController;
 use App\Http\Controllers\Editor\ProjectController;
@@ -22,6 +23,8 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
     Route::post('/brand-kits', [BrandKitController::class, 'store'])->name('editor.brand-kits.store');
     Route::put('/brand-kits/{brandKit}', [BrandKitController::class, 'update'])->name('editor.brand-kits.update');
     Route::delete('/brand-kits/{brandKit}', [BrandKitController::class, 'destroy'])->name('editor.brand-kits.destroy');
+    Route::post('/brand-kits/intake-link', [BrandKitController::class, 'intakeLink'])->name('editor.brand-kits.intake-link');
+    Route::delete('/brand-kits/{brandKit}/intake-link', [BrandKitController::class, 'revokeIntakeLink'])->name('editor.brand-kits.intake-link.revoke');
 
     // Assets
     Route::post('/projects/{project}/assets', [AssetController::class, 'store'])->name('editor.assets.store');
@@ -52,6 +55,23 @@ Route::middleware(['auth', 'verified'])->prefix('editor')->group(function () {
  * (App\Services\HeadlessRender\RenderAccessToken) that the render job mints and
  * revokes, and every route re-checks that the asset belongs to that project.
  */
+/*
+ * Brand kit intake surface.
+ *
+ * Deliberately outside the auth guard: the caller is an outside LLM agent with
+ * no session, handed one opaque capability by the kit's owner
+ * (BrandKit::issueIntakeToken). The token names the single kit it may write,
+ * expires on its own, and every field it sets is validated by the same rules
+ * the authenticated editor uses. Never widen the ordinary brand kit routes
+ * instead. Throttled because the token is the only thing standing in front of
+ * it and the upload endpoint does outbound work.
+ */
+Route::prefix('brand-intake')->middleware('throttle:60,1')->group(function () {
+    Route::get('/{token}', [BrandKitIntakeController::class, 'show'])->name('brand-intake.show');
+    Route::match(['patch', 'post'], '/{token}', [BrandKitIntakeController::class, 'update'])->name('brand-intake.update');
+    Route::post('/{token}/assets', [BrandKitIntakeController::class, 'storeAsset'])->name('brand-intake.assets.store');
+});
+
 Route::prefix('editor/headless')->group(function () {
     Route::get('/{token}/page', [HeadlessRenderController::class, 'page'])->name('editor.headless.page');
     Route::get('/{token}/assets/{asset}', [HeadlessRenderController::class, 'asset'])->name('editor.headless.asset');

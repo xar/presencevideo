@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 * @see app/Http/Controllers/Editor/RenderController.php:20
 * @route '/editor/projects/{project}/render'
 */
-export const store = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ store.definition = {
 * @see app/Http/Controllers/Editor/RenderController.php:20
 * @route '/editor/projects/{project}/render'
 */
-store.url = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+store.url = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { project: args }
     }
@@ -52,7 +52,7 @@ store.url = (args: { project: string | number | { id: string | number } } | [pro
 * @see app/Http/Controllers/Editor/RenderController.php:20
 * @route '/editor/projects/{project}/render'
 */
-store.post = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ store.post = (args: { project: string | number | { id: string | number } } | [pr
 * @see app/Http/Controllers/Editor/RenderController.php:20
 * @route '/editor/projects/{project}/render'
 */
-const storeForm = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const storeForm = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -72,7 +72,7 @@ const storeForm = (args: { project: string | number | { id: string | number } } 
 * @see app/Http/Controllers/Editor/RenderController.php:20
 * @route '/editor/projects/{project}/render'
 */
-storeForm.post = (args: { project: string | number | { id: string | number } } | [project: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+storeForm.post = (args: { project: number | { id: number } } | [project: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -84,7 +84,7 @@ store.form = storeForm
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-export const show = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -99,7 +99,7 @@ show.definition = {
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-show.url = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+show.url = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { render: args }
     }
@@ -132,7 +132,7 @@ show.url = (args: { render: string | number | { id: string | number } } | [rende
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-show.get = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -142,7 +142,7 @@ show.get = (args: { render: string | number | { id: string | number } } | [rende
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-show.head = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -152,7 +152,7 @@ show.head = (args: { render: string | number | { id: string | number } } | [rend
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-const showForm = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const showForm = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -162,7 +162,7 @@ const showForm = (args: { render: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-showForm.get = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.get = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -172,7 +172,7 @@ showForm.get = (args: { render: string | number | { id: string | number } } | [r
 * @see app/Http/Controllers/Editor/RenderController.php:41
 * @route '/editor/renders/{render}'
 */
-showForm.head = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.head = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -189,7 +189,7 @@ show.form = showForm
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-export const download = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const download = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: download.url(args, options),
     method: 'get',
 })
@@ -204,7 +204,7 @@ download.definition = {
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-download.url = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+download.url = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { render: args }
     }
@@ -237,7 +237,7 @@ download.url = (args: { render: string | number | { id: string | number } } | [r
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-download.get = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+download.get = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: download.url(args, options),
     method: 'get',
 })
@@ -247,7 +247,7 @@ download.get = (args: { render: string | number | { id: string | number } } | [r
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-download.head = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+download.head = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: download.url(args, options),
     method: 'head',
 })
@@ -257,7 +257,7 @@ download.head = (args: { render: string | number | { id: string | number } } | [
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-const downloadForm = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const downloadForm = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: download.url(args, options),
     method: 'get',
 })
@@ -267,7 +267,7 @@ const downloadForm = (args: { render: string | number | { id: string | number } 
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-downloadForm.get = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+downloadForm.get = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: download.url(args, options),
     method: 'get',
 })
@@ -277,7 +277,7 @@ downloadForm.get = (args: { render: string | number | { id: string | number } } 
 * @see app/Http/Controllers/Editor/RenderController.php:53
 * @route '/editor/renders/{render}/download'
 */
-downloadForm.head = (args: { render: string | number | { id: string | number } } | [render: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+downloadForm.head = (args: { render: number | { id: number } } | [render: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: download.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',

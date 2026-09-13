@@ -33,6 +33,7 @@ class StoreBrandKitRequest extends FormRequest
         $hexColor = ['nullable', 'string', 'regex:/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/'];
 
         $rules = [
+            'website_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'colors' => ['sometimes', 'array:'.implode(',', BrandKit::COLOR_ROLES)],
             'fonts' => ['sometimes', 'array:'.implode(',', BrandKit::FONT_ROLES)],
             'logos' => ['sometimes', 'array:'.implode(',', BrandKit::LOGO_VARIANTS)],

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { router } from '@inertiajs/svelte';
-    import { Palette, Plus, Trash2 } from 'lucide-svelte';
+    import { Check, Copy, ExternalLink, Palette, Plus, Sparkles, Trash2 } from 'lucide-svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +53,7 @@
 
     type KitForm = {
         name: string;
+        website_url: string;
         colors: Record<BrandColorRole, string>;
         fonts: Record<BrandFontRole, string>;
         logos: Record<(typeof LOGO_VARIANTS)[number]['key'], number | null>;
@@ -74,6 +75,7 @@
     function emptyForm(): KitForm {
         return {
             name: '',
+            website_url: '',
             colors: {
                 primary: '#ff3366',
                 secondary: '#1f1f2e',
@@ -100,6 +102,7 @@
         return {
             ...base,
             name: kit.name,
+            website_url: kit.website_url ?? '',
             colors: { ...base.colors, ...(kit.colors ?? {}) } as KitForm['colors'],
             fonts: { ...base.fonts, ...(kit.fonts ?? {}) } as KitForm['fonts'],
             logos: { ...base.logos, ...(kit.logos ?? {}) } as KitForm['logos'],
@@ -139,6 +142,7 @@
     function payload() {
         return {
             name: form.name.trim(),
+            website_url: orNull(form.website_url),
             colors: form.colors,
             fonts: form.fonts,
             logos: form.logos,
@@ -182,6 +186,101 @@
         router.delete(brandKitRoutes.destroy.url(kit.id), { preserveScroll: true });
     }
 
+    /*
+     * AI intake: mint a one-kit, expiring capability and hand the user a prompt
+     * that carries it, so an outside agent (ChatGPT, Claude) can analyse their
+     * website and fill the kit in over curl. The prompt text is built on the
+     * server — it IS the API contract, and a second copy here would drift.
+     */
+
+    type IntakeLink = {
+        brand_kit_id: number;
+        prompt: string;
+        intake_url: string;
+        expires_at: string | null;
+    };
+
+    let intakeWebsite = $state('');
+    let intakeTarget = $state<'new' | number>('new');
+    let intakeBusy = $state(false);
+    let intakeError = $state<string | null>(null);
+    let intake = $state<IntakeLink | null>(null);
+    let copiedField = $state<'prompt' | 'link' | null>(null);
+
+    function csrfToken(): string {
+        return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    }
+
+    async function mintIntakeLink(): Promise<IntakeLink | null> {
+        if (intakeBusy) return null;
+        intakeBusy = true;
+        intakeError = null;
+
+        try {
+            const response = await fetch(brandKitRoutes.intakeLink.url(), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken()
+                },
+                body: JSON.stringify({
+                    brand_kit_id: intakeTarget === 'new' ? null : intakeTarget,
+                    website_url: intakeWebsite.trim() === '' ? null : intakeWebsite.trim()
+                })
+            });
+
+            if (!response.ok) {
+                const body = await response.json().catch(() => null);
+                intakeError = body?.message ?? 'Could not create the link. Check the website URL.';
+                return null;
+            }
+
+            intake = (await response.json()) as IntakeLink;
+            intakeTarget = intake.brand_kit_id;
+            router.reload({ only: ['brandKits'] });
+
+            return intake;
+        } catch {
+            intakeError = 'Could not reach the server.';
+            return null;
+        } finally {
+            intakeBusy = false;
+        }
+    }
+
+    async function copy(text: string, field: 'prompt' | 'link') {
+        try {
+            await navigator.clipboard.writeText(text);
+            copiedField = field;
+            setTimeout(() => (copiedField = null), 2000);
+        } catch {
+            intakeError = 'Clipboard blocked by the browser — select the text below and copy it manually.';
+        }
+    }
+
+    async function copyPrompt() {
+        const link = intake ?? (await mintIntakeLink());
+        if (link) await copy(link.prompt, 'prompt');
+    }
+
+    /** Copy first, then open the chat prefilled: the URL may be truncated, the clipboard is not. */
+    async function openInChat(service: 'chatgpt' | 'claude') {
+        const link = intake ?? (await mintIntakeLink());
+        if (!link) return;
+
+        await copy(link.prompt, 'prompt');
+
+        const base = service === 'chatgpt' ? 'https://chatgpt.com/?q=' : 'https://claude.ai/new?q=';
+        window.open(base + encodeURIComponent(link.prompt), '_blank', 'noopener');
+    }
+
+    function resetIntake() {
+        intake = null;
+        intakeError = null;
+        copiedField = null;
+    }
+
     function numberOrNull(e: Event): number | null {
         const value = (e.target as HTMLSelectElement).value;
         return value === '' ? null : Number(value);
@@ -205,7 +304,105 @@
         </Button>
     {/snippet}
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] h-[calc(100dvh-7rem)] min-h-0">
+    <div class="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4">
+        <Card class="shrink-0">
+            <CardHeader class="py-4">
+                <CardTitle class="flex items-center gap-2 text-base">
+                    <Sparkles class="h-4 w-4 text-primary" />
+                    Let an AI build the kit from your website
+                </CardTitle>
+                <CardDescription>
+                    Copy the prompt into ChatGPT or Claude. It carries a private, expiring link that lets the
+                    agent read your site and write the colours, fonts, logos and tone straight back into this kit.
+                </CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-3">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="grid min-w-64 flex-1 gap-1">
+                        <Label for="intake-website"
+                               class="text-xs">Website</Label>
+                        <Input id="intake-website"
+                               type="url"
+                               value={intakeWebsite}
+                               oninput={(e) => { intakeWebsite = stringFrom(e); resetIntake(); }}
+                               placeholder="https://acme.com" />
+                    </div>
+                    <div class="grid gap-1">
+                        <Label for="intake-target"
+                               class="text-xs">Fills in</Label>
+                        <select id="intake-target"
+                                class="h-9 rounded-md border bg-background px-2 text-sm"
+                                value={intakeTarget}
+                                onchange={(e) => {
+                                    const value = (e.target as HTMLSelectElement).value;
+                                    intakeTarget = value === 'new' ? 'new' : Number(value);
+                                    resetIntake();
+                                }}>
+                            <option value="new">A new brand kit</option>
+                            {#each brandKits as kit (kit.id)}
+                                <option value={kit.id}>{kit.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <Button onclick={copyPrompt}
+                            disabled={intakeBusy}>
+                        {#if copiedField === 'prompt'}
+                            <Check class="mr-2 h-4 w-4" />
+                            Copied
+                        {:else}
+                            <Copy class="mr-2 h-4 w-4" />
+                            Copy prompt
+                        {/if}
+                    </Button>
+                    <Button variant="outline"
+                            onclick={() => openInChat('claude')}
+                            disabled={intakeBusy}>
+                        <ExternalLink class="mr-2 h-4 w-4" />
+                        Claude
+                    </Button>
+                    <Button variant="outline"
+                            onclick={() => openInChat('chatgpt')}
+                            disabled={intakeBusy}>
+                        <ExternalLink class="mr-2 h-4 w-4" />
+                        ChatGPT
+                    </Button>
+                </div>
+
+                {#if intakeError}
+                    <p class="text-sm text-destructive">{intakeError}</p>
+                {/if}
+
+                {#if intake}
+                    <div class="space-y-2 rounded-md border bg-muted/40 p-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code class="flex-1 truncate rounded bg-background px-2 py-1 font-mono text-xs">{intake.intake_url}</code>
+                            <Button variant="ghost"
+                                    size="sm"
+                                    onclick={() => copy(intake!.intake_url, 'link')}>
+                                {copiedField === 'link' ? 'Copied' : 'Copy link'}
+                            </Button>
+                            <Button variant="ghost"
+                                    size="sm"
+                                    onclick={mintIntakeLink}
+                                    disabled={intakeBusy}>New link</Button>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            Anyone with this link can write to this one brand kit until
+                            {intake.expires_at ? new Date(intake.expires_at).toLocaleString() : 'it expires'}.
+                            Generating a new link revokes this one.
+                        </p>
+                        <details>
+                            <summary class="cursor-pointer text-xs text-muted-foreground">Show the prompt</summary>
+                            <textarea readonly
+                                      class="mt-2 h-48 w-full rounded-md border bg-background p-2 font-mono text-xs"
+                                      value={intake.prompt}></textarea>
+                        </details>
+                    </div>
+                {/if}
+            </CardContent>
+        </Card>
+
+        <div class="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div class="space-y-3  overflow-y-auto">
             {#if brandKits.length === 0}
                 <Card>
@@ -222,7 +419,9 @@
                     <CardHeader class="flex flex-row items-start justify-between gap-3 space-y-0">
                         <div>
                             <CardTitle class="text-base">{kit.name}</CardTitle>
-                            <CardDescription class="truncate">{kit.fonts?.display ?? 'No display font'}</CardDescription>
+                            <CardDescription class="truncate">
+                                {kit.website_url ?? kit.fonts?.display ?? 'No display font'}
+                            </CardDescription>
                         </div>
                         <div class="flex gap-1">
                             <Button variant="outline"
@@ -267,12 +466,22 @@
                     <CardContent>
                         <form class="space-y-6"
                               onsubmit={(e) => { e.preventDefault(); save(); }}>
-                            <div class="grid gap-2">
-                                <Label for="kit-name">Name</Label>
-                                <Input id="kit-name"
-                                       value={form.name}
-                                       oninput={(e) => (form.name = stringFrom(e))}
-                                       placeholder="Acme" />
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="grid gap-2">
+                                    <Label for="kit-name">Name</Label>
+                                    <Input id="kit-name"
+                                           value={form.name}
+                                           oninput={(e) => (form.name = stringFrom(e))}
+                                           placeholder="Acme" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="kit-website">Website</Label>
+                                    <Input id="kit-website"
+                                           type="url"
+                                           value={form.website_url}
+                                           oninput={(e) => (form.website_url = stringFrom(e))}
+                                           placeholder="https://acme.com" />
+                                </div>
                             </div>
 
                             <fieldset class="space-y-3">
@@ -508,5 +717,6 @@
                 </Card>
             </div>
         {/if}
+        </div>
     </div>
 </AppLayout>

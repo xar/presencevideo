@@ -21,7 +21,9 @@ AI-powered video editor application built with Laravel 12, Inertia.js v2, and Sv
 ## Development Commands
 
 ```bash
-# Start development (server + queue + logs + vite)
+# Start development — the ONE command. Runs server, queue, scheduler, Reverb,
+# logs and vite. Chat needs all six: Reverb for live streaming, the scheduler for
+# agent:sweep-invocations, the queue for the `agents` queue.
 composer run dev
 
 # Run all tests (both suites must pass)
@@ -163,7 +165,7 @@ GET  …/{conversation}/state the client re-reads the row whenever it may have
 ### Server render pipeline — rules that are easy to break
 
 - `RenderProject` runs on the **`renders`** queue. Local dev scripts must pass
-  `--queue=default,renders,generations` or renders are never picked up.
+  `--queue=default,agents,renders,generations` or renders are never picked up.
 - **`retry_after` MUST exceed the job timeout, which must not exceed the worker
   `--timeout`.** Violating this re-dispatches a long render to a second worker
   mid-encode; both then write the same temp files. A test pins the relationship

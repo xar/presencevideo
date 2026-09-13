@@ -69,7 +69,7 @@ AUTO_MIGRATE=true
 # ... other env vars
 ```
 
-**Queue Service:**
+**Queue Service:** (never migrates — only `CONTAINER_MODE=app` does)
 ```env
 CONTAINER_MODE=queue
 QUEUE_NAME=default,renders,generations
@@ -91,7 +91,7 @@ CONTAINER_MODE=scheduler
 |----------|---------|-------------|
 | `CONTAINER_MODE` | `app` | Container mode (see above) |
 | `APP_ENV` | `production` | Environment |
-| `AUTO_MIGRATE` | `false` | Run migrations on start |
+| `AUTO_MIGRATE` | `true` | Run migrations on start — the `app` container only, under a lock |
 
 ### PHP Settings (App Server)
 | Variable | Default | Description |
@@ -146,7 +146,7 @@ Or override in `docker-compose.prod.yml`.
 ## Production Tips
 
 1. **Use Redis** for cache, sessions, and queues
-2. **Set `AUTO_MIGRATE=false`** and run migrations manually
+2. **Leave `AUTO_MIGRATE=true`** — the `app` container migrates once, under a lock, before it serves; set it to `false` only if you run migrations yourself
 3. **Scale queue workers** for video processing workloads
 4. **Mount persistent storage** for `/var/www/html/storage/app`
 5. **Use health checks** - the `/up` endpoint is configured

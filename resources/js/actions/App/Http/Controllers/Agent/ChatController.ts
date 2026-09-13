@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 const indexe7033dc6fe826f76bf0c7217ed1bd69b = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69b.definition = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 indexe7033dc6fe826f76bf0c7217ed1bd69b.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69b.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 indexe7033dc6fe826f76bf0c7217ed1bd69b.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69b.get = (options?: RouteQueryOptions): Route
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 indexe7033dc6fe826f76bf0c7217ed1bd69b.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69b.head = (options?: RouteQueryOptions): Rout
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 const indexe7033dc6fe826f76bf0c7217ed1bd69bForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ const indexe7033dc6fe826f76bf0c7217ed1bd69bForm = (options?: RouteQueryOptions):
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 indexe7033dc6fe826f76bf0c7217ed1bd69bForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ indexe7033dc6fe826f76bf0c7217ed1bd69bForm.get = (options?: RouteQueryOptions): R
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent'
 */
 indexe7033dc6fe826f76bf0c7217ed1bd69bForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -81,10 +81,10 @@ indexe7033dc6fe826f76bf0c7217ed1bd69bForm.head = (options?: RouteQueryOptions): 
 indexe7033dc6fe826f76bf0c7217ed1bd69b.form = indexe7033dc6fe826f76bf0c7217ed1bd69bForm
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-const index19716d293052ba253e7e3b078fe44735 = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const index19716d293052ba253e7e3b078fe44735 = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
@@ -96,10 +96,10 @@ index19716d293052ba253e7e3b078fe44735.definition = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { conversation: args }
     }
@@ -129,50 +129,50 @@ index19716d293052ba253e7e3b078fe44735.url = (args: { conversation: string | numb
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+index19716d293052ba253e7e3b078fe44735.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'head',
 })
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-const index19716d293052ba253e7e3b078fe44735Form = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const index19716d293052ba253e7e3b078fe44735Form = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735Form.get = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735Form.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::index
-* @see app/Http/Controllers/Agent/ChatController.php:21
+* @see app/Http/Controllers/Agent/ChatController.php:24
 * @route '/agent/conversations/{conversation}'
 */
-index19716d293052ba253e7e3b078fe44735Form.head = (args: { conversation: string | number | { id: string | number } } | [conversation: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+index19716d293052ba253e7e3b078fe44735Form.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index19716d293052ba253e7e3b078fe44735.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -196,7 +196,7 @@ export const index = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 export const latest = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -211,7 +211,7 @@ latest.definition = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 latest.url = (options?: RouteQueryOptions) => {
@@ -220,7 +220,7 @@ latest.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 latest.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -230,7 +230,7 @@ latest.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 latest.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -240,7 +240,7 @@ latest.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 const latestForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -250,7 +250,7 @@ const latestForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => 
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 latestForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -260,7 +260,7 @@ latestForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::latest
-* @see app/Http/Controllers/Agent/ChatController.php:168
+* @see app/Http/Controllers/Agent/ChatController.php:255
 * @route '/agent/conversations/latest'
 */
 latestForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -276,8 +276,113 @@ latestForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 latest.form = latestForm
 
 /**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+export const state = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: state.url(args, options),
+    method: 'get',
+})
+
+state.definition = {
+    methods: ["get","head"],
+    url: '/agent/conversations/{conversation}/state',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+state.url = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { conversation: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { conversation: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            conversation: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        conversation: typeof args.conversation === 'object'
+        ? args.conversation.id
+        : args.conversation,
+    }
+
+    return state.definition.url
+            .replace('{conversation}', parsedArgs.conversation.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+state.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: state.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+state.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: state.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+const stateForm = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: state.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+stateForm.get = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: state.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Agent\ChatController::state
+* @see app/Http/Controllers/Agent/ChatController.php:107
+* @route '/agent/conversations/{conversation}/state'
+*/
+stateForm.head = (args: { conversation: string | { id: string } } | [conversation: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: state.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+state.form = stateForm
+
+/**
 * @see \App\Http\Controllers\Agent\ChatController::store
-* @see app/Http/Controllers/Agent/ChatController.php:76
+* @see app/Http/Controllers/Agent/ChatController.php:211
 * @route '/agent/messages'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -292,7 +397,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::store
-* @see app/Http/Controllers/Agent/ChatController.php:76
+* @see app/Http/Controllers/Agent/ChatController.php:211
 * @route '/agent/messages'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -301,7 +406,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::store
-* @see app/Http/Controllers/Agent/ChatController.php:76
+* @see app/Http/Controllers/Agent/ChatController.php:211
 * @route '/agent/messages'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -311,7 +416,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::store
-* @see app/Http/Controllers/Agent/ChatController.php:76
+* @see app/Http/Controllers/Agent/ChatController.php:211
 * @route '/agent/messages'
 */
 const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -321,7 +426,7 @@ const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => 
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::store
-* @see app/Http/Controllers/Agent/ChatController.php:76
+* @see app/Http/Controllers/Agent/ChatController.php:211
 * @route '/agent/messages'
 */
 storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -332,120 +437,64 @@ storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => (
 store.form = storeForm
 
 /**
-* @see \App\Http\Controllers\Agent\ChatController::prepare
-* @see app/Http/Controllers/Agent/ChatController.php:92
-* @route '/agent/messages/prepare'
+* @see \App\Http\Controllers\Agent\ChatController::send
+* @see app/Http/Controllers/Agent/ChatController.php:61
+* @route '/agent/messages/send'
 */
-export const prepare = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: prepare.url(options),
+export const send = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: send.url(options),
     method: 'post',
 })
 
-prepare.definition = {
+send.definition = {
     methods: ["post"],
-    url: '/agent/messages/prepare',
+    url: '/agent/messages/send',
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Agent\ChatController::prepare
-* @see app/Http/Controllers/Agent/ChatController.php:92
-* @route '/agent/messages/prepare'
+* @see \App\Http\Controllers\Agent\ChatController::send
+* @see app/Http/Controllers/Agent/ChatController.php:61
+* @route '/agent/messages/send'
 */
-prepare.url = (options?: RouteQueryOptions) => {
-    return prepare.definition.url + queryParams(options)
+send.url = (options?: RouteQueryOptions) => {
+    return send.definition.url + queryParams(options)
 }
 
 /**
-* @see \App\Http\Controllers\Agent\ChatController::prepare
-* @see app/Http/Controllers/Agent/ChatController.php:92
-* @route '/agent/messages/prepare'
+* @see \App\Http\Controllers\Agent\ChatController::send
+* @see app/Http/Controllers/Agent/ChatController.php:61
+* @route '/agent/messages/send'
 */
-prepare.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: prepare.url(options),
+send.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: send.url(options),
     method: 'post',
 })
 
 /**
-* @see \App\Http\Controllers\Agent\ChatController::prepare
-* @see app/Http/Controllers/Agent/ChatController.php:92
-* @route '/agent/messages/prepare'
+* @see \App\Http\Controllers\Agent\ChatController::send
+* @see app/Http/Controllers/Agent/ChatController.php:61
+* @route '/agent/messages/send'
 */
-const prepareForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: prepare.url(options),
+const sendForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: send.url(options),
     method: 'post',
 })
 
 /**
-* @see \App\Http\Controllers\Agent\ChatController::prepare
-* @see app/Http/Controllers/Agent/ChatController.php:92
-* @route '/agent/messages/prepare'
+* @see \App\Http\Controllers\Agent\ChatController::send
+* @see app/Http/Controllers/Agent/ChatController.php:61
+* @route '/agent/messages/send'
 */
-prepareForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: prepare.url(options),
+sendForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: send.url(options),
     method: 'post',
 })
 
-prepare.form = prepareForm
-
-/**
-* @see \App\Http\Controllers\Agent\ChatController::broadcast
-* @see app/Http/Controllers/Agent/ChatController.php:105
-* @route '/agent/messages/broadcast'
-*/
-export const broadcast = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: broadcast.url(options),
-    method: 'post',
-})
-
-broadcast.definition = {
-    methods: ["post"],
-    url: '/agent/messages/broadcast',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Agent\ChatController::broadcast
-* @see app/Http/Controllers/Agent/ChatController.php:105
-* @route '/agent/messages/broadcast'
-*/
-broadcast.url = (options?: RouteQueryOptions) => {
-    return broadcast.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Agent\ChatController::broadcast
-* @see app/Http/Controllers/Agent/ChatController.php:105
-* @route '/agent/messages/broadcast'
-*/
-broadcast.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: broadcast.url(options),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\Agent\ChatController::broadcast
-* @see app/Http/Controllers/Agent/ChatController.php:105
-* @route '/agent/messages/broadcast'
-*/
-const broadcastForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: broadcast.url(options),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\Agent\ChatController::broadcast
-* @see app/Http/Controllers/Agent/ChatController.php:105
-* @route '/agent/messages/broadcast'
-*/
-broadcastForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: broadcast.url(options),
-    method: 'post',
-})
-
-broadcast.form = broadcastForm
+send.form = sendForm
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::stream
-* @see app/Http/Controllers/Agent/ChatController.php:140
+* @see app/Http/Controllers/Agent/ChatController.php:227
 * @route '/agent/messages/stream'
 */
 export const stream = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -460,7 +509,7 @@ stream.definition = {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::stream
-* @see app/Http/Controllers/Agent/ChatController.php:140
+* @see app/Http/Controllers/Agent/ChatController.php:227
 * @route '/agent/messages/stream'
 */
 stream.url = (options?: RouteQueryOptions) => {
@@ -469,7 +518,7 @@ stream.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::stream
-* @see app/Http/Controllers/Agent/ChatController.php:140
+* @see app/Http/Controllers/Agent/ChatController.php:227
 * @route '/agent/messages/stream'
 */
 stream.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -479,7 +528,7 @@ stream.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::stream
-* @see app/Http/Controllers/Agent/ChatController.php:140
+* @see app/Http/Controllers/Agent/ChatController.php:227
 * @route '/agent/messages/stream'
 */
 const streamForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -489,7 +538,7 @@ const streamForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> =>
 
 /**
 * @see \App\Http\Controllers\Agent\ChatController::stream
-* @see app/Http/Controllers/Agent/ChatController.php:140
+* @see app/Http/Controllers/Agent/ChatController.php:227
 * @route '/agent/messages/stream'
 */
 streamForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -499,6 +548,6 @@ streamForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => 
 
 stream.form = streamForm
 
-const ChatController = { index, latest, store, prepare, broadcast, stream }
+const ChatController = { index, latest, state, store, send, stream }
 
 export default ChatController

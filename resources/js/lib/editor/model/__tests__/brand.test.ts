@@ -22,6 +22,7 @@ export function makeBrandKit(overrides: Partial<BrandKit> = {}): BrandKit {
         id: 7,
         user_id: 1,
         name: 'Acme',
+        website_url: null,
         colors: {
             primary: '#ff0055',
             secondary: '#cccccc',

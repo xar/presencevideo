@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Brand kit intake is called by an outside LLM agent with curl: it has
+        // no session and therefore no CSRF token. Its own opaque, single-kit,
+        // expiring capability is what guards it (see routes/editor.php).
+        $middleware->validateCsrfTokens(except: ['brand-intake/*']);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

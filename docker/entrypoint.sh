@@ -90,10 +90,31 @@ fi
 # Create storage link if it doesn't exist
 php artisan storage:link 2>&1 || warn "Storage link already exists or failed"
 
-# Run migrations if AUTO_MIGRATE is set
-if [ "${AUTO_MIGRATE:-false}" = "true" ]; then
-    log "Running database migrations..."
-    php artisan migrate --force || error "Migrations failed"
+# -----------------------------------------------------------------------------
+# Migrations
+#
+# ONLY the `app` container migrates. Every mode used to, which meant app, queue,
+# scheduler and reverb all ran `migrate` against the same database within
+# seconds of each other on a deploy — concurrent runs that can half-apply a
+# migration or collide on a table that is being created.
+#
+# `--isolated` takes a cache lock, so replicas of the app container cannot race
+# each other either: whichever replica loses the lock skips the migration and
+# boots normally. (It needs a lock-capable cache store — redis, database and
+# file all are.)
+#
+# A failed migration STOPS the container on purpose. Booting new code against
+# the old schema is worse than failing the deploy: an orchestrator that sees the
+# container die keeps the previous version serving.
+# -----------------------------------------------------------------------------
+if [ "${AUTO_MIGRATE:-true}" = "true" ]; then
+    if [ "$CONTAINER_MODE" = "app" ]; then
+        log "Running database migrations..."
+        php artisan migrate --force --isolated
+        log "Migrations complete"
+    else
+        log "Skipping migrations: only the 'app' container migrates."
+    fi
 fi
 
 # -----------------------------------------------------------------------------

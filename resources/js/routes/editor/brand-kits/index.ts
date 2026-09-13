@@ -1,7 +1,8 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
+import intakeLinkB3b5b1 from './intake-link'
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +17,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +26,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +36,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +46,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +56,7 @@ const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +66,7 @@ indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::index
-* @see app/Http/Controllers/Editor/BrandKitController.php:20
+* @see app/Http/Controllers/Editor/BrandKitController.php:24
 * @route '/editor/brand-kits'
 */
 indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -82,7 +83,7 @@ index.form = indexForm
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::store
-* @see app/Http/Controllers/Editor/BrandKitController.php:35
+* @see app/Http/Controllers/Editor/BrandKitController.php:105
 * @route '/editor/brand-kits'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -97,7 +98,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::store
-* @see app/Http/Controllers/Editor/BrandKitController.php:35
+* @see app/Http/Controllers/Editor/BrandKitController.php:105
 * @route '/editor/brand-kits'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -106,7 +107,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::store
-* @see app/Http/Controllers/Editor/BrandKitController.php:35
+* @see app/Http/Controllers/Editor/BrandKitController.php:105
 * @route '/editor/brand-kits'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -116,7 +117,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::store
-* @see app/Http/Controllers/Editor/BrandKitController.php:35
+* @see app/Http/Controllers/Editor/BrandKitController.php:105
 * @route '/editor/brand-kits'
 */
 const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -126,7 +127,7 @@ const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => 
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::store
-* @see app/Http/Controllers/Editor/BrandKitController.php:35
+* @see app/Http/Controllers/Editor/BrandKitController.php:105
 * @route '/editor/brand-kits'
 */
 storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -138,10 +139,10 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::update
-* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @see app/Http/Controllers/Editor/BrandKitController.php:115
 * @route '/editor/brand-kits/{brandKit}'
 */
-export const update = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const update = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })
@@ -153,10 +154,10 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::update
-* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @see app/Http/Controllers/Editor/BrandKitController.php:115
 * @route '/editor/brand-kits/{brandKit}'
 */
-update.url = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { brandKit: args }
     }
@@ -186,20 +187,20 @@ update.url = (args: { brandKit: string | number | { id: string | number } } | [b
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::update
-* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @see app/Http/Controllers/Editor/BrandKitController.php:115
 * @route '/editor/brand-kits/{brandKit}'
 */
-update.put = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+update.put = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::update
-* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @see app/Http/Controllers/Editor/BrandKitController.php:115
 * @route '/editor/brand-kits/{brandKit}'
 */
-const updateForm = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const updateForm = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: update.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'PUT',
@@ -211,10 +212,10 @@ const updateForm = (args: { brandKit: string | number | { id: string | number } 
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::update
-* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @see app/Http/Controllers/Editor/BrandKitController.php:115
 * @route '/editor/brand-kits/{brandKit}'
 */
-updateForm.put = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+updateForm.put = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: update.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'PUT',
@@ -228,10 +229,10 @@ update.form = updateForm
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::destroy
-* @see app/Http/Controllers/Editor/BrandKitController.php:58
+* @see app/Http/Controllers/Editor/BrandKitController.php:128
 * @route '/editor/brand-kits/{brandKit}'
 */
-export const destroy = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -243,10 +244,10 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::destroy
-* @see app/Http/Controllers/Editor/BrandKitController.php:58
+* @see app/Http/Controllers/Editor/BrandKitController.php:128
 * @route '/editor/brand-kits/{brandKit}'
 */
-destroy.url = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { brandKit: args }
     }
@@ -276,20 +277,20 @@ destroy.url = (args: { brandKit: string | number | { id: string | number } } | [
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::destroy
-* @see app/Http/Controllers/Editor/BrandKitController.php:58
+* @see app/Http/Controllers/Editor/BrandKitController.php:128
 * @route '/editor/brand-kits/{brandKit}'
 */
-destroy.delete = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::destroy
-* @see app/Http/Controllers/Editor/BrandKitController.php:58
+* @see app/Http/Controllers/Editor/BrandKitController.php:128
 * @route '/editor/brand-kits/{brandKit}'
 */
-const destroyForm = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const destroyForm = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
@@ -301,10 +302,10 @@ const destroyForm = (args: { brandKit: string | number | { id: string | number }
 
 /**
 * @see \App\Http\Controllers\Editor\BrandKitController::destroy
-* @see app/Http/Controllers/Editor/BrandKitController.php:58
+* @see app/Http/Controllers/Editor/BrandKitController.php:128
 * @route '/editor/brand-kits/{brandKit}'
 */
-destroyForm.delete = (args: { brandKit: string | number | { id: string | number } } | [brandKit: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+destroyForm.delete = (args: { brandKit: number | { id: number } } | [brandKit: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
@@ -316,11 +317,68 @@ destroyForm.delete = (args: { brandKit: string | number | { id: string | number 
 
 destroy.form = destroyForm
 
+/**
+* @see \App\Http\Controllers\Editor\BrandKitController::intakeLink
+* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @route '/editor/brand-kits/intake-link'
+*/
+export const intakeLink = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: intakeLink.url(options),
+    method: 'post',
+})
+
+intakeLink.definition = {
+    methods: ["post"],
+    url: '/editor/brand-kits/intake-link',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Editor\BrandKitController::intakeLink
+* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @route '/editor/brand-kits/intake-link'
+*/
+intakeLink.url = (options?: RouteQueryOptions) => {
+    return intakeLink.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Editor\BrandKitController::intakeLink
+* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @route '/editor/brand-kits/intake-link'
+*/
+intakeLink.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: intakeLink.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Editor\BrandKitController::intakeLink
+* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @route '/editor/brand-kits/intake-link'
+*/
+const intakeLinkForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: intakeLink.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Editor\BrandKitController::intakeLink
+* @see app/Http/Controllers/Editor/BrandKitController.php:45
+* @route '/editor/brand-kits/intake-link'
+*/
+intakeLinkForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: intakeLink.url(options),
+    method: 'post',
+})
+
+intakeLink.form = intakeLinkForm
+
 const brandKits = {
     index: Object.assign(index, index),
     store: Object.assign(store, store),
     update: Object.assign(update, update),
     destroy: Object.assign(destroy, destroy),
+    intakeLink: Object.assign(intakeLink, intakeLinkB3b5b1),
 }
 
 export default brandKits

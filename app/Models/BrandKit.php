@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * A reusable set of brand decisions (colour roles, font roles, logos, voice,
@@ -50,6 +51,7 @@ class BrandKit extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'website_url',
         'colors',
         'fonts',
         'logos',
@@ -70,6 +72,15 @@ class BrandKit extends Model
     ];
 
     /**
+     * The intake token is a bearer capability: it is handed out once, through
+     * the endpoint that mints it, and never rides along on an ordinary kit
+     * payload (the editor page, the headless render payload).
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['intake_token', 'intake_token_expires_at'];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -83,7 +94,44 @@ class BrandKit extends Model
             'music' => 'array',
             'intro_asset_id' => 'integer',
             'outro_asset_id' => 'integer',
+            'intake_token_expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Mint (or re-mint) the capability an outside LLM agent fills this kit with.
+     *
+     * Minting always replaces whatever token the kit had: the old link stops
+     * working the moment a new one is copied, so a prompt pasted into a chat
+     * that is no longer wanted cannot be replayed later.
+     */
+    public function issueIntakeToken(): string
+    {
+        $token = (string) Str::uuid();
+
+        $this->forceFill([
+            'intake_token' => $token,
+            'intake_token_expires_at' => now()->addDays((int) config('brand_intake.token_ttl_days', 7)),
+        ])->save();
+
+        return $token;
+    }
+
+    public function revokeIntakeToken(): void
+    {
+        $this->forceFill(['intake_token' => null, 'intake_token_expires_at' => null])->save();
+    }
+
+    /**
+     * Resolve an intake token to the single kit it may write, or null when the
+     * token is unknown or has expired.
+     */
+    public static function findByIntakeToken(string $token): ?self
+    {
+        return static::query()
+            ->where('intake_token', $token)
+            ->where('intake_token_expires_at', '>', now())
+            ->first();
     }
 
     /**
@@ -100,7 +148,7 @@ class BrandKit extends Model
             $array[$map] = is_array($array[$map] ?? null) ? $array[$map] : [];
         }
 
-        foreach (['watermark', 'intro_asset_id', 'outro_asset_id', 'voice', 'music', 'caption_preset', 'motion_preset', 'tone'] as $optional) {
+        foreach (['website_url', 'watermark', 'intro_asset_id', 'outro_asset_id', 'voice', 'music', 'caption_preset', 'motion_preset', 'tone'] as $optional) {
             $array[$optional] = $array[$optional] ?? null;
         }
 
